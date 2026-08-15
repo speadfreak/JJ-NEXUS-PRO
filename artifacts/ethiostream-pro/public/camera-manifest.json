@@ -1,0 +1,22 @@
+{
+  "name": "JJ NEXUS PRO — Phone Camera",
+  "short_name": "JJ Camera",
+  "description": "Phone camera for JJ NEXUS PRO streaming studio",
+  "start_url": "/phone-camera.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050505",
+  "theme_color": "#D4AF37",
+  "icons": [
+    {
+      "src": "/jj-trades-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/jj-trades-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

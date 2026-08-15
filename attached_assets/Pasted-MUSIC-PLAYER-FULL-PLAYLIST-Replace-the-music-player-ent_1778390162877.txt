@@ -1,0 +1,41 @@
+MUSIC PLAYER: FULL PLAYLIST ===
+Replace the music player entirely. Since we cannot use copyrighted commercial tracks directly, build a proper playlist system with YouTube embeds for each song the user requested:
+typescript// src/data/playlist.ts
+export const PLAYLIST = [
+  // User's requested tracks — using YouTube embed IDs
+  { id: 'yt_pitbull_options', title: 'Options', artist: 'Pitbull ft. Stephen Marley', youtubeId: 'sV3AHDSk6Eg', category: 'International' },
+  { id: 'yt_ego', title: 'Ego', artist: 'Beyoncé', youtubeId: 'It4j7bLRDisc', category: 'International' },
+  { id: 'yt_papaoute', title: 'Papaoute', artist: 'Afro Soul', youtubeId: 'search', category: 'Afro' },
+  { id: 'yt_lil_uzi', title: 'What You Say', artist: 'Lil Uzi Vert', youtubeId: 'WRiAiTCBJBM', category: 'International' },
+  { id: 'yt_daylight', title: 'Daylight', artist: 'David Kushner', youtubeId: 'LHCob76kigA', category: 'International' },
+  { id: 'yt_hope', title: 'Hope', artist: 'XXXTentacion', youtubeId: 'asqB4XUwCG0', category: 'International' },
+  { id: 'yt_khalid', title: 'Young Dumb & Broke', artist: 'Khalid', youtubeId: 'GFSiNMxHHtk', category: 'International' },
+  { id: 'yt_7years', title: '7 Years', artist: 'Lukas Graham', youtubeId: 'LHCob76kigA', category: 'International' },
+  // Ethiopian tracks
+  { id: 'yt_rophnan1', title: 'Neger', artist: 'Rophnan', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_rophnan2', title: 'Sew Lemenged', artist: 'Rophnan', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_teddy1', title: 'Tikur Sew', artist: 'Teddy Afro', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_teddy2', title: 'Ethiopia', artist: 'Teddy Afro', youtubeId: 'search', category: 'Ethiopian' },
+  // Ambient fallbacks
+  { id: 'ambient1', title: 'Ambient Focus', artist: 'JJ NEXUS PRO', youtubeId: null, url: 'https://cdn.pixabay.com/audio/2022/10/16/audio_05f67b3be9.mp3', category: 'Ambient' },
+  { id: 'ambient2', title: 'Deep Concentration', artist: 'JJ NEXUS PRO', youtubeId: null, url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c8e0a5c27e.mp3', category: 'Ambient' },
+]
+Build src/components/layout/MusicPlayer.tsx — a beautiful floating mini player:
+typescript// Full music player with:
+// - Collapsible panel (click music note icon in nav to expand)
+// - Track list showing all songs grouped by category
+// - Play/Pause, Previous, Next buttons
+// - Shuffle and Repeat toggles
+// - Volume slider
+// - Progress bar (for audio element tracks)
+// - For YouTube tracks: open in a small floating iframe or link
+// - For ambient .mp3 tracks: play directly via Audio element
+// - Now Playing display with animated equalizer bars
+// - Mini player always visible in bottom of sidebar showing current track
+For YouTube tracks, since we cannot embed without consent issues, open them via:
+typescriptconst playYouTubeTrack = (youtubeId: string) => {
+  window.open(`https://www.youtube.com/watch?v=${youtubeId}`, '_blank')
+}
+// OR embed in a small iframe popup:
+// <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} />
+For the ambient tracks, use direct Audio element playback as before.

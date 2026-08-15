@@ -1,0 +1,238 @@
+That prompt is good but it has some gaps that will cause problems. Here is the improved version:
+
+---
+
+**Run JJ NEXUS PRO completely and fix everything.**
+
+This is a full-stack app with a React Vite TypeScript frontend and a Node.js Express relay server that handles WebSocket streaming, FFmpeg RTMP broadcasting, and all external API proxying.
+
+**Step 1 — Read the project structure first before touching anything:**
+
+```bash
+cat package.json
+cat replit.nix
+cat .replit 2>/dev/null || echo "no .replit"
+ls src/
+ls server/ 2>/dev/null || ls artifacts/ 2>/dev/null || echo "check for server files"
+find . -name "streamRelay*" -not -path "*/node_modules/*"
+find . -name "app.ts" -not -path "*/node_modules/*" -not -path "*/src/components/*"
+cat vite.config.ts
+```
+
+**Step 2 — Install dependencies:**
+
+```bash
+npm install 2>/dev/null || pnpm install
+cp .env.example .env 2>/dev/null || true
+```
+
+Create `.env` with these values:
+
+```
+VITE_GROQ_API_KEY=paste_your_groq_key
+VITE_ANTHROPIC_API_KEY=paste_your_anthropic_key
+NODE_ENV=development
+PORT=5000
+```
+
+**Step 3 — Fix replit.nix to include FFmpeg:**
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20_x
+    pkgs.ffmpeg-full
+    pkgs.nodePackages.npm
+  ];
+}
+```
+
+After updating replit.nix kill the shell and reopen it so Nix reloads. Then verify:
+
+```bash
+ffmpeg -version | head -3
+which ffmpeg
+```
+
+FFmpeg must be found. If not found the streaming will never work in production.
+
+**Step 4 — Fix vite.config.ts for Replit:**
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      clientPort: 443,
+      protocol: 'wss'
+    },
+    proxy: {
+      '/api/stream': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/stream/, ''),
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000
+  }
+})
+```
+
+**Step 5 — Fix the relay server for production.**
+
+Find the main server file first:
+
+```bash
+find . -name "*.ts" -path "*/server/*" -not -path "*/node_modules/*"
+find . -name "*.js" -path "*/server/*" -not -path "*/node_modules/*"
+find . -name "streamRelay*" -not -path "*/node_modules/*"
+```
+
+Read that file completely then make sure it has ALL of these:
+
+```
+1. Resolves FFmpeg absolute path at startup using: which ffmpeg or /run/current-system/sw/bin/ffmpeg
+2. Serves static frontend files from dist/ when NODE_ENV=production
+3. Handles WebSocket on path /api/stream/ws
+4. Has CORS headers on every response
+5. Has proxy endpoints for all external APIs
+6. Has health endpoint at /api/stream/health that reports ffmpegAvailable true or false
+7. Listens on PORT environment variable defaulting to 3001 in dev and 5000 in production
+8. Has SPA fallback serving index.html for all non-API routes in production
+```
+
+Add all missing proxy endpoints to the server:
+
+```javascript
+// These exact endpoints must exist:
+GET /proxy/forex-rates      → https://api.frankfurter.app/latest?from=USD
+GET /proxy/gold-price       → https://metals.live/api/spot
+GET /proxy/gold-fallback    → https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1
+GET /proxy/crypto           → https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,binancecoin,dogecoin&vs_currencies=usd&include_24hr_change=true
+GET /proxy/yahoo-price?symbol=X → https://query1.finance.yahoo.com/v8/finance/chart/X?interval=1m&range=1d
+GET /proxy/calendar-thisweek → https://nfs.faireconomy.media/ff_calendar_thisweek.json
+GET /proxy/calendar-nextweek → https://nfs.faireconomy.media/ff_calendar_nextweek.json
+GET /proxy/sentiment?pair=X  → https://www.myfxbook.com/api/get-community-outlook.json?pair=X
+GET /health                  → returns JSON with ffmpegAvailable and ffmpegVersion
+```
+
+**Step 6 — Fix priceEngine.ts to use proxy:**
+
+Search for any direct external API calls in the entire src folder:
+
+```bash
+grep -r "frankfurter.app\|metals.live\|coingecko.com\|yahoo.com\|faireconomy\|myfxbook" src/ --include="*.ts" --include="*.tsx" -l
+```
+
+For every file found replace direct external URLs with proxy URLs:
+
+```
+https://api.frankfurter.app/latest  →  /api/stream/proxy/forex-rates
+https://metals.live/api/spot        →  /api/stream/proxy/gold-price
+https://api.coingecko.com/...       →  /api/stream/proxy/crypto
+https://query1.finance.yahoo.com/...→  /api/stream/proxy/yahoo-price?symbol=X
+https://nfs.faireconomy.media/...thisweek → /api/stream/proxy/calendar-thisweek
+https://nfs.faireconomy.media/...nextweek → /api/stream/proxy/calendar-nextweek
+```
+
+**Step 7 — Fix WebSocket URL in BrowserStreamEngine:**
+
+Find `getRelayUrl` or wherever the WebSocket URL is constructed. Replace with:
+
+```typescript
+private getRelayUrl(): string {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = window.location.port
+
+  // On Replit production — same host no port needed
+  if (!port || port === '443' || port === '80') {
+    return `${protocol}//${host}/api/stream/ws`
+  }
+
+  // On Replit dev preview — use current port
+  return `${protocol}//${host}:${port}/api/stream/ws`
+}
+```
+
+**Step 8 — Fix .replit:**
+
+```toml
+run = "npm run dev"
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm run build"]
+run = ["sh", "-c", "NODE_ENV=production node server/streamRelay.js"]
+
+[[ports]]
+localPort = 5173
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+```
+
+Note: find the correct path to the server file from Step 5 and use that exact path in the deployment run command.
+
+**Step 9 — Run and fix all errors:**
+
+```bash
+npm run dev
+```
+
+Open browser console. Fix every single error shown. Then:
+
+```bash
+npx tsc --noEmit 2>&1 | head -50
+```
+
+Fix every TypeScript error. Then:
+
+```bash
+npm run build
+```
+
+Build must complete with zero errors.
+
+**Step 10 — Test production mode locally:**
+
+```bash
+NODE_ENV=production node server/streamRelay.js &
+curl http://localhost:5000/api/stream/health
+curl http://localhost:5000/api/stream/proxy/forex-rates
+curl http://localhost:5000/
+```
+
+All three must return 200 with valid data.
+
+**Step 11 — Publish the app in Replit.**
+
+After publishing open the published URL and test:
+
+```
+yourapp.replit.app/api/stream/health
+```
+
+Must return ffmpegAvailable true. If it returns false FFmpeg is not in the production container and needs republishing after confirming replit.nix has ffmpeg-full.
+
+**After everything is done report back with:**
+
+- The live published URL
+- What gold price is showing right now
+- Output of `curl yourapp.replit.app/api/stream/health`
+- Whether Go Live works on the published URL
+- Zero CORS errors in browser console confirmed

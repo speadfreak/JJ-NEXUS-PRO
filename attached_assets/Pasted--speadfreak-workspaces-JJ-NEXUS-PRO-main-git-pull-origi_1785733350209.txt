@@ -1,0 +1,148 @@
+@speadfreak ➜ /workspaces/JJ-NEXUS-PRO (main) $ git pull origin main
+remote: Enumerating objects: 40, done.
+remote: Counting objects: 100% (40/40), done.
+remote: Compressing objects: 100% (11/11), done.
+remote: Total 26 (delta 17), reused 24 (delta 15), pack-reused 0 (from 0)
+Unpacking objects: 100% (26/26), 179.32 KiB | 4.85 MiB/s, done.
+From https://github.com/speadfreak/JJ-NEXUS-PRO
+ * branch            main       -> FETCH_HEAD
+   b418acb..d4bfd7d  main       -> origin/main
+Updating b418acb..d4bfd7d
+Fast-forward
+ .devcontainer/configure.sh                                       |  78 +++++++++++++++++-----
+ .devcontainer/control-server.js                                  |  74 ++++++++++++++++-----
+ .devcontainer/devcontainer.json                                  |   7 ++
+ .devcontainer/stable-stream.sh                                   | 130 ++++++++++++++++++++++--------------
+ .devcontainer/stop.sh                                            |  35 ++++++++--
+ .devcontainer/stream.sh                                          |  71 +++++++++-----------
+ artifacts/ethiostream-pro/src/pages/StreamingStudio.tsx          | 180 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ attached_assets/Screenshot_2026-08-01_10.37.51_1785569971152.png | Bin 0 -> 175963 bytes
+ 8 files changed, 452 insertions(+), 123 deletions(-)
+ create mode 100644 attached_assets/Screenshot_2026-08-01_10.37.51_1785569971152.png
+@speadfreak ➜ /workspaces/JJ-NEXUS-PRO (main) $ bash .devcontainer/configure.sh
+╔═══════════════════════════════════════════════════════╗
+║  JJ NEXUS PRO — Stream Configuration                 ║
+╚═══════════════════════════════════════════════════════╝
+
+Step 1: Your JJ NEXUS PRO webapp URL
+  • If using Replit dev preview: https://xxxx.replit.dev
+  • If using Replit deployed URL: https://xxx.replit.app
+
+Enter your JJ NEXUS PRO URL: https://jj-nexus-pro.onrender.com/
+
+Step 2: Restream settings
+  Go to: restream.io → Channels → Your channel → Stream Setup
+  You need TWO things from that page:
+
+  Option A — They give you a full URL like:
+    rtmp://live.restream.io/live/re_XXXXXXXXXXXXXXXX
+    → RTMP URL = rtmp://live.restream.io/live
+    → Stream Key = re_XXXXXXXXXXXXXXXX
+
+  Option B — They give you separate fields (newer Restream UI):
+    Server: rtmps://live.restream.io:443/live
+    Stream Key: re_XXXXXXXXXXXXXXXX
+
+Enter Restream RTMP Server URL (rtmp:// or rtmps://): rtmp://live.restream.io/live
+Enter Restream Stream Key (re_xxxx...): re_11679274_event11f5beb79eb941f6a00af7c005aa5db9
+
+The stream will push to: rtmp://live.restream.io/live/re_11679274_event11f5beb79eb941f6a00af7c005aa5db9
+
+Step 3: Quality (press Enter for recommended defaults)
+
+Resolution [1280x720]: 
+FPS [24]: 
+Video bitrate [2500k]: 
+
+✅ Configuration saved to .devcontainer/stream-config.json
+
+╔═══════════════════════════════════════════════════════╗
+║  Config Summary                                       ║
+║  App URL : https://jj-nexus-pro.onrender.com
+║  RTMP    : rtmp://live.restream.io/live/[key-hidden]
+║  Quality : 1280x720 @ 24fps | 2500k video
+╚═══════════════════════════════════════════════════════╝
+
+Next steps:
+  1. Run autostart if not done: bash .devcontainer/autostart.sh
+  2. In VS Code Ports tab: right-click port 7821 → Visibility → Public
+  3. Copy the 7821 URL → paste into the Cloud Control panel in your webapp
+  4. Start streaming via the webapp OR: bash .devcontainer/stable-stream.sh
+@speadfreak ➜ /workspaces/JJ-NEXUS-PRO (main) $ bash .devcontainer/autostart.sh
+🚀 JJ NEXUS PRO Cloud Engine starting...
+Starting virtual display at 1280x720...
+_XSERVTransmkdir: Owner of /tmp/.X11-unix should be set to root
+✅ Virtual display running
+Openbox-Message: Unable to find a valid menu file "/var/lib/openbox/debian-menu.xml"
+Starting audio system...
+⚠️  PulseAudio not running — stream will use silent audio
+Starting VNC server on port 5900...
+PORT=5900
+Starting noVNC on port 6080 (plain HTTP — Codespaces adds HTTPS at edge)...
+✅ VNC server running on port 5900
+✅ noVNC web interface running on port 6080
+
+Starting Cloud Control Server on port 7821...
+WebSocket server settings:
+  - Listen on :6080
+  - Web server. Web root: /usr/share/novnc
+  - SSL/TLS support
+  - proxying from :6080 to localhost:5900
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+⚠️  Control server may still be starting — check /control-server.log
+
+╔═══════════════════════════════════════════════════╗
+║  JJ NEXUS PRO Cloud Engine READY                  ║
+║                                                   ║
+║  Port 6080 → noVNC (visual control)               ║
+║  Port 7821 → Webapp Control API (start/stop/nav)  ║
+║  Run: bash .devcontainer/stable-stream.sh         ║
+╚═══════════════════════════════════════════════════╝
+@speadfreak ➜ /workspaces/JJ-NEXUS-PRO (main) $ .devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 102: /control-server.log: Permission denied
+.devcontainer/autostart.sh: line 101: 

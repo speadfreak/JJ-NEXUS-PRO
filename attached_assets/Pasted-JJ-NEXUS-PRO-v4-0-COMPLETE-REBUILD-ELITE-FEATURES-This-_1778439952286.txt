@@ -1,0 +1,718 @@
+JJ NEXUS PRO v4.0 — COMPLETE REBUILD & ELITE FEATURES
+This is my JJ NEXUS PRO trading and streaming web app (React + Vite + TypeScript). First install all dependencies and get it running, then apply every upgrade below completely.
+ANTHROPIC API KEY: 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
+Store as VITE_ANTHROPIC_API_KEY in .env. Always read from localStorage('jjnexus_api_key') first.
+
+=== STEP 0: GET THE APP RUNNING ===
+bashnpm install        # or pnpm install if pnpm-workspace.yaml exists
+npm run dev        # confirm app loads at localhost
+If it fails to start, check package.json for the correct start script. Fix any missing dependencies or import errors before proceeding. Do not move to Step 1 until the app loads successfully.
+
+=== STEP 1: FIX THE CORE AI ENGINE FIRST ===
+Every AI call is broken because of missing/wrong headers. Replace src/utils/claudeAPI.ts entirely:
+typescriptconst getApiKey = () =>
+  localStorage.getItem('jjnexus_api_key') ||
+  import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+
+const today = () => new Date().toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+})
+
+const SYSTEM_PROMPT = () => `You are Alchemist AI inside JJ NEXUS PRO — the world's most elite forex trading intelligence system.
+
+TODAY: ${today()}
+
+NON-NEGOTIABLE RULE: ALWAYS use web_search before ANY analysis. Search "[PAIR] live price right now" first. Your training data prices are completely wrong — XAUUSD is around $3,300+, not $2,090. Never use a price from your training data. Only use prices found via live web search.
+
+Format all responses in clean markdown. Be specific, professional, and actionable.
+End every response: "— Alchemist AI | JJ NEXUS PRO"`
+
+async function callClaude(message: string, maxTokens = 4000): Promise<string> {
+  const key = getApiKey()
+  if (!key) throw new Error('No API key. Add your Anthropic key in Settings → API Configuration.')
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'interleaved-thinking-2025-05-14'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      system: SYSTEM_PROMPT(),
+      messages: [{ role: 'user', content: message }]
+    })
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `API error ${res.status}`)
+  }
+
+  const data = await res.json()
+  if (!data?.content?.length) throw new Error('Empty response from API')
+
+  return data.content
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => b.text)
+    .join('\n') || 'Analysis complete. Please try again for the full response.'
+}
+
+// Export all AI functions used throughout the app
+export const analyzeTechnical = (pair: string) => callClaude(`
+Analyze ${pair} — Full SMC/ICT Technical Analysis.
+web_search "${pair} live price right now"
+web_search "${pair} technical analysis today ${today()}"
+
+## 📊 Live Price
+[State exact price from web search]
+
+## 🏗️ Market Structure
+- HTF trend (Weekly/Daily)
+- Current BOS or CHoCH location with price levels
+- Recent swing high: [price] | Recent swing low: [price]
+
+## 🟦 Order Blocks
+- Bullish OB zone: [price range] — strength: high/medium/low
+- Bearish OB zone: [price range] — strength: high/medium/low
+
+## 🌀 Fair Value Gaps
+- Unfilled FVG above: [price range]
+- Unfilled FVG below: [price range]
+
+## 💧 Liquidity
+- Buy-side liquidity resting at: [price]
+- Sell-side liquidity resting at: [price]
+- Recent liquidity grab: yes/no + details
+
+## 📈 Trade Plan
+- Bias: Bullish / Bearish / Neutral
+- Entry zone: [exact range]
+- Stop Loss: [exact price]
+- TP1: [price] | TP2: [price] | TP3: [price]
+- Risk:Reward: X:1 | Confidence: X%
+`)
+
+export const analyzeFundamental = (pair: string) => {
+  const [base, quote] = [pair.slice(0,3), pair.slice(3,6)]
+  return callClaude(`
+Fundamental analysis for ${pair}. Today: ${today()}
+web_search "${base} economic news today"
+web_search "${quote} central bank rate decision latest"
+web_search "USD DXY index analysis today"
+web_search "${pair} fundamental outlook ${today()}"
+
+## 🌍 Macro Overview
+- ${base}: GDP, CPI, employment latest figures
+- ${quote}: same metrics
+
+## 🏦 Central Banks
+- ${base} bank: rate [X%], last decision, next meeting
+- ${quote} bank: rate [X%], last decision, next meeting
+- Policy divergence: favors [direction]
+
+## 📰 Top News This Week
+1. [news] → impact: [bullish/bearish for ${base}]
+2. [news] → impact: [direction]
+3. [news] → impact: [direction]
+
+## 📊 Fundamental Score
+- ${base}: X/10 | ${quote}: X/10
+- Overall bias: [direction] | Strength: [strong/moderate/weak]
+
+## 📅 Key Upcoming Events
+[Next 3 high-impact events with dates]
+`)
+}
+
+export const analyzeConfluence = (pair: string, tech: string, fund: string) => callClaude(`
+REAL CONFLUENCE DECISION for ${pair}. Today: ${today()}
+
+TECHNICAL DATA: ${tech}
+FUNDAMENTAL DATA: ${fund}
+
+web_search "${pair} trading forecast ${today()}"
+web_search "${pair} analyst consensus today"
+
+## 🎯 Confluence Score
+Technical + Fundamental agreement: X/10
+Aligned factors: [list each one]
+
+## ⚖️ Final Verdict
+**Bias:** [Strongly Bullish / Bullish / Neutral / Bearish / Strongly Bearish]
+**Win Probability:** X% — basis: [explain]
+
+## 📋 Complete Trade Plan
+| | |
+|---|---|
+| Entry | [exact price or zone] |
+| Stop Loss | [price + reason] |
+| TP1 | [price] — partial close 50% |
+| TP2 | [price] — partial close 30% |
+| TP3 | [price] — full exit |
+| R:R | X:1 |
+| Risk | 1-2% max |
+
+## ⚠️ Invalidation
+Bull invalidated below: [price]
+Bear invalidated above: [price]
+
+## ⭐ Trade Rating: X/5
+[Explanation of rating]
+`)
+
+export const analyzeSentiment = (pair: string) => callClaude(`
+Sentiment for ${pair}. Today: ${today()}
+web_search "${pair} retail sentiment percentage today"
+web_search "${pair} institutional positioning COT latest"
+
+Return ONLY this JSON, no other text:
+{"sentiment":"Bullish","score":72,"retailLong":"58%","retailShort":"42%","institutionalBias":"Bullish","reason":"Dollar weakness drives pair higher on Fed dovish pivot","keyLevel":"3310.00","trend":"Uptrend","momentum":"Strong","lastUpdated":"${today()}"}
+`)
+
+export const runBacktest = (pair: string, strategy: string, period: string) => callClaude(`
+Deep backtest: ${pair} | ${strategy} | ${period}
+web_search "${pair} historical performance ${period}"
+web_search "${pair} ${strategy} strategy results"
+web_search "${pair} major moves events ${period}"
+
+## 📊 Backtest Summary
+| Metric | Value |
+|--------|-------|
+| Total Trades | X |
+| Win Rate | X% |
+| Profit Factor | X.XX |
+| Max Drawdown | X% |
+| Avg Win | X pips |
+| Avg Loss | X pips |
+| Sharpe Ratio | X.XX |
+| Net Return | X% |
+
+## 📅 Monthly Breakdown
+[Month-by-month P&L table for the period]
+
+## 🏆 Best 5 Setups
+[Date, entry, result, why it worked]
+
+## ❌ Worst 5 Setups — Lessons
+[Date, what failed, lesson]
+
+## 💡 Optimization Findings
+[How to improve this strategy on ${pair}]
+`, 5000)
+
+export const ghostCoPilot = (pair: string, currentPrice: string) => callClaude(`
+Ghost AI whisper for live stream. ${pair} at ${currentPrice}. Today: ${today()}
+web_search "${pair} price action right now"
+
+Generate a SHORT, spoken-word trading alert (max 3 sentences) as if whispering to a trader mid-stream.
+Start with the setup type, give the price level, give the action.
+Example format: "Gold has just tapped the bearish order block at 3,312. This is a high-probability sell setup. Consider entries between 3,310 and 3,315 with a stop above 3,325."
+Be direct. No fluff. Real prices only.
+`)
+
+export const sessionOracle = () => callClaude(`
+Session Oracle analysis. Today: ${today()}, Time: ${new Date().toLocaleTimeString()}
+web_search "forex market session now active volatility"
+web_search "best forex pairs to trade right now"
+web_search "currency strength meter today live"
+
+Based on the current time and active sessions, provide:
+
+## 🌍 Active Sessions Right Now
+[Which sessions are open: Sydney/Tokyo/London/New York/Overlap]
+
+## 🏆 Top 3 Pairs to Trade Right Now
+1. [PAIR] — reason + current volatility
+2. [PAIR] — reason
+3. [PAIR] — reason
+
+## 💡 Session Intelligence
+- Pairs to AVOID right now: [list + reason]
+- Best strategy type for current session: [trending/ranging/breakout]
+- Next major session opens in: [time]
+`)
+
+export const generateStreamScript = (pair: string, analysis: string) => callClaude(`
+Write a professional live stream script for a forex educator streaming about ${pair}.
+Based on this analysis: ${analysis.slice(0, 500)}
+
+Script should be 5-7 minutes when read aloud. Include:
+1. Energetic intro (15 sec)
+2. Current market overview (1 min)
+3. Chart reading walkthrough (2 min)
+4. Trade setup explanation (1.5 min)
+5. Risk management (1 min)
+6. Outro + call to action (30 sec)
+
+Format as a teleprompter script with [PAUSE] markers and [CHART: show X] stage directions.
+Keep it educational, engaging, and professional.
+`)
+
+export const weeklyReportCard = (journalEntries: string) => callClaude(`
+Generate a weekly trading performance report. Today: ${today()}
+Journal data: ${journalEntries}
+web_search "forex market this week major moves summary"
+
+## 📊 JJ NEXUS PRO — Weekly Report Card
+**Week of:** [dates]
+
+### Performance Summary
+| Metric | This Week | Last Week | Trend |
+|--------|-----------|-----------|-------|
+| Win Rate | X% | X% | ↑/↓ |
+| Total Trades | X | X | |
+| Best Trade | +X pips | | |
+| Worst Trade | -X pips | | |
+| Net Result | +/-X pips | | |
+
+### Psychological Pattern Analysis
+[AI identifies recurring behavior patterns]
+
+### Most Common Mistake This Week
+[Specific pattern with example from journal]
+
+### Top Improvement Tip
+[One specific, actionable change for next week]
+
+### Next Week Preview
+[Key events, best pairs to watch, market conditions expected]
+
+### Overall Grade: A/B/C/D
+[Brief explanation]
+`, 5000)
+
+=== STEP 2: PHONE CAMERA AS HD WEBCAM ===
+Create src/components/streaming/PhoneCamera.tsx — a complete phone camera connection system:
+typescript// Phone Camera Connection — Two methods:
+
+// METHOD 1: QR Code WiFi Camera (recommended)
+// Generate a QR code that opens a simple camera page on the phone
+// The phone page streams video via WebRTC to the desktop app
+
+// METHOD 2: Direct getUserMedia with rear camera
+// On mobile browsers, use { facingMode: 'environment' } for HD rear camera
+
+// For the QR code method, create a simple camera receiver page at /phone-camera.html
+// that captures the phone camera and sends it via WebRTC peer connection
+
+const phoneCamera = {
+  // Step 1: Create WebRTC offer on desktop
+  async createOffer() {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
+    const offer = await pc.createOffer()
+    await pc.setLocalDescription(offer)
+    return { pc, offer }
+  }
+}
+Create /public/phone-camera.html — the page that opens on the phone:
+html<!DOCTYPE html>
+<html>
+<head>
+  <title>JJ NEXUS PRO — Phone Camera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; }
+    video { width: 100%; max-height: 60vh; object-fit: cover; border-radius: 8px; }
+    button { margin-top: 16px; padding: 14px 32px; background: #D4AF37; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: #000; }
+    .status { margin-top: 12px; font-size: 14px; color: #D4AF37; }
+    h2 { color: #D4AF37; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <h2>📱 JJ NEXUS PRO Camera</h2>
+  <video id="preview" autoplay muted playsinline></video>
+  <button onclick="startCamera()">Start HD Camera</button>
+  <div class="status" id="status">Tap to connect your phone camera</div>
+  <script>
+    let stream = null
+    async function startCamera() {
+      try {
+        document.getElementById('status').textContent = 'Connecting...'
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: true
+        })
+        document.getElementById('preview').srcObject = stream
+        document.getElementById('status').textContent = '✅ HD Camera Active — Your stream is live!'
+        document.querySelector('button').textContent = 'Camera Running ✓'
+        // Broadcast stream availability to parent window
+        if (window.opener) window.opener.postMessage({ type: 'phone-camera-ready' }, '*')
+      } catch(e) {
+        document.getElementById('status').textContent = '❌ Error: ' + e.message
+      }
+    }
+  </script>
+</body>
+</html>
+In CameraManager.tsx, add a "Connect Phone Camera" section:
+typescript// Phone camera connection UI
+const [phoneConnected, setPhoneConnected] = useState(false)
+const [qrUrl, setQrUrl] = useState('')
+
+const connectPhoneCamera = () => {
+  // Generate the phone camera URL
+  const phoneUrl = `${window.location.origin}/phone-camera.html`
+  setQrUrl(phoneUrl)
+
+  // Open in new tab (user can also scan QR on phone)
+  const phoneWindow = window.open(phoneUrl, '_blank', 'width=400,height=700')
+
+  // Listen for phone camera stream
+  window.addEventListener('message', async (e) => {
+    if (e.data?.type === 'phone-camera-ready') {
+      setPhoneConnected(true)
+      // Now try to capture the phone's stream via screen capture of the phone window
+      // Or instruct user to use a USB/WiFi camera app
+    }
+  })
+}
+
+// Display QR code using a simple QR library or just show the URL
+// Install: npm install qrcode.react
+// <QRCodeSVG value={qrUrl} size={180} />
+Also add instructions panel:
+How to use your phone as HD webcam:
+Option A — Same WiFi Network:
+  1. Click "Generate QR Code" button
+  2. Scan QR with your phone
+  3. Tap "Start HD Camera" on your phone
+  4. Your phone's camera appears in the studio ✓
+
+Option B — USB Cable (best quality):
+  1. Connect phone via USB
+  2. Enable "USB tethering" on phone
+  3. Use DroidCam or EpocCam app
+  4. Select it from the camera dropdown ✓
+
+Option C — IP Webcam App:
+  1. Install "IP Webcam" app (Android) or "EpocCam" (iPhone)
+  2. Start server on the app
+  3. Enter the IP address shown in app into JJ NEXUS PRO
+  4. Select as video source ✓
+
+=== STEP 3: NEW PAGES — BUILD ALL ELITE FEATURES ===
+Add these routes to the app. Each is a full new page:
+Route: /ghost-copilot — Ghost AI Co-Pilot page
+Layout:
+┌─────────────────────────────────────────────┐
+│  👻 GHOST AI CO-PILOT                        │
+│  AI whispers live trade intel during streams │
+├──────────────────┬──────────────────────────┤
+│ PAIR SELECTOR    │ LIVE WHISPER FEED         │
+│ [XAUUSD ▼]       │ ┌──────────────────────┐ │
+│                  │ │ 👻 3:42:15 PM         │ │
+│ AUTO-PILOT MODE  │ │ "Gold tapped bearish  │ │
+│ [ON/OFF toggle]  │ │ OB at 3,312. High     │ │
+│                  │ │ probability sell."    │ │
+│ INTERVAL: 5min   │ └──────────────────────┘ │
+│ [slider]         │ [more whispers below...]  │
+│                  │                           │
+│ VOICE SETTINGS   │ VOICE OUTPUT              │
+│ Voice: [select]  │ [▶ Play Last Whisper]     │
+│ Speed: [slider]  │ [🔈 Volume slider]        │
+│ Pitch: [slider]  │ [Test Voice] button       │
+└──────────────────┴──────────────────────────┘
+Implementation: call ghostCoPilot() every X minutes using setInterval. Use window.speechSynthesis.speak() for TTS output. Log all whispers to a feed with timestamps.
+Route: /session-oracle — Session Oracle page
+Layout:
+┌─────────────────────────────────────────────┐
+│  🌍 SESSION ORACLE                           │
+├─────────────────────────────────────────────┤
+│ LIVE WORLD CLOCK — 4 sessions displayed     │
+│ [Sydney 🟢] [Tokyo 🟡] [London 🟢] [NY 🟢] │
+│ Active overlap: London-New York             │
+├─────────────────────────────────────────────┤
+│ TOP PAIRS RIGHT NOW          AI ANALYSIS    │
+│ 1. XAUUSD  🔥 High vol      [Analyze ▶]    │
+│ 2. GBPUSD  📈 Trending      [Analyze ▶]    │
+│ 3. EURUSD  💹 Clean setup   [Analyze ▶]    │
+├─────────────────────────────────────────────┤
+│ PAIRS TO AVOID NOW                          │
+│ NZDUSD — low volume in current session      │
+├─────────────────────────────────────────────┤
+│ NEXT SESSION OPENS IN: 2h 14m 33s          │
+│ [Full AI Session Report] button             │
+└─────────────────────────────────────────────┘
+Route: /currency-heatmap — Currency Strength Heat Map
+Layout:
+┌─────────────────────────────────────────────┐
+│  🔥 CURRENCY STRENGTH HEAT MAP               │
+│  Updated every 30 seconds                   │
+├─────────────────────────────────────────────┤
+│     USD  EUR  GBP  JPY  CHF  AUD  NZD  CAD │
+│ USD  —   0.87 0.72 0.95 0.61 0.88 0.91 0.79│ (color coded green/red)
+│ EUR 0.13  —  0.65 0.89 0.54 0.76 0.80 0.71 │
+│ ... (full 8x8 matrix)                       │
+├─────────────────────────────────────────────┤
+│ STRENGTH RANKING (bar chart)                │
+│ 1. USD ████████████ 87%  ↑                 │
+│ 2. CHF ██████████   61%  ↓                 │
+│ ... etc                                     │
+├─────────────────────────────────────────────┤
+│ AI COMMENTARY (updates every 5 min)         │
+│ "USD strength driven by strong NFP data..." │
+└─────────────────────────────────────────────┘
+Fetch prices from Frankfurter API, calculate cross-rates, derive relative strength using a simple moving average comparison. Color: deep green (#006400) = strongest, deep red (#8B0000) = weakest.
+Route: /sniper-alerts — Sniper Entry Engine
+Layout:
+┌─────────────────────────────────────────────┐
+│  🎯 SNIPER ENTRY ENGINE                      │
+├──────────────────┬──────────────────────────┤
+│ CREATE ALERT     │ ACTIVE ALERTS            │
+│                  │                          │
+│ Pair: [XAUUSD▼]  │ 🔴 XAUUSD > 3,350       │
+│ Condition:       │    + RSI > 65            │
+│ [Price ▼] [>▼]   │    + London session      │
+│ [3350___]        │    Status: WATCHING      │
+│                  │    [Edit] [Delete]       │
+│ Add condition:   │                          │
+│ [+ AND RSI > X]  │ 🟡 EURUSD < 1.0850      │
+│ [+ AND Session]  │    Status: WATCHING      │
+│ [+ AND Candle]   │                          │
+│                  │ TRIGGERED ALERTS LOG     │
+│ Alert via:       │ ✅ XAUUSD hit 3,320      │
+│ [✓] Sound        │    May 9, 2:14 PM        │
+│ [✓] Voice        │                          │
+│ [✓] Notification │                          │
+│ [✓] Screen Flash │                          │
+│                  │                          │
+│ [Create Alert]   │                          │
+└──────────────────┴──────────────────────────┘
+Monitor live prices every 2 seconds. When ALL conditions met: play audio alert, use speechSynthesis to speak the alert, use Notification API, flash the screen border red for 3 seconds.
+Route: /teleprompter — AI Teleprompter page
+Layout:
+┌─────────────────────────────────────────────┐
+│  📜 AI TELEPROMPTER                          │
+├──────────────────┬──────────────────────────┤
+│ SETUP            │ SCRIPT PREVIEW            │
+│ Pair: [XAUUSD▼]  │ ┌──────────────────────┐ │
+│ Duration: [5min▼]│ │ Welcome back traders! │ │
+│ Style:           │ │ Today we're looking   │ │
+│ [Educational▼]   │ │ at Gold which is...   │ │
+│                  │ └──────────────────────┘ │
+│ [Generate Script]│                           │
+│                  │ LIVE READING MODE         │
+│ Speed: [slider]  │ [▶ Start Teleprompter]    │
+│ Font: [slider]   │ [⏸ Pause] [↺ Restart]   │
+│ Mirror: [toggle] │ Speed: [– ○ +]           │
+└──────────────────┴──────────────────────────┘
+In Live Reading Mode: show the script in large text, scrolling automatically at the set speed. Highlight current line in gold. The camera feed (from CameraContext) shows in a small PiP so the streamer can see themselves while reading.
+Route: /war-room — Collaborative War Room
+Layout:
+┌─────────────────────────────────────────────┐
+│  🏛️ WAR ROOM                                 │
+│  [Create Room] [Join Room: _______] [Join]  │
+├──────────────────┬──────────────────────────┤
+│ SHARED CHART     │ PARTICIPANTS (3/5)       │
+│                  │ 👤 You (Host)            │
+│ TradingView      │ 👤 Trader2 🟢            │
+│ Chart here       │ 👤 Trader3 🟢            │
+│                  │                          │
+│ [Draw] [Erase]   │ VOTE                     │
+│ [Lines] [OB box] │ 📈 BULL: 2 votes (67%)  │
+│                  │ 📉 BEAR: 1 vote (33%)   │
+├──────────────────┤ [Vote Bull] [Vote Bear]  │
+│ WAR ROOM CHAT    │                          │
+│ You: OB at 3310  │ AI CONSENSUS             │
+│ T2: Agree, long  │ [Get Group AI Analysis] │
+└──────────────────┴──────────────────────────┘
+Use BroadcastChannel API for same-browser tab sync, or Firebase Realtime Database for cross-device. For the MVP: use localStorage + polling every 2 seconds for a basic shared state between browser tabs.
+Route: /seasonality — Seasonality Atlas
+Layout:
+┌─────────────────────────────────────────────┐
+│  📅 SEASONALITY ATLAS                        │
+├─────────────────────────────────────────────┤
+│ Pair: [XAUUSD▼]  Period: [10 Years▼]        │
+│ [Analyze Seasonality]                       │
+├─────────────────────────────────────────────┤
+│ MONTHLY BIAS (bar chart)                    │
+│ Jan: +2.3% ██████ 🟢                       │
+│ Feb: +0.8% ██ 🟢                           │
+│ Mar: -1.2% ██ 🔴                           │
+│ ... etc for all 12 months                   │
+├─────────────────────────────────────────────┤
+│ DAY-OF-WEEK BIAS    TIME-OF-DAY VOLATILITY  │
+│ Mon: Bearish 🔴     London Open: 🔥 High   │
+│ Tue: Neutral ⚪     NY Open: 🔥 High       │
+│ Wed: Bullish 🟢     Asian: 😴 Low          │
+├─────────────────────────────────────────────┤
+│ AI SEASONAL INTELLIGENCE                    │
+│ "Gold historically rallies in January..."   │
+└─────────────────────────────────────────────┘
+Route: /telegram-bot — Telegram Signal Bot
+Layout:
+┌─────────────────────────────────────────────┐
+│  📨 TELEGRAM SIGNAL BOT                      │
+├─────────────────────────────────────────────┤
+│ CONNECTION                                  │
+│ Bot Token: [________________] [Connect]     │
+│ Channel ID: [@yourchannel___]               │
+│ Status: 🟢 Connected / 🔴 Disconnected      │
+├─────────────────────────────────────────────┤
+│ SIGNAL TEMPLATE (customize)                 │
+│ ┌─────────────────────────────────────────┐ │
+│ │ 🎯 JJ NEXUS PRO SIGNAL                  │ │
+│ │ Pair: {PAIR}  Bias: {BIAS}             │ │
+│ │ Entry: {ENTRY}  SL: {SL}  TP: {TP}    │ │
+│ │ Probability: {PROB}%  R:R {RR}:1       │ │
+│ │ — Alchemist AI | JJ NEXUS PRO          │ │
+│ └─────────────────────────────────────────┘ │
+│ [Edit Template]                             │
+├─────────────────────────────────────────────┤
+│ RECENT SIGNALS SENT                         │
+│ ✅ XAUUSD Short — sent 2:14 PM             │
+│ ✅ EURUSD Long — sent 11:30 AM             │
+└─────────────────────────────────────────────┘
+Telegram Bot API send message:
+typescriptconst sendToTelegram = async (botToken: string, chatId: string, message: string) => {
+  await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' })
+  })
+}
+Route: /performance — Full Performance Dashboard (already exists — enhance it)
+Add to existing performance page:
+
+Weekly Report Card button that calls weeklyReportCard()
+Trade DNA Debrief: click any past trade → AI autopsy
+Prediction leaderboard table (localStorage-based)
+Shareable rank card (canvas-rendered PNG download)
+
+Route: /correlation-matrix — Correlation Matrix page
+Build a visual 10×10 correlation grid for major pairs. Use Frankfurter API price history. Calculate Pearson correlation coefficient. Color from dark green (negative correlation = safe) to dark red (positive = risky overlap).
+
+=== STEP 4: NAVIGATION — ADD ALL NEW PAGES ===
+Update the sidebar navigation to include all new pages grouped nicely:
+📊 DASHBOARD
+📈 TRADING
+  ├── Alchemist AI
+  ├── Technical Analysis
+  ├── Fundamental Analysis
+  ├── Confluence Engine
+  └── Backtest
+
+🧠 AI TOOLS  [NEW]
+  ├── 👻 Ghost Co-Pilot
+  ├── 🎯 Sniper Alerts
+  ├── 🌍 Session Oracle
+  └── 📅 Seasonality Atlas
+
+📡 STREAMING STUDIO
+  ├── Studio
+  ├── 📜 Teleprompter  [NEW]
+  └── 📱 Phone Camera  [NEW]
+
+🔥 MARKET INTEL  [NEW]
+  ├── Currency Heat Map
+  ├── Correlation Matrix
+  └── Economic Calendar
+
+👥 COMMUNITY  [NEW]
+  ├── 🏛️ War Room
+  ├── 📨 Telegram Bot
+  └── 🏆 Leaderboard
+
+📓 JOURNAL & PERFORMANCE
+⚙️ SETTINGS
+Each sidebar item: icon + label, gold highlight on active route, smooth transition animation.
+
+=== STEP 5: MUSIC PLAYER — FULL PLAYLIST ===
+Create a proper floating music player with a curated playlist. Since commercial tracks require licensing, build a YouTube-powered playlist panel:
+typescript// src/data/playlist.ts
+export const PLAYLIST = [
+  // Ambient (direct playback — royalty free)
+  { id: 'a1', title: 'Ambient Focus', artist: 'JJ NEXUS PRO', type: 'audio', url: 'https://cdn.pixabay.com/audio/2022/10/16/audio_05f67b3be9.mp3' },
+  { id: 'a2', title: 'Deep Concentration', artist: 'JJ NEXUS PRO', type: 'audio', url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c8e0a5c27e.mp3' },
+  { id: 'a3', title: 'Trading Focus Beats', artist: 'JJ NEXUS PRO', type: 'audio', url: 'https://cdn.pixabay.com/audio/2022/11/17/audio_febc508520.mp3' },
+  // YouTube (open in popup player)
+  { id: 'y1', title: 'Options', artist: 'Pitbull ft. Stephen Marley', type: 'youtube', youtubeId: 'sV3AHDSk6Eg' },
+  { id: 'y2', title: 'Daylight', artist: 'David Kushner', type: 'youtube', youtubeId: 'LHCob76kigA' },
+  { id: 'y3', title: 'Young Dumb & Broke', artist: 'Khalid', type: 'youtube', youtubeId: 'GFSiNMxHHtk' },
+  { id: 'y4', title: 'Hope', artist: 'XXXTentacion', type: 'youtube', youtubeId: 'asqB4XUwCG0' },
+  { id: 'y5', title: '7 Years', artist: 'Lukas Graham', type: 'youtube', youtubeId: 'LHCob76kigA' },
+  { id: 'y6', title: 'What You Say', artist: 'Lil Uzi Vert', type: 'youtube', youtubeId: 'WRiAiTCBJBM' },
+  // Ethiopian
+  { id: 'e1', title: 'Neger', artist: 'Rophnan', type: 'youtube', youtubeId: 'SEARCH_ROPHNAN_NEGER' },
+  { id: 'e2', title: 'Ethiopia', artist: 'Teddy Afro', type: 'youtube', youtubeId: 'SEARCH_TEDDY_ETHIOPIA' },
+]
+Build a mini floating music player component (bottom-left of screen, always visible):
+
+Shows album art (colored placeholder), track name, artist
+Play/Pause, Previous, Next, Shuffle, Repeat buttons
+Volume slider
+For type: 'audio' tracks: plays directly in <audio> element
+For type: 'youtube' tracks: opens a floating mini YouTube iframe player (200×120px) above the player controls
+Progress bar for audio tracks
+
+
+=== STEP 6: NOTIFICATION CENTER ===
+Create src/components/notifications/NotificationCenter.tsx:
+
+Bell icon in top nav with red badge showing unread count
+Click to open dropdown panel showing all recent alerts
+Toast notifications appear bottom-right, auto-dismiss after 5 seconds
+Types: price alert triggered, economic event in X minutes, AI analysis complete, stream started/stopped
+Request Notification.requestPermission() on first load
+Store notifications in localStorage (last 50)
+
+
+=== STEP 7: DASHBOARD IMPROVEMENTS ===
+Redesign the main dashboard:
+Row 1: Logo | Live clock (updates every second) | Music mini player | Bell (notifications) | Settings
+Row 2: Live price ticker (all pairs scrolling, real prices from Frankfurter API)
+Row 3: 4 stat cards — Active Pairs | Today's AI Analyses | Stream Duration | Economic Events Today
+Row 4:
+  Left 45%: Watchlist (all pairs with real prices, % change, colored arrows, AI sentiment badge)
+  Center 30%: TradingView mini chart with symbol switcher above
+  Right 25%: Today's economic calendar events with countdowns
+Row 5:
+  Left 55%: Alchemist AI quick chat panel
+  Right 45%: Recent notifications + active sniper alerts
+
+=== STEP 8: VITE CONFIG & BUILD ===
+typescript// vite.config.ts
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  build: {
+    outDir: 'dist',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ai: ['./src/utils/claudeAPI.ts'],
+        }
+      }
+    }
+  },
+  server: { port: 3000, open: true }
+})
+
+EXECUTION ORDER — complete every step fully:
+
+npm install → confirm app runs
+Replace claudeAPI.ts with new version — test every exported function
+Create /public/phone-camera.html
+Add PhoneCamera component to CameraManager
+Create all 8 new page components (Ghost, Oracle, Heatmap, Sniper, Teleprompter, WarRoom, Seasonality, Telegram)
+Add all new routes to the router
+Update sidebar navigation with all new pages grouped
+Build full music player with playlist
+Build NotificationCenter with toast system
+Redesign dashboard layout
+Update vite.config.ts with base: './'
+Run npm run build — fix any TypeScript errors — confirm clean build
+Report: list every new page created, confirm AI functions work, confirm build succeeds
+
+
+That prompt covers everything. One more tip on the ZIP size issue — the fastest way to delete the .git folder on Windows is to open Command Prompt in the project folder and run:
+rmdir /s /q .git
+rmdir /s /q node_modules
+del zipFile.zip

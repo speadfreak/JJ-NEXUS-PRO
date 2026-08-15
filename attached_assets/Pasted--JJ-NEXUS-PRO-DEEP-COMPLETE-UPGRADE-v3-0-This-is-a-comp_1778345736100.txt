@@ -1,0 +1,965 @@
+
+
+---
+
+**JJ NEXUS PRO — DEEP COMPLETE UPGRADE v3.0**
+
+This is a comprehensive upgrade. Work through every section completely. Do not simulate any data. Do not skip anything.
+
+**ANTHROPIC API KEY:** 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
+
+---
+
+**=== FIX 1 — ALL AI API CALLS ARE BROKEN ===**
+
+The error "Cannot read properties of undefined (reading 'messages')" means the API response is not being handled correctly. Fix `src/utils/claudeAPI.ts` completely:
+
+```typescript
+const getApiKey = () =>
+  localStorage.getItem('jjnexus_api_key') ||
+  import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+
+const getToday = () => new Date().toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+})
+
+export async function callAlchemistAI(userMessage: string): Promise<string> {
+  const apiKey = getApiKey()
+  if (!apiKey) throw new Error('No API key. Add your Anthropic key in Settings.')
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'interleaved-thinking-2025-05-14'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        system: `You are Alchemist AI inside JJ NEXUS PRO — elite professional trading analyst.
+TODAY: ${getToday()}
+CRITICAL RULE: ALWAYS use web_search FIRST to get the current live price before any analysis.
+Search "[PAIR] live price today" — NEVER use training data prices. XAUUSD is around $3,300+.
+Format responses in clean markdown with clear section headers.
+End every response with: "— Alchemist AI | JJ NEXUS PRO"`,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    })
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}))
+      throw new Error(errData?.error?.message || `HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (!data || !data.content || !Array.isArray(data.content)) {
+      throw new Error('Invalid response structure from API')
+    }
+
+    const textBlocks = data.content.filter((b: any) => b.type === 'text')
+    if (textBlocks.length === 0) {
+      // Model may have only returned tool use blocks — try to get tool results
+      return 'Analysis completed. The AI searched for live data. Please try again for the full response.'
+    }
+
+    return textBlocks.map((b: any) => b.text).join('\n')
+  } catch (err: any) {
+    throw new Error(`Alchemist AI error: ${err.message}`)
+  }
+}
+
+export const analyzeTechnical = (pair: string) => callAlchemistAI(`
+Analyze ${pair} — Full Technical Analysis.
+Step 1: web_search "${pair} current price live right now"
+Step 2: web_search "${pair} technical analysis ${getToday()}"
+Step 3: web_search "${pair} smart money analysis order blocks ${getToday()}"
+
+Using the LIVE price from your search, provide:
+
+## 📊 Current Price
+[State the exact price you found via web search]
+
+## 🏗️ Market Structure
+- Higher Timeframe Trend (Weekly/Daily)
+- Current structure: Bullish BOS / Bearish BOS / CHoCH detected?
+- Key swing highs and lows with price levels
+
+## 🟦 Order Blocks
+- Bullish OB: [price zone] — validity rating
+- Bearish OB: [price zone] — validity rating
+- Most significant OB for current setup
+
+## 🌀 Fair Value Gaps
+- Unfilled FVGs above current price
+- Unfilled FVGs below current price
+- Most likely FVG to be filled next
+
+## 💧 Liquidity
+- Buy-side liquidity above: [price]
+- Sell-side liquidity below: [price]
+- Recent stop hunt detected? Yes/No
+
+## 📈 Trade Plan
+- Bias: Bullish / Bearish / Neutral
+- Entry Zone: [exact price range]
+- Stop Loss: [exact price] — reasoning
+- TP1: [price] | TP2: [price] | TP3: [price]
+- Risk:Reward: X:1
+- Confidence: X%
+
+— Alchemist AI | JJ NEXUS PRO`)
+
+export const analyzeFundamental = (pair: string) => {
+  const base = pair.slice(0, 3)
+  const quote = pair.slice(3, 6)
+  return callAlchemistAI(`
+Complete Fundamental Analysis for ${pair}.
+web_search "${base} economy latest news ${getToday()}"
+web_search "${quote} central bank interest rate decision latest"
+web_search "USD DXY dollar strength today"
+web_search "${pair} fundamental outlook ${getToday()}"
+web_search "global risk sentiment forex today"
+
+## 🌍 Macro Overview
+- ${base} economic health: GDP, inflation, employment latest data
+- ${quote} economic health: same
+
+## 🏦 Central Bank Policy
+- ${base} bank: rate, last meeting outcome, forward guidance
+- ${quote} bank: rate, last meeting outcome, forward guidance
+- Policy divergence: favors which direction?
+
+## 📰 News Impact This Week
+- Top news item 1 + directional impact
+- Top news item 2 + directional impact
+- Top news item 3 + directional impact
+
+## 📊 Institutional Positioning
+- COT data or sentiment if available
+- Smart money direction
+
+## ⭐ Fundamental Score
+- ${base}: X/10
+- ${quote}: X/10
+- Overall Bias: Bullish/Bearish/Neutral
+- Strength: Strong/Moderate/Weak
+
+## 📅 Key Upcoming Events
+- Next 3 high-impact events affecting ${pair} with dates
+
+— Alchemist AI | JJ NEXUS PRO`)
+}
+
+export const analyzeConfluence = (pair: string, tech: string, fund: string) =>
+  callAlchemistAI(`
+REAL CONFLUENCE ANALYSIS for ${pair} — NOT A SIMULATION.
+Today: ${getToday()}
+
+TECHNICAL ANALYSIS PROVIDED:
+${tech}
+
+FUNDAMENTAL ANALYSIS PROVIDED:
+${fund}
+
+web_search "${pair} trading forecast ${getToday()}"
+web_search "${pair} price prediction analysts today"
+web_search "${pair} COT report latest positioning"
+
+Now synthesize all data into a REAL confluence decision:
+
+## 🎯 CONFLUENCE SCORE
+Technical signals agree with fundamentals: X/10
+- Technical bias: [from above]
+- Fundamental bias: [from above]
+- News catalyst alignment: Yes/No
+- COT alignment: Yes/No
+
+## 📊 FINAL VERDICT
+**Bias:** Strongly Bullish / Bullish / Neutral / Bearish / Strongly Bearish
+**Probability:** X% — explain the calculation basis
+
+## 💼 COMPLETE TRADE PLAN
+| Field | Value |
+|-------|-------|
+| Entry | [exact price or zone] |
+| Stop Loss | [exact price] |
+| TP1 | [exact price] — partial close |
+| TP2 | [exact price] — partial close |
+| TP3 | [exact price] — full target |
+| Risk:Reward | X:1 |
+| Max Risk | 1-2% of account |
+
+## ⚠️ INVALIDATION
+- Bull scenario invalidated if price closes below: [price]
+- Bear scenario invalidated if price closes above: [price]
+
+## 🔑 KEY CONFLUENCES ALIGNED
+1. [Confluence point 1]
+2. [Confluence point 2]
+3. [Confluence point 3]
+4. [Confluence point 4]
+
+## 🌟 TRADE RATING
+**⭐⭐⭐⭐⭐ X/5** — [brief explanation of rating]
+
+## ⏰ TIMING
+- Best entry window: [timeframe/session]
+- News events to avoid: [list any]
+
+— Alchemist AI | JJ NEXUS PRO`)
+
+export const analyzeSentiment = (pair: string) =>
+  callAlchemistAI(`
+Market sentiment for ${pair}. Today: ${getToday()}
+web_search "${pair} retail sentiment IG client sentiment myfxbook"
+web_search "${pair} institutional positioning COT latest"
+web_search "${pair} analyst sentiment bullish bearish today"
+
+Respond ONLY in this exact JSON — no other text, no markdown fences:
+{"sentiment":"Bullish","score":72,"retailLong":"58%","retailShort":"42%","institutionalBias":"Bullish","reason":"Dollar weakness on Fed dovish signals pushes pair higher","keyLevel":"1.0850","trend":"Uptrend","momentum":"Strong","lastUpdated":"${getToday()}"}`)
+
+export const runBacktest = (pair: string, strategy: string, period: string) =>
+  callAlchemistAI(`
+Deep Historical Backtest for ${pair} — Strategy: ${strategy} — Period: ${period}
+web_search "${pair} historical price data ${period} major moves"
+web_search "${pair} ${strategy} strategy historical performance"
+web_search "${pair} major market events ${period}"
+
+## 📈 BACKTEST RESULTS — ${pair} | ${strategy} | ${period}
+
+### Overview Statistics
+| Metric | Value |
+|--------|-------|
+| Total Trades | X |
+| Win Rate | X% |
+| Profit Factor | X.XX |
+| Max Drawdown | X% |
+| Avg Win | X pips |
+| Avg Loss | X pips |
+| Best Trade | +X pips |
+| Worst Trade | -X pips |
+| Sharpe Ratio | X.XX |
+| Total Return | X% |
+
+### Monthly Performance Breakdown
+[Provide month-by-month performance for the selected period]
+
+### Top 5 Best Setups Found
+[For each: date, entry, SL, TP, result, why it worked]
+
+### Top 5 Failed Setups — Lessons
+[For each: date, what went wrong, lesson learned]
+
+### Market Conditions Analysis
+- Best performing market condition for this strategy on ${pair}
+- Worst performing condition — when to avoid
+- Optimal trading sessions
+
+### Risk Management Findings
+- Optimal position sizing discovered
+- Maximum consecutive losses observed
+- Recovery time from drawdown
+
+### Strategy Optimization Suggestions
+[Based on historical data, how to improve this strategy on ${pair}]
+
+— Alchemist AI | JJ NEXUS PRO`)
+```
+
+---
+
+**=== FIX 2 — TRADINGVIEW SYMBOL SWITCHER IN STUDIO ===**
+
+Create `src/components/streaming/ChartSymbolSwitcher.tsx` — a beautiful, fully featured symbol switcher that lives directly in the streaming studio toolbar:
+
+```typescript
+import { useState, useRef, useEffect } from 'react'
+
+const SYMBOL_GROUPS = {
+  'Forex Majors': [
+    { symbol: 'XAUUSD', label: 'Gold', flag: '🥇' },
+    { symbol: 'EURUSD', label: 'EUR/USD', flag: '🇪🇺' },
+    { symbol: 'GBPUSD', label: 'GBP/USD', flag: '🇬🇧' },
+    { symbol: 'USDJPY', label: 'USD/JPY', flag: '🇯🇵' },
+    { symbol: 'USDCHF', label: 'USD/CHF', flag: '🇨🇭' },
+    { symbol: 'AUDUSD', label: 'AUD/USD', flag: '🇦🇺' },
+    { symbol: 'NZDUSD', label: 'NZD/USD', flag: '🇳🇿' },
+    { symbol: 'USDCAD', label: 'USD/CAD', flag: '🇨🇦' },
+  ],
+  'Forex Minors': [
+    { symbol: 'EURGBP', label: 'EUR/GBP', flag: '🇪🇺' },
+    { symbol: 'EURJPY', label: 'EUR/JPY', flag: '🇯🇵' },
+    { symbol: 'GBPJPY', label: 'GBP/JPY', flag: '🇯🇵' },
+    { symbol: 'EURCHF', label: 'EUR/CHF', flag: '🇨🇭' },
+    { symbol: 'GBPCHF', label: 'GBP/CHF', flag: '🇨🇭' },
+    { symbol: 'AUDCAD', label: 'AUD/CAD', flag: '🇦🇺' },
+    { symbol: 'AUDNZD', label: 'AUD/NZD', flag: '🇳🇿' },
+    { symbol: 'CADJPY', label: 'CAD/JPY', flag: '🇨🇦' },
+  ],
+  'Commodities': [
+    { symbol: 'XAUUSD', label: 'Gold', flag: '🥇' },
+    { symbol: 'XAGUSD', label: 'Silver', flag: '🥈' },
+    { symbol: 'USOIL', label: 'WTI Crude', flag: '🛢️' },
+    { symbol: 'UKOIL', label: 'Brent Crude', flag: '🛢️' },
+    { symbol: 'NATGAS', label: 'Natural Gas', flag: '⚡' },
+    { symbol: 'COPPER', label: 'Copper', flag: '🔶' },
+    { symbol: 'XPTUSD', label: 'Platinum', flag: '⬜' },
+    { symbol: 'XPDUSD', label: 'Palladium', flag: '🔘' },
+  ],
+  'US Indices': [
+    { symbol: 'US30', label: 'Dow Jones', flag: '🇺🇸' },
+    { symbol: 'NAS100', label: 'NASDAQ 100', flag: '💻' },
+    { symbol: 'SPX500', label: 'S&P 500', flag: '📈' },
+    { symbol: 'US2000', label: 'Russell 2000', flag: '🏦' },
+    { symbol: 'VIX', label: 'VIX Fear', flag: '😱' },
+  ],
+  'Global Indices': [
+    { symbol: 'GER40', label: 'DAX 40', flag: '🇩🇪' },
+    { symbol: 'UK100', label: 'FTSE 100', flag: '🇬🇧' },
+    { symbol: 'FRA40', label: 'CAC 40', flag: '🇫🇷' },
+    { symbol: 'JP225', label: 'Nikkei 225', flag: '🇯🇵' },
+    { symbol: 'AUS200', label: 'ASX 200', flag: '🇦🇺' },
+    { symbol: 'HK50', label: 'Hang Seng', flag: '🇭🇰' },
+    { symbol: 'CN50', label: 'China A50', flag: '🇨🇳' },
+    { symbol: 'EUSTX50', label: 'EuroStoxx 50', flag: '🇪🇺' },
+  ],
+  'Crypto': [
+    { symbol: 'BTCUSD', label: 'Bitcoin', flag: '₿' },
+    { symbol: 'ETHUSD', label: 'Ethereum', flag: '🔷' },
+    { symbol: 'SOLUSD', label: 'Solana', flag: '◎' },
+    { symbol: 'BNBUSD', label: 'BNB', flag: '🟡' },
+    { symbol: 'XRPUSD', label: 'XRP', flag: '💧' },
+    { symbol: 'ADAUSD', label: 'Cardano', flag: '🔵' },
+  ],
+  'DXY & Bonds': [
+    { symbol: 'DXY', label: 'US Dollar Index', flag: '💵' },
+    { symbol: 'US10Y', label: 'US 10Y Bond', flag: '📜' },
+    { symbol: 'US02Y', label: 'US 2Y Bond', flag: '📜' },
+    { symbol: 'DE10Y', label: 'German 10Y', flag: '🇩🇪' },
+  ],
+  'US Stocks': [
+    { symbol: 'AAPL', label: 'Apple', flag: '🍎' },
+    { symbol: 'TSLA', label: 'Tesla', flag: '⚡' },
+    { symbol: 'NVDA', label: 'NVIDIA', flag: '🎮' },
+    { symbol: 'MSFT', label: 'Microsoft', flag: '🪟' },
+    { symbol: 'AMZN', label: 'Amazon', flag: '📦' },
+    { symbol: 'META', label: 'Meta', flag: '👓' },
+    { symbol: 'GOOGL', label: 'Google', flag: '🔍' },
+    { symbol: 'GOLD', label: 'Barrick Gold', flag: '🏭' },
+  ]
+}
+
+interface Props {
+  currentSymbol: string
+  onSymbolChange: (symbol: string) => void
+}
+
+export default function ChartSymbolSwitcher({ currentSymbol, onSymbolChange }: Props) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [activeGroup, setActiveGroup] = useState('Forex Majors')
+  const [recentSymbols, setRecentSymbols] = useState<string[]>(['XAUUSD', 'EURUSD', 'GBPUSD'])
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const selectSymbol = (symbol: string) => {
+    onSymbolChange(symbol)
+    setRecentSymbols(prev => [symbol, ...prev.filter(s => s !== symbol)].slice(0, 5))
+    setOpen(false)
+    setSearch('')
+  }
+
+  const allSymbols = Object.values(SYMBOL_GROUPS).flat()
+  const filtered = search
+    ? allSymbols.filter(s =>
+        s.symbol.toLowerCase().includes(search.toLowerCase()) ||
+        s.label.toLowerCase().includes(search.toLowerCase())
+      )
+    : null
+
+  const currentInfo = allSymbols.find(s => s.symbol === currentSymbol)
+
+  return (
+    <div ref={panelRef} style={{ position: 'relative', zIndex: 1000 }}>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(212,175,55,0.1)',
+          border: '1px solid rgba(212,175,55,0.4)',
+          borderRadius: 8, padding: '6px 14px',
+          color: '#D4AF37', cursor: 'pointer',
+          fontWeight: 700, fontSize: 14,
+          transition: 'all 0.2s',
+          backdropFilter: 'blur(10px)'
+        }}
+      >
+        <span style={{ fontSize: 16 }}>{currentInfo?.flag || '📊'}</span>
+        <span>{currentSymbol}</span>
+        <span style={{ fontSize: 10, opacity: 0.7 }}>{currentInfo?.label}</span>
+        <span style={{ fontSize: 10, marginLeft: 4 }}>{open ? '▲' : '▼'}</span>
+      </button>
+
+      {/* Dropdown Panel */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0,
+          width: 420, maxHeight: 500,
+          background: 'rgba(10,10,10,0.97)',
+          border: '1px solid rgba(212,175,55,0.3)',
+          borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(20px)'
+        }}>
+          {/* Search bar */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(212,175,55,0.1)' }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search symbol... (EURUSD, Gold, NVDA...)"
+              style={{
+                width: '100%', background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(212,175,55,0.2)', borderRadius: 6,
+                padding: '8px 12px', color: '#fff', fontSize: 13,
+                outline: 'none', boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {/* Recent symbols */}
+          {!search && recentSymbols.length > 0 && (
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid rgba(212,175,55,0.1)' }}>
+              <div style={{ fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Recent
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {recentSymbols.map(s => (
+                  <button key={s} onClick={() => selectSymbol(s)}
+                    style={{
+                      padding: '4px 10px', borderRadius: 6,
+                      background: s === currentSymbol ? 'rgba(212,175,55,0.2)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${s === currentSymbol ? '#D4AF37' : 'rgba(255,255,255,0.1)'}`,
+                      color: s === currentSymbol ? '#D4AF37' : '#aaa',
+                      fontSize: 12, cursor: 'pointer', fontWeight: 600
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Search results */}
+          {search && filtered && (
+            <div style={{ maxHeight: 380, overflowY: 'auto', padding: 8 }}>
+              {filtered.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: '#666' }}>No results for "{search}"</div>
+              ) : (
+                filtered.map(item => (
+                  <button key={item.symbol} onClick={() => selectSymbol(item.symbol)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      width: '100%', padding: '10px 12px', borderRadius: 8,
+                      background: item.symbol === currentSymbol ? 'rgba(212,175,55,0.15)' : 'transparent',
+                      border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left',
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = item.symbol === currentSymbol ? 'rgba(212,175,55,0.15)' : 'transparent')}
+                  >
+                    <span style={{ fontSize: 18 }}>{item.flag}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: item.symbol === currentSymbol ? '#D4AF37' : '#fff' }}>
+                        {item.symbol}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#888' }}>{item.label}</div>
+                    </div>
+                    {item.symbol === currentSymbol && (
+                      <span style={{ marginLeft: 'auto', color: '#D4AF37', fontSize: 14 }}>✓</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Category tabs + grid */}
+          {!search && (
+            <>
+              <div style={{
+                display: 'flex', gap: 0, overflowX: 'auto',
+                borderBottom: '1px solid rgba(212,175,55,0.1)',
+                scrollbarWidth: 'none'
+              }}>
+                {Object.keys(SYMBOL_GROUPS).map(group => (
+                  <button key={group} onClick={() => setActiveGroup(group)}
+                    style={{
+                      padding: '8px 12px', whiteSpace: 'nowrap',
+                      background: activeGroup === group ? 'rgba(212,175,55,0.15)' : 'transparent',
+                      borderBottom: activeGroup === group ? '2px solid #D4AF37' : '2px solid transparent',
+                      border: 'none', color: activeGroup === group ? '#D4AF37' : '#888',
+                      fontSize: 11, cursor: 'pointer', fontWeight: activeGroup === group ? 700 : 400,
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {group}
+                  </button>
+                ))}
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                gap: 4, padding: 8, maxHeight: 280, overflowY: 'auto'
+              }}>
+                {SYMBOL_GROUPS[activeGroup as keyof typeof SYMBOL_GROUPS].map(item => (
+                  <button key={item.symbol} onClick={() => selectSymbol(item.symbol)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+                      borderRadius: 8, border: `1px solid ${item.symbol === currentSymbol ? '#D4AF37' : 'rgba(255,255,255,0.06)'}`,
+                      background: item.symbol === currentSymbol ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.02)',
+                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(212,175,55,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = item.symbol === currentSymbol ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.02)')}
+                  >
+                    <span style={{ fontSize: 16 }}>{item.flag}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 12, color: item.symbol === currentSymbol ? '#D4AF37' : '#e0e0e0' }}>
+                        {item.symbol}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#666' }}>{item.label}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+In `TradingViewWidget.tsx`, make the symbol a prop and re-render when it changes:
+
+```typescript
+interface Props {
+  symbol?: string
+  style?: React.CSSProperties
+}
+
+export default function TradingViewWidget({ symbol = 'XAUUSD', style }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    containerRef.current.innerHTML = ''
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbol: `FX:${symbol}`,
+      interval: 'H1',
+      timezone: 'Etc/UTC',
+      theme: 'dark',
+      style: '1',
+      locale: 'en',
+      toolbar_bg: '#0a0a0a',
+      enable_publishing: false,
+      allow_symbol_change: true,
+      container_id: 'jjnexus_chart',
+      height: '100%',
+      width: '100%',
+      studies: ['RSI@tv-basicstudies', 'MACD@tv-basicstudies', 'Volume@tv-basicstudies'],
+    })
+    containerRef.current.appendChild(script)
+  }, [symbol])
+
+  return (
+    <div ref={containerRef} id="jjnexus_chart"
+      style={{ width: '100%', height: '100%', ...style }} />
+  )
+}
+```
+
+In `StreamingStudio.tsx`, wire everything together:
+
+```typescript
+const [chartSymbol, setChartSymbol] = useState('XAUUSD')
+
+// In the studio toolbar, add:
+<ChartSymbolSwitcher
+  currentSymbol={chartSymbol}
+  onSymbolChange={setChartSymbol}
+/>
+
+// Pass symbol to all chart instances:
+<TradingViewWidget symbol={chartSymbol} />
+// Also pass to AlchemistAI so it auto-analyzes the current chart pair
+<AlchemistAI defaultPair={chartSymbol} />
+```
+
+---
+
+**=== FIX 3 — MUSIC PLAYER: FULL PLAYLIST ===**
+
+Replace the music player entirely. Since we cannot use copyrighted commercial tracks directly, build a proper playlist system with YouTube embeds for each song the user requested:
+
+```typescript
+// src/data/playlist.ts
+export const PLAYLIST = [
+  // User's requested tracks — using YouTube embed IDs
+  { id: 'yt_pitbull_options', title: 'Options', artist: 'Pitbull ft. Stephen Marley', youtubeId: 'sV3AHDSk6Eg', category: 'International' },
+  { id: 'yt_ego', title: 'Ego', artist: 'Beyoncé', youtubeId: 'It4j7bLRDisc', category: 'International' },
+  { id: 'yt_papaoute', title: 'Papaoute', artist: 'Afro Soul', youtubeId: 'search', category: 'Afro' },
+  { id: 'yt_lil_uzi', title: 'What You Say', artist: 'Lil Uzi Vert', youtubeId: 'WRiAiTCBJBM', category: 'International' },
+  { id: 'yt_daylight', title: 'Daylight', artist: 'David Kushner', youtubeId: 'LHCob76kigA', category: 'International' },
+  { id: 'yt_hope', title: 'Hope', artist: 'XXXTentacion', youtubeId: 'asqB4XUwCG0', category: 'International' },
+  { id: 'yt_khalid', title: 'Young Dumb & Broke', artist: 'Khalid', youtubeId: 'GFSiNMxHHtk', category: 'International' },
+  { id: 'yt_7years', title: '7 Years', artist: 'Lukas Graham', youtubeId: 'LHCob76kigA', category: 'International' },
+  // Ethiopian tracks
+  { id: 'yt_rophnan1', title: 'Neger', artist: 'Rophnan', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_rophnan2', title: 'Sew Lemenged', artist: 'Rophnan', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_teddy1', title: 'Tikur Sew', artist: 'Teddy Afro', youtubeId: 'search', category: 'Ethiopian' },
+  { id: 'yt_teddy2', title: 'Ethiopia', artist: 'Teddy Afro', youtubeId: 'search', category: 'Ethiopian' },
+  // Ambient fallbacks
+  { id: 'ambient1', title: 'Ambient Focus', artist: 'JJ NEXUS PRO', youtubeId: null, url: 'https://cdn.pixabay.com/audio/2022/10/16/audio_05f67b3be9.mp3', category: 'Ambient' },
+  { id: 'ambient2', title: 'Deep Concentration', artist: 'JJ NEXUS PRO', youtubeId: null, url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c8e0a5c27e.mp3', category: 'Ambient' },
+]
+```
+
+Build `src/components/layout/MusicPlayer.tsx` — a beautiful floating mini player:
+
+```typescript
+// Full music player with:
+// - Collapsible panel (click music note icon in nav to expand)
+// - Track list showing all songs grouped by category
+// - Play/Pause, Previous, Next buttons
+// - Shuffle and Repeat toggles
+// - Volume slider
+// - Progress bar (for audio element tracks)
+// - For YouTube tracks: open in a small floating iframe or link
+// - For ambient .mp3 tracks: play directly via Audio element
+// - Now Playing display with animated equalizer bars
+// - Mini player always visible in bottom of sidebar showing current track
+```
+
+For YouTube tracks, since we cannot embed without consent issues, open them via:
+
+```typescript
+const playYouTubeTrack = (youtubeId: string) => {
+  window.open(`https://www.youtube.com/watch?v=${youtubeId}`, '_blank')
+}
+// OR embed in a small iframe popup:
+// <iframe src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`} />
+```
+
+For the ambient tracks, use direct Audio element playback as before.
+
+---
+
+**=== FIX 4 — REAL-TIME ECONOMIC ALERTS & NOTIFICATIONS ===**
+
+Create `src/services/AlertService.ts`:
+
+```typescript
+export class AlertService {
+  private static priceAlerts: Map<string, { price: number; direction: 'above' | 'below'; pair: string }> = new Map()
+  private static eventAlerts: Map<string, { minutesBefore: number; eventTitle: string }> = new Map()
+  private static notificationsEnabled = false
+
+  static async requestPermission(): Promise<boolean> {
+    if (!('Notification' in window)) return false
+    const permission = await Notification.requestPermission()
+    this.notificationsEnabled = permission === 'granted'
+    return this.notificationsEnabled
+  }
+
+  static notify(title: string, body: string, icon = '/logo.png') {
+    if (this.notificationsEnabled && Notification.permission === 'granted') {
+      new Notification(title, { body, icon })
+    }
+    // Also show in-app toast notification
+    const event = new CustomEvent('jjnexus-notification', {
+      detail: { title, body, timestamp: Date.now() }
+    })
+    window.dispatchEvent(event)
+  }
+
+  static addPriceAlert(pair: string, targetPrice: number, direction: 'above' | 'below') {
+    const id = `${pair}-${direction}-${targetPrice}`
+    this.priceAlerts.set(id, { price: targetPrice, direction, pair })
+    this.notify('✅ Alert Set', `${pair} alert set for ${direction} ${targetPrice}`)
+  }
+
+  static checkPriceAlerts(currentPrices: Record<string, number>) {
+    this.priceAlerts.forEach((alert, id) => {
+      const currentPrice = currentPrices[alert.pair]
+      if (!currentPrice) return
+      const triggered =
+        alert.direction === 'above' ? currentPrice >= alert.price :
+        currentPrice <= alert.price
+      if (triggered) {
+        this.notify(
+          `🚨 ${alert.pair} Alert Triggered!`,
+          `Price is now ${alert.direction} ${alert.price}. Current: ${currentPrice.toFixed(5)}`
+        )
+        this.priceAlerts.delete(id)
+      }
+    })
+  }
+
+  static scheduleEventAlert(eventId: string, eventDate: string, eventTitle: string, minutesBefore: number) {
+    const alertTime = new Date(eventDate).getTime() - minutesBefore * 60 * 1000
+    const now = Date.now()
+    if (alertTime <= now) return
+    const delay = alertTime - now
+    setTimeout(() => {
+      this.notify(
+        `⏰ Upcoming: ${eventTitle}`,
+        `${eventTitle} starts in ${minutesBefore} minutes! Check the economic calendar.`
+      )
+    }, delay)
+    this.eventAlerts.set(eventId, { minutesBefore, eventTitle })
+  }
+}
+```
+
+Create `src/components/notifications/NotificationCenter.tsx` — a bell icon in the top nav that shows a dropdown of recent alerts with timestamps. Show unread count badge. Include a toast system for real-time pop-up notifications that appear bottom-right and auto-dismiss after 5 seconds.
+
+---
+
+**=== FIX 5 — LIVE CHAT (TIKTOK/YOUTUBE INTEGRATION) ===**
+
+**Important:** True real-time TikTok/YouTube chat requires their official OAuth APIs or paid third-party services. Here is the honest, fully working implementation:
+
+```typescript
+// src/services/LiveChatService.ts
+
+// TikTok Live Chat: Use TikTok Live Center webhook or tiktok-live-connector
+// YouTube Live Chat: Use YouTube Data API v3 liveChatMessages endpoint
+
+export class LiveChatService {
+  private pollInterval: NodeJS.Timeout | null = null
+  private chatMessages: ChatMessage[] = []
+  private pinnedMessages: string[] = []
+
+  // YouTube Live Chat (requires OAuth + live broadcast ID)
+  async connectYouTube(broadcastId: string, apiKey: string) {
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/youtube/v3/liveChat/messages?liveChatId=${broadcastId}&part=snippet,authorDetails&key=${apiKey}`
+        )
+        const data = await res.json()
+        const messages = data.items?.map((item: any) => ({
+          id: item.id,
+          author: item.authorDetails.displayName,
+          text: item.snippet.displayMessage,
+          avatar: item.authorDetails.profileImageUrl,
+          timestamp: item.snippet.publishedAt,
+          platform: 'youtube' as const,
+          pinned: this.pinnedMessages.includes(item.id)
+        })) || []
+        return messages
+      } catch (e) {
+        console.error('YouTube chat fetch failed:', e)
+        return []
+      }
+    }
+    this.pollInterval = setInterval(async () => {
+      const msgs = await fetchMessages()
+      // dispatch to UI
+      window.dispatchEvent(new CustomEvent('chat-messages', { detail: msgs }))
+    }, 5000)
+  }
+
+  // TikTok Live Chat: requires tiktok-live-connector server-side
+  // For client-side, use a WebSocket proxy server
+  connectTikTok(username: string, wsServerUrl: string) {
+    const ws = new WebSocket(wsServerUrl)
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data)
+      window.dispatchEvent(new CustomEvent('chat-messages', {
+        detail: [{ ...msg, platform: 'tiktok' }]
+      }))
+    }
+  }
+
+  pinMessage(messageId: string) {
+    this.pinnedMessages.push(messageId)
+  }
+
+  unpinMessage(messageId: string) {
+    this.pinnedMessages = this.pinnedMessages.filter(id => id !== messageId)
+  }
+
+  disconnect() {
+    if (this.pollInterval) clearInterval(this.pollInterval)
+  }
+}
+```
+
+In the chat UI component, build a full-featured panel:
+
+```
+┌─────────────────────────────────────────┐
+│ 💬 LIVE CHAT          [YT] [TK] [Both]  │
+│ ─────────────────────────────────────── │
+│ 📌 PINNED                               │
+│ ┌─────────────────────────────────────┐ │
+│ │ 👤 Username: Great analysis!  [📌✕]│ │
+│ └─────────────────────────────────────┘ │
+│ ─────────────────────────────────────── │
+│ 👤 User1: How do you trade gold? 💛     │
+│   [📌 Pin] [↩ Reply] [🗑 Delete]        │
+│ 👤 User2: XAUUSD setup looks nice!      │
+│   [📌 Pin] [↩ Reply] [🗑 Delete]        │
+│ ─────────────────────────────────────── │
+│ Connect: [Enter YouTube Broadcast ID]   │
+│          [Enter TikTok Username]        │
+│          [Connect] [Disconnect]         │
+└─────────────────────────────────────────┘
+```
+
+Show a setup panel if not connected with clear instructions on how to get their YouTube broadcast ID and how to set up the TikTok connection. Be honest about what requires API keys.
+
+---
+
+**=== FIX 6 — STREAM STATUS: REAL METRICS ===**
+
+Replace all simulated stream status values with real browser API readings:
+
+```typescript
+// src/hooks/useStreamStatus.ts
+import { useState, useEffect, useRef } from 'react'
+import { useCamera } from '../context/CameraContext'
+
+export function useStreamStatus() {
+  const { stream } = useCamera()
+  const [fps, setFps] = useState(0)
+  const [resolution, setResolution] = useState('No signal')
+  const [bitrate, setBitrate] = useState('0 Mbps')
+  const [status, setStatus] = useState<'idle' | 'live' | 'recording' | 'error'>('idle')
+  const frameCount = useRef(0)
+  const lastTime = useRef(performance.now())
+  const lastBytes = useRef(0)
+
+  // Real FPS from requestAnimationFrame
+  useEffect(() => {
+    if (!stream) { setFps(0); return }
+    let rafId: number
+    const measure = () => {
+      frameCount.current++
+      const now = performance.now()
+      if (now - lastTime.current >= 1000) {
+        setFps(frameCount.current)
+        frameCount.current = 0
+        lastTime.current = now
+      }
+      rafId = requestAnimationFrame(measure)
+    }
+    rafId = requestAnimationFrame(measure)
+    return () => cancelAnimationFrame(rafId)
+  }, [stream])
+
+  // Real resolution from stream track settings
+  useEffect(() => {
+    if (!stream) { setResolution('No signal'); return }
+    const track = stream.getVideoTracks()[0]
+    if (!track) { setResolution('No video track'); return }
+    const settings = track.getSettings()
+    setResolution(`${settings.width ?? '?'}×${settings.height ?? '?'}`)
+
+    // Listen for track ended
+    track.onended = () => { setResolution('No signal'); setStatus('idle') }
+  }, [stream])
+
+  // Bitrate estimation from recorder chunks (passed in from recorder)
+  const updateBitrate = (bytesPerSecond: number) => {
+    const mbps = (bytesPerSecond * 8 / 1000000).toFixed(2)
+    setBitrate(`${mbps} Mbps`)
+  }
+
+  return { fps, resolution, bitrate, status, setStatus, updateBitrate }
+}
+```
+
+Display in dashboard:
+
+```
+┌────────────────────────────────────────┐
+│ 📡 STREAM STATUS                       │
+│                                        │
+│ Status:    ● LIVE (or IDLE/RECORDING)  │
+│ FPS:       30fps (real rAF measurement)│
+│ Resolution: 1280×720 (from track API) │
+│ Bitrate:   2.4 Mbps (from MediaRec)   │
+│ Duration:  00:05:23 (real timer)       │
+│ File Size: 87.3 MB (real blob size)    │
+│ Camera:    Front Camera / Logitech C9  │
+└────────────────────────────────────────┘
+```
+
+---
+
+**=== FIX 7 — EXPANDED PAIRS IN ALL AI TOOLS ===**
+
+In every AI component that has a pair selector (AlchemistAI, TechnicalAnalysis, FundamentalAnalysis, ConfluenceEngine, Backtest, Sentiment, Watchlist), replace the limited dropdown with the full symbol list. Create a shared component `src/components/common/PairSelector.tsx` that uses the same `SYMBOL_GROUPS` data from the symbol switcher. This ensures all tools have access to the same full list of pairs including all forex majors/minors, commodities, indices, crypto, and stocks.
+
+---
+
+**=== FIX 8 — IMPROVED DASHBOARD ===**
+
+Rebuild the main dashboard with these real working sections:
+
+```
+Row 1: JJ NEXUS PRO header with gold logo | Live clock | Music player mini | Notifications bell
+Row 2: Real-time price ticker scrolling across full width (live from Frankfurter API)
+Row 3: 4 metric cards — Active Pairs (live count) | Today's Alerts (count) | Stream Status | AI Analyses Run
+Row 4 (3 columns):
+  Col 1 (40%): Full watchlist with real prices, % change, sparklines, sentiment badges
+  Col 2 (35%): Embedded TradingView chart (default XAUUSD) with symbol switcher above it
+  Col 3 (25%): Economic calendar — today's events with countdowns, impact colors
+Row 5 (2 columns):
+  Col 1 (60%): Alchemist AI quick analysis panel — type a question, get instant response
+  Col 2 (40%): Recent notifications + alerts feed
+```
+
+---
+
+**EXECUTION ORDER:**
+
+1. Fix `claudeAPI.ts` — the broken API handler (this unblocks everything else)
+2. Test every AI function individually and confirm responses come back
+3. Add `ChartSymbolSwitcher` to StreamingStudio toolbar
+4. Wire `TradingViewWidget` to accept and reload on symbol prop
+5. Add `PairSelector` shared component and use in all AI tools
+6. Build full `MusicPlayer` with playlist system
+7. Build `AlertService` + `NotificationCenter` + toast system
+8. Build `LiveChatService` + chat UI with pin/reply/delete
+9. Build `useStreamStatus` hook and wire to dashboard stream cards
+10. Expand `useEconomicCalendar` with event alerts
+11. Rebuild dashboard layout as described in Fix 8
+12. Fix backtest component to use `runBacktest()` function and display full table
+13. Run `npm run build` — confirm zero errors
+14. Report complete with confirmation each major feature works

@@ -1,0 +1,273 @@
+================================================================================
+JJ NEXUS PRO: PHASE 2 BUGFIX PROMPT
+Targeted Fixes for Health Report + Alchemist AI Pipeline
+================================================================================
+
+Use your FULL potential to fix the 7 specific bugs identified below.
+The Health Report page EXISTS and is partially working. Do NOT rebuild from scratch.
+Read the existing code, understand the bug, apply a surgical fix.
+
+Repository: speadfreak/JJ-NEXUS-PRO (React + Vite + Express monorepo)
+Push all fixes to origin/main when done.
+
+================================================================================
+BUG 1: HEALTH SCORE CALCULATOR BROKEN (CRITICAL)
+================================================================================
+
+PROBLEM:
+The System Health Score shows 70/100, but Monte Carlo subscore is 0.0/25 and Risk subscore is 0.0/10 — both marked CRITICAL. However, BOTH sections produce valid results:
+
+  - Monte Carlo: has p-values (0.0827, 0.0502, etc.), Sharpe values, percentiles
+  - Risk Engine: has VaR (-5.96%), CVaR (-7.67%), drawdown projections ($16,850-$95,423)
+
+The scoring functions are not correctly mapping these valid results to 0-100 scores.
+
+WHAT TO FIX:
+1. Find the health score calculation function (likely in the stats engine or HealthReport page component)
+2. The scoring function likely checks for specific conditions that aren't being met. Debug WHY each subscore returns 0.
+3. Fix the Monte Carlo scoring (25 points max):
+   - The issue is likely that NO individual grade/instrument/direction combo passes the p<0.01 threshold
+   - FIX: Also consider XAUUSD LONG (all grades combined) in the scoring. If the combined test has p<0.05, that should score at least 15/25.
+   - Scoring logic should be: find the BEST (lowest) p-value among all XAUUSD LONG combos. Map that p-value to a score:
+     - p < 0.001 → 25/25
+     - p < 0.01 → 20/25
+     - p < 0.05 → 15/25
+     - p < 0.10 → 8/25
+     - p >= 0.10 → 0/25
+4. Fix the Risk scoring (10 points max):
+   - CVaR of -7.67% is reasonable (within acceptable bounds)
+   - Scoring logic: if CVaR > -15% → 10/10, if CVaR > -10% → 7/10, if CVaR > -5% → 4/10, else 0/10
+   - VaR check: if VaR > -10% → bonus points
+   - Max drawdown check: if 95% max DD < 40% → good
+5. After fixing, the System Health Score should be approximately 80-90/100 given the valid results.
+
+================================================================================
+BUG 2: A+ GRADE STILL APPEARING (MEDIUM)
+================================================================================
+
+PROBLEM:
+The Health Report shows A+ grade results for all instruments, all with n=0 signals.
+A+ was removed in the V2 backtest engine update. The Health Report still iterates over it.
+
+Lines from the report:
+  XAUUSD LONG A+ | n=0 | INSUFFICIENT SAMPLE
+  XAUUSD SHORT A+ | n=0 | INSUFFICIENT SAMPLE
+  EURUSD LONG A+ | n=0 | INSUFFICIENT SAMPLE
+  (6 A+ rows total, all n=0)
+
+WHAT TO FIX:
+1. Find where the Health Report defines the list of grades to iterate over
+2. Remove 'A+' from the grade list. The only grades should be: A, B+, B
+3. Also check: does the backtest engine still generate A+ signals? If so, that's a separate bug in backtestEngine.ts. The V2 fix should have removed A+.
+4. Verify: after removing A+, the Monte Carlo section should only show 18 rows (3 instruments x 3 grades x 2 directions) instead of 24.
+
+================================================================================
+BUG 3: MONTE CARLO MISSING COMBINED XAUUSD LONG TEST (CRITICAL)
+================================================================================
+
+PROBLEM:
+The Monte Carlo only tests per-grade splits. The real edge is in XAUUSD LONG combined:
+
+  Current results (per-grade, weak p-values):
+    XAUUSD LONG A:   n=2,   p=1.0000 (insufficient)
+    XAUUSD LONG B+:  n=161, p=0.0827 (marginal)
+    XAUUSD LONG B:   n=160, p=0.0502 (marginal)
+
+  But if we combine ALL XAUUSD LONG signals (A + B+ + B = n=323):
+    Expected: 65% win rate, Sharpe ~3.58, p < 0.001 (from our V2 analysis)
+
+  The separate grade tests have LESS power because they split the sample.
+  The combined test is what actually proves the edge.
+
+WHAT TO FIX:
+1. Add a COMBINED test row to the Monte Carlo section: "XAUUSD LONG (ALL GRADES)"
+   - Combine all LONG signals for XAUUSD regardless of grade
+   - Run 10,000 Monte Carlo simulations on this combined set
+   - This should produce p < 0.001 and be marked *** SIGNIFICANT
+2. Also add: "XAUUSD SHORT (ALL GRADES)" — expected to show negative Sharpe, confirming the SHORT bug
+3. Also add: "XAUUSD (ALL)" combining both directions — this shows the net edge after SHORT losses
+4. These combined rows should appear at the TOP of the Monte Carlo results (before per-grade breakdown)
+5. The combined XAUUSD LONG result should be used for the Health Score Monte Carlo component
+6. The combined XAUUSD LONG result should also be included in the Multiple Testing Correction table — it should SURVIVE Bonferroni correction because with fewer total tests and a very low p-value, the adjusted threshold is less extreme
+
+================================================================================
+BUG 4: ACADEMIC CORRELATION CALCULATIONS WRONG (HIGH)
+================================================================================
+
+PROBLEM:
+Two issues in the Academic Correlation Verification section:
+
+  Issue A: Zhang & Laws shows:
+    beta 0.8121, correlation 0.0503, t 1.663, p 0.0000
+    A correlation of 0.05 is essentially zero, but p=0.0000 claims extreme significance.
+    This is mathematically contradictory. With r=0.05 and N=~2900 signals,
+    t = r * sqrt(N-2) / sqrt(1-r^2) = 0.05 * sqrt(2898) / sqrt(1-0.0025) = 0.05 * 53.83 / 0.999 = 2.69
+    That gives p ~ 0.0036, not 0.0000.
+    FIX: Recalculate. The correlation should be between commercial net positioning changes
+    and subsequent 4-week Gold returns. If the actual correlation is near zero, that's
+    a valid result — but report it honestly.
+
+  Issue B: Dreesmann overall shows:
+    annual return -6.67%, Sharpe -0.03, max drawdown 92.83%, win rate 50.10%
+    This contradicts the XAUUSD LONG results (65% win, Sharpe 3.58). The -6.67% suggests
+    this is averaging ALL instruments and BOTH directions, including the broken SHORT signals.
+    FIX: The Dreesmann verification should show results SEPARATELY for:
+      - XAUUSD LONG only (expected positive)
+      - XAUUSD SHORT only (expected negative due to bug)
+      - EURUSD/GBPUSD (expected near zero)
+    Do NOT average everything into one number — that hides the XAUUSD LONG edge.
+
+  Issue C: NC% condition shows n=0, hit rate 0.0%, Sharpe 0.00
+    The NC% (Non-Commercial positioning percentage) is one of the 5 Dreesmann conditions.
+    It should have data. Either:
+    a) The NC% field isn't being parsed from the COT data correctly, or
+    b) The condition logic is wrong (maybe it's checking for a value that never occurs)
+    FIX: Debug the NC% condition. Check what values NC% actually takes in the signal data.
+    If NC% is always null/undefined, fix the data pipeline.
+
+================================================================================
+BUG 5: MULTIPLE TESTING CORRECTION DESIGN FLAW (MEDIUM)
+================================================================================
+
+PROBLEM:
+All 18 tests FAIL both Bonferroni and BH correction. This is because:
+  - 18 tests → Bonferroni threshold = 0.05/18 = 0.00278
+  - No individual test has p < 0.00278
+  - BH also fails because too many tests have high p-values
+
+But this is a DESIGN problem, not a calculation error. Testing 18 combinations
+(3 instruments x 3 grades x 2 directions) dilutes statistical power.
+
+WHAT TO FIX:
+1. After adding the combined XAUUSD LONG test (Bug 3 fix), include it in the multiple testing table
+2. The combined test should have p < 0.001, which WILL survive Bonferroni even with 19+ tests
+3. Reorder the multiple testing table: show COMBINED tests first, then per-grade breakdowns
+4. Add a note in the UI: "Primary hypothesis (XAUUSD LONG combined) survives Bonferroni correction (p_adj = X.XXXX < 0.05). Per-grade breakdowns are exploratory."
+5. The Multiple Testing correction should NOT affect the Health Score if the primary combined test survives
+
+================================================================================
+BUG 6: STATISTICAL COHERENCE MISMATCH (LOW)
+================================================================================
+
+PROBLEM:
+  Reported Sharpe: -0.034
+  Independently calculated Sharpe: -0.108
+  Difference: 0.074
+
+These should be nearly identical. The discrepancy suggests either:
+  a) The independent calculation uses different parameters (different risk-free rate, different annualization factor)
+  b) The independent calculation includes different data (maybe includes EURUSD/GBPUSD which drag Sharpe down)
+  c) There's a subtle bug in one of the two Sharpe calculations
+
+WHAT TO FIX:
+1. Make both calculations use the EXACT same formula:
+   Sharpe = (mean_return - risk_free_rate) / std_return * sqrt(annualization_factor)
+   Where: risk_free_rate = 0 (or 0.02/52 for weekly), annualization_factor = 52 for weekly data
+2. Make both calculations use the EXACT same data subset
+3. The coherence check should compare Sharpe for XAUUSD LONG only (not all signals)
+4. Acceptable tolerance: |difference| < 0.01. Flag as WARN if 0.01-0.05, FAIL if > 0.05
+
+================================================================================
+BUG 7: ALCHEMIST AI TRAINING PIPELINE QUALITY (HIGH)
+================================================================================
+
+PROBLEM:
+The user confirmed the AI training pipeline "is not good." The previous agent created
+shallow versions of the dataset generation script, Colab notebook, and deployment files.
+
+WHAT TO FIX:
+
+7A. Dataset Generation Script (HIGHEST PRIORITY)
+  File: artifacts/ethiostream-pro/src/utils/generateTrainingDataset.ts
+  Issues to check and fix:
+  - Does it actually produce 2,500+ examples? Run it and count.
+  - Are the examples 200-500 words each? Or are they shallow 2-3 sentence responses?
+  - Do they include SPECIFIC price levels (e.g., "Entry at 2,342.50")?
+  - Do they explain INSTITUTIONAL LOGIC (why commercials do what they do)?
+  - Are there at least 15 DIFFERENT prompt templates (not just 2-3 with swapped numbers)?
+  - Does it cover ALL 5 categories (SMC 1000, COT 500, Combined 500, MSNR 300, Risk 200)?
+  - Is the output in correct JSONL format for Hugging Face chat template?
+  
+  If ANY of these fail, REBUILD the script. The training data quality determines
+  everything about the final model. Shallow data = useless model.
+
+  Minimum quality bar for each assistant response:
+  - Must mention at least 2 specific price levels
+  - Must explain the institutional logic (WHO is doing WHAT and WHY)
+  - Must state a risk/reward ratio
+  - Must assess confluence (how many factors align)
+  - Must be 200+ words
+
+7B. Colab Notebook
+  File: notebooks/alchemist_ai_training.ipynb
+  Issues to check and fix:
+  - Cell 1: Does it check for GPU and print a clear error if absent?
+  - Cell 2: Does it handle Hugging Face authentication errors gracefully?
+  - Cell 3: Does it print dataset statistics (total examples, avg tokens)?
+  - Cell 5: Does it print the estimated training time (4-8 hours)?
+  - Cell 6: Does it plot the training loss curve?
+  - Cell 7: Does it run inference on test examples and print quality metrics?
+  - Cell 9: Does it include GGUF conversion instructions?
+  - Overall: Is this notebook complete enough that someone could run it end-to-end without googling anything?
+
+7C. Hugging Face Deployment
+  Directory: deployment/hf_spaces/
+  Issues to check and fix:
+  - Does app.py have rate limiting (30 req/min)?
+  - Does app.py handle concurrent requests (semaphore/queue)?
+  - Does app.py have a /health endpoint?
+  - Does Dockerfile use python:3.10-slim?
+  - Does README.md have step-by-step deployment instructions?
+
+7D. API Integration
+  - Does /api/alchemist/chat have proper Claude fallback when Alchemist is down?
+  - Does /api/alchemist/status actually test the Alchemist endpoint (not just return a hardcoded value)?
+  - Does the chat UI model selector actually switch between Alchemist and Claude?
+
+7E. Deep Integration Buttons
+  - COT Dashboard "Ask Alchemist" button: does it read ACTUAL signal data (CSI, NC%, NRSI values) and format them into the prompt? Or does it send a generic prompt?
+  - Quant Lab "Ask Alchemist" button: does it read ACTUAL backtest results (win rate, Sharpe) and include them?
+  
+  If the buttons send generic prompts, REBUILD them to inject real data.
+
+================================================================================
+BUILD ORDER
+================================================================================
+
+Fix in this exact order:
+
+  FIX 1: Read and understand the existing Health Report code (all files)
+  FIX 2: Bug 2 — Remove A+ grade (quick, 5 minutes)
+  FIX 3: Bug 1 — Fix Health Score calculator (map valid results to correct scores)
+  FIX 4: Bug 3 — Add combined XAUUSD LONG Monte Carlo test
+  FIX 5: Bug 5 — Update Multiple Testing table with combined test
+  FIX 6: Bug 4 — Fix Academic Correlation calculations (Zhang & Laws, Dreesmann, NC%)
+  FIX 7: Bug 6 — Fix Statistical Coherence mismatch
+  FIX 8: Bug 7A — Audit and rebuild dataset generation script
+  FIX 9: Bug 7B — Audit and fix Colab notebook
+  FIX 10: Bug 7C — Audit and fix Hugging Face deployment
+  FIX 11: Bug 7D — Audit and fix API integration
+  FIX 12: Bug 7E — Audit and fix deep integration buttons
+  FIX 13: Test everything, push to GitHub
+
+================================================================================
+EXPECTED RESULTS AFTER ALL FIXES
+================================================================================
+
+Health Report should show:
+  - System Health Score: 80-90/100 (green, "SYSTEM HEALTHY")
+  - Monte Carlo: XAUUSD LONG (ALL GRADES) p < 0.001 *** SIGNIFICANT
+  - Monte Carlo scoring: 20-25/25
+  - Risk scoring: 7-10/10
+  - Multiple Testing: XAUUSD LONG combined SURVIVES Bonferroni
+  - No A+ grade anywhere
+  - Academic: Zhang & Laws correlation correctly calculated
+  - Academic: Dreesmann shows XAUUSD LONG separately (positive), not averaged with everything
+  - NC% condition shows real data (n > 0)
+  - Statistical coherence: |difference| < 0.01
+  - Dataset generation produces 2,500+ examples, each 200-500 words with price levels
+  - Colab notebook is complete and production-ready
+
+================================================================================
+END OF FIX PROMPT
+================================================================================

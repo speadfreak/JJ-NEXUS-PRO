@@ -1,0 +1,1577 @@
+Here is your complete deep upgrade prompt for Replit:
+
+---
+
+**JJ NEXUS PRO v6.0 — TELEGRAM BOT ELITE UPGRADE + TRADE SETUP SCANNER + STREAM ALERTS + NEW PRO TOOLS**
+
+This is my JJ NEXUS PRO trading and streaming web app (React + Vite + TypeScript + Tailwind). First install all dependencies, confirm the app runs perfectly, then apply every single upgrade below completely. Do not skip anything. Do not simulate any data. Everything must be real and functional.
+
+**GROQ API KEY:** (paste your gsk_... key here)
+**ANTHROPIC API KEY:** (paste your sk-ant-... key here)
+
+Store both in `.env` as `VITE_GROQ_API_KEY` and `VITE_ANTHROPIC_API_KEY`.
+
+---
+
+**=== STEP 0: INSTALL AND RUN FIRST ===**
+
+```bash
+npm install html2canvas jspdf canvas-confetti
+npm run dev
+```
+
+Confirm app loads without errors before touching any code. Fix any startup errors first. Then proceed in order.
+
+---
+
+**=== UPGRADE 1: TELEGRAM BOT PAGE — COMPLETE ELITE REBUILD ===**
+
+The Telegram bot page needs a complete rebuild. It must support two completely separate sending modes plus push to both channels AND groups. Rebuild `src/pages/TelegramBotPage.tsx` entirely.
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 📨 TELEGRAM ANALYSIS BROADCASTER                  [⚙️ Settings] │
+├─────────────────────────────────────────────────────────────────┤
+│ BOT STATUS                                                      │
+│ Token: [sk:... hidden] ✅ Connected | Bot: @JJNexusBot          │
+│ Targets: 📢 @mychannel ✅ | 👥 Trading Group ✅ | 👥 VIP ✅    │
+├───────────────────────────┬─────────────────────────────────────┤
+│ SEND MODE                 │ PAIR & CHART                       │
+│ ┌─────────┐ ┌──────────┐  │ Pair: [XAUUSD ▼] Live: $3,312.50  │
+│ │ 📊 Full │ │ 🎯 Signal│  │                                    │
+│ │Analysis │ │  Only   │  │ [TradingView chart embedded here]  │
+│ └─────────┘ └──────────┘  │                                    │
+│ Mode: Full Analysis       │ [📸 Capture Chart Screenshot]      │
+│                           │ Screenshot: ✅ Ready (1280×720)    │
+├───────────────────────────┴─────────────────────────────────────┤
+│ ANALYSIS ENGINE                                                 │
+│ [⚡ Run Full Alchemist Analysis] ← runs Tech + Fund + Confluence│
+│                                                                 │
+│ Progress: ████████████████████ 100%                            │
+│ ✅ Technical Analysis — Bullish bias, OB at 3,295              │
+│ ✅ Fundamental Analysis — USD weak, Gold favored               │
+│ ✅ Confluence Score — 5/6 criteria met, 78% probability        │
+├─────────────────────────────────────────────────────────────────┤
+│ MESSAGE PREVIEW (full analysis mode)                            │
+│ ┌─────────────────────────────────────────────────────────────┐│
+│ │ 📈 JJ NEXUS PRO — XAUUSD FULL ANALYSIS                     ││
+│ │ 💰 Live Price: $3,312.50 | 🕐 14:32 EAT | 📊 H1 Chart     ││
+│ │                                                             ││
+│ │ 🏗️ MARKET STRUCTURE                                        ││
+│ │ Daily: Bullish BOS confirmed above $3,289                  ││
+│ │ H4: CHoCH detected at $3,298 — reversal confirmed          ││
+│ │ H1: Discount zone, price building momentum                 ││
+│ │                                                             ││
+│ │ 🟦 KEY ORDER BLOCKS                                        ││
+│ │ Bullish OB: $3,295 — $3,302 (strong, 1st touch)           ││
+│ │ Bearish OB: $3,335 — $3,341 (target resistance)           ││
+│ │                                                             ││
+│ │ 💧 LIQUIDITY                                               ││
+│ │ SSL swept at $3,298 ✅ — smart money confirmed long        ││
+│ │ BSL resting at $3,328 — primary target                    ││
+│ │                                                             ││
+│ │ 🌍 FUNDAMENTALS                                            ││
+│ │ USD: Weak (CPI miss, Fed dovish) — Gold favored            ││
+│ │ Geopolitical risk elevated — safe haven demand             ││
+│ │                                                             ││
+│ │ 📐 TRADE PLAN                                              ││
+│ │ Bias: BULLISH 📈 | Probability: 78%                        ││
+│ │ Entry: $3,295 — $3,302                                     ││
+│ │ Stop Loss: $3,281 (below liquidity sweep)                  ││
+│ │ TP1: $3,328 (BSL target) | TP2: $3,345 | TP3: $3,360      ││
+│ │ Risk:Reward: 1:3.2 | Grade: A Setup ⭐⭐⭐⭐               ││
+│ │                                                             ││
+│ │ ⚠️ Invalidation: Close below $3,281                       ││
+│ │ — Alchemist AI | JJ NEXUS PRO                              ││
+│ └─────────────────────────────────────────────────────────────┘│
+│ Characters: 847/4096  [Edit Message] [Copy]                    │
+├─────────────────────────────────────────────────────────────────┤
+│ SEND TO:                                                        │
+│ [✓] 📢 @mychannel    [✓] 👥 Trading Group    [✓] 👥 VIP Group  │
+│                                                                 │
+│ OPTIONS:                                                        │
+│ [✓] Include chart screenshot  [✓] Include analysis text        │
+│ [✓] Pin message in channel    [ ] Schedule (set time below)    │
+│ Schedule time: [14:30 ▼] [Today ▼]                             │
+│                                                                 │
+│ [📸 Send Screenshot Only] [📝 Send Analysis Only] [🚀 SEND ALL]│
+├─────────────────────────────────────────────────────────────────┤
+│ SIGNAL ONLY MODE PREVIEW (when Signal Only tab selected)        │
+│ ┌─────────────────────────────────────────────────────────────┐│
+│ │ 🎯 SIGNAL — XAUUSD | JJ NEXUS PRO                         ││
+│ │ Direction: BUY 📈 | Probability: 78%                       ││
+│ │ Entry: 3,295 — 3,302                                       ││
+│ │ SL: 3,281 | TP1: 3,328 | TP2: 3,345 | TP3: 3,360         ││
+│ │ R:R: 1:3.2 | Grade: A ⭐⭐⭐⭐                            ││
+│ │ — Alchemist AI | JJ NEXUS PRO                              ││
+│ └─────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│ SIGNAL HISTORY (last 20 sent)                                   │
+│ ✅ XAUUSD BUY — Full Analysis — 2 targets — 14:32 today        │
+│ ✅ EURUSD SELL — Signal Only — 1 target — 11:15 today          │
+│ ✅ GBPUSD BUY — Full Analysis — 3 targets — Yesterday 08:30    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:**
+
+```typescript
+// src/pages/TelegramBotPage.tsx — full implementation
+
+// Two send modes
+type SendMode = 'full_analysis' | 'signal_only'
+
+// Target types
+interface TelegramTarget {
+  id: string
+  chatId: string // @username or -100xxxxxxxxxx for groups
+  type: 'channel' | 'group'
+  name: string
+  verified: boolean
+}
+
+// Full analysis message format (detailed — for educational content)
+const formatFullAnalysisMessage = (
+  pair: string,
+  price: number,
+  tech: string,
+  fund: string,
+  confluence: ConfluenceResult
+): string => {
+  const dir = confluence.bias.includes('Bullish') ? '📈' : '📉'
+  const stars = '⭐'.repeat(Math.round(confluence.rating))
+
+  return `${dir} <b>JJ NEXUS PRO — ${pair} FULL ANALYSIS</b>
+
+💰 <b>Live Price:</b> $${price.toFixed(2)}
+🕐 <b>Time:</b> ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' })} EAT
+📊 <b>Session:</b> ${getCurrentSession()}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🏗️ <b>MARKET STRUCTURE</b>
+${extractSection(tech, 'Market Structure')}
+
+🟦 <b>KEY ORDER BLOCKS</b>
+${extractSection(tech, 'Order Blocks')}
+
+🌀 <b>FAIR VALUE GAPS</b>
+${extractSection(tech, 'Fair Value Gaps')}
+
+💧 <b>LIQUIDITY</b>
+${extractSection(tech, 'Liquidity')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🌍 <b>FUNDAMENTAL BIAS</b>
+${extractSection(fund, 'Fundamental Score').slice(0, 300)}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📐 <b>COMPLETE TRADE PLAN</b>
+<b>Bias:</b> ${confluence.bias} ${dir}
+<b>Probability:</b> ${confluence.probability}%
+<b>Entry Zone:</b> ${confluence.entry}
+<b>Stop Loss:</b> ${confluence.stopLoss}
+<b>TP1:</b> ${confluence.tp1} | <b>TP2:</b> ${confluence.tp2} | <b>TP3:</b> ${confluence.tp3}
+<b>Risk:Reward:</b> 1:${confluence.rr}
+<b>Grade:</b> ${confluence.grade} ${stars}
+<b>Confluences:</b> ${confluence.confluenceCount}/6 aligned
+
+⚠️ <b>Invalidation:</b> Close ${confluence.bias.includes('Bullish') ? 'below' : 'above'} ${confluence.stopLoss}
+
+<i>— Alchemist AI | JJ NEXUS PRO</i>`
+}
+
+// Signal only format (concise — for quick signals)
+const formatSignalMessage = (
+  pair: string,
+  price: number,
+  confluence: ConfluenceResult
+): string => {
+  const dir = confluence.bias.includes('Bullish') ? '📈 BUY' : '📉 SELL'
+  const stars = '⭐'.repeat(Math.round(confluence.rating))
+
+  return `🎯 <b>SIGNAL — ${pair} | JJ NEXUS PRO</b>
+
+<b>Direction:</b> ${dir}
+<b>Live Price:</b> $${price.toFixed(2)}
+<b>Probability:</b> ${confluence.probability}%
+
+📐 <b>LEVELS:</b>
+Entry: ${confluence.entry}
+SL: ${confluence.stopLoss}
+TP1: ${confluence.tp1}
+TP2: ${confluence.tp2}
+TP3: ${confluence.tp3}
+
+⚖️ R:R: 1:${confluence.rr} | Grade: ${confluence.grade} ${stars}
+
+<i>— Alchemist AI | JJ NEXUS PRO</i>`
+}
+
+// Send to all targets simultaneously
+const sendToAllTargets = async (
+  botToken: string,
+  targets: TelegramTarget[],
+  message: string,
+  screenshot: Blob | null,
+  pinMessage: boolean
+) => {
+  const baseUrl = `https://api.telegram.org/bot${botToken}`
+  const selectedTargets = targets.filter(t => t.verified)
+
+  const results = await Promise.allSettled(
+    selectedTargets.map(async target => {
+      let messageId: number | null = null
+
+      if (screenshot) {
+        // Send photo with caption
+        const form = new FormData()
+        form.append('chat_id', target.chatId)
+        form.append('photo', screenshot, `${Date.now()}.png`)
+        // Telegram caption limit is 1024 chars
+        form.append('caption', message.slice(0, 1024))
+        form.append('parse_mode', 'HTML')
+        const photoRes = await fetch(`${baseUrl}/sendPhoto`, {
+          method: 'POST', body: form
+        })
+        const photoData = await photoRes.json()
+        messageId = photoData?.result?.message_id
+
+        // Send rest of message if longer than 1024
+        if (message.length > 1024) {
+          const contRes = await fetch(`${baseUrl}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: target.chatId,
+              text: message.slice(1024),
+              parse_mode: 'HTML'
+            })
+          })
+          const contData = await contRes.json()
+          if (!messageId) messageId = contData?.result?.message_id
+        }
+      } else {
+        // Text only
+        const textRes = await fetch(`${baseUrl}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: target.chatId,
+            text: message,
+            parse_mode: 'HTML'
+          })
+        })
+        const textData = await textRes.json()
+        messageId = textData?.result?.message_id
+      }
+
+      // Pin the message if requested
+      if (pinMessage && messageId) {
+        await fetch(`${baseUrl}/pinChatMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: target.chatId,
+            message_id: messageId,
+            disable_notification: false
+          })
+        })
+      }
+
+      return { target: target.name, messageId, success: true }
+    })
+  )
+
+  return results
+}
+
+// Verify bot token and get bot info
+const verifyBotToken = async (token: string): Promise<{ name: string; username: string } | null> => {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getMe`)
+    const data = await res.json()
+    if (data.ok) {
+      return { name: data.result.first_name, username: data.result.username }
+    }
+    return null
+  } catch { return null }
+}
+
+// Verify chat ID (channel or group)
+const verifyChatId = async (token: string, chatId: string): Promise<{ title: string; type: string } | null> => {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/getChat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId })
+    })
+    const data = await res.json()
+    if (data.ok) {
+      return { title: data.result.title || data.result.username, type: data.result.type }
+    }
+    return null
+  } catch { return null }
+}
+
+// Chart screenshot using html2canvas
+const captureChartScreenshot = async (): Promise<Blob | null> => {
+  try {
+    const { default: html2canvas } = await import('html2canvas')
+    const chartEl = document.getElementById('telegram_chart') ||
+                    document.querySelector('.tradingview-widget-container') as HTMLElement
+    if (!chartEl) throw new Error('Chart element not found')
+
+    const canvas = await html2canvas(chartEl, {
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#0a0a0a',
+      scale: 2,
+      logging: false,
+      width: chartEl.offsetWidth,
+      height: chartEl.offsetHeight
+    })
+
+    return new Promise(resolve =>
+      canvas.toBlob(blob => resolve(blob), 'image/png', 0.95)
+    )
+  } catch (e) {
+    console.error('Screenshot failed:', e)
+    return null
+  }
+}
+
+// Scheduled send system
+interface ScheduledMessage {
+  id: string
+  pair: string
+  mode: SendMode
+  scheduledTime: Date
+  targets: string[]
+  status: 'pending' | 'sent' | 'failed'
+}
+
+// Store scheduled messages in localStorage
+const scheduleMessage = (msg: ScheduledMessage) => {
+  const existing = JSON.parse(localStorage.getItem('jjnexus_scheduled') || '[]')
+  existing.push(msg)
+  localStorage.setItem('jjnexus_scheduled', JSON.stringify(existing))
+}
+
+// Check scheduled messages every minute
+useEffect(() => {
+  const checker = setInterval(async () => {
+    const scheduled = JSON.parse(localStorage.getItem('jjnexus_scheduled') || '[]')
+    const now = new Date()
+    for (const msg of scheduled) {
+      if (new Date(msg.scheduledTime) <= now && msg.status === 'pending') {
+        // Auto-send the scheduled message
+        await runAndSend(msg.pair, msg.mode, msg.targets)
+        msg.status = 'sent'
+      }
+    }
+    localStorage.setItem('jjnexus_scheduled', JSON.stringify(scheduled))
+  }, 60000)
+  return () => clearInterval(checker)
+}, [])
+```
+
+Add to the Settings panel inside the Telegram bot page:
+
+```typescript
+// Settings panel items:
+// 1. Bot token input with verify button
+// 2. Add channel: enter @channelname or chat ID → verify → add to list
+// 3. Add group: enter group name or ID → verify → add to list
+// 4. Default send mode selector
+// 5. Auto-include screenshot toggle
+// 6. Auto-pin messages toggle
+// 7. Message template editor (full analysis + signal formats editable)
+// 8. Signature editor: change "— Alchemist AI | JJ NEXUS PRO"
+// 9. Auto-send on confluence: toggle — when scanner finds A+ setup, auto-send to all targets
+```
+
+---
+
+**=== UPGRADE 2: TRADE SETUP SCANNER — AI SCANS ALL PAIRS ===**
+
+Create `src/pages/TradeSetupScannerPage.tsx` and `src/utils/setupScanner.ts`. This is the most important new feature.
+
+**Route:** `/scanner`
+
+**Add to sidebar navigation under AI TOOLS section.**
+
+```typescript
+// src/utils/setupScanner.ts
+
+const SCAN_PAIRS = [
+  'XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF',
+  'AUDUSD', 'NZDUSD', 'USDCAD', 'GBPJPY', 'EURJPY',
+  'EURGBP', 'XAGUSD', 'US30', 'NAS100', 'BTCUSD'
+]
+
+interface SetupScore {
+  pair: string
+  score: number // 0-100
+  grade: 'A+' | 'A' | 'B' | 'C' | 'No Trade'
+  bias: 'Bullish' | 'Bearish' | 'Neutral'
+  probability: number
+  entry: string
+  stopLoss: string
+  tp1: string
+  riskReward: number
+  confluenceCount: number
+  criteria: {
+    htfStructure: boolean
+    premiumDiscount: boolean
+    liquiditySweep: boolean
+    choch: boolean
+    validOB: boolean
+    sessionAlignment: boolean
+  }
+  reason: string // one-line summary
+  lastScanned: Date
+  priceAtScan: number
+}
+
+// Score each pair quickly using AI
+async function scorePair(pair: string, livePrice: number): Promise<SetupScore> {
+  const prompt = `
+Quick Alchemist setup score for ${pair} at current price ${livePrice}.
+Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Current UTC time: ${new Date().toUTCString()}
+
+Analyze rapidly and return ONLY this JSON (no other text, no markdown):
+{
+  "score": 78,
+  "grade": "A",
+  "bias": "Bullish",
+  "probability": 74,
+  "entry": "3295-3302",
+  "stopLoss": "3281",
+  "tp1": "3328",
+  "riskReward": 3.2,
+  "confluenceCount": 5,
+  "criteria": {
+    "htfStructure": true,
+    "premiumDiscount": true,
+    "liquiditySweep": true,
+    "choch": true,
+    "validOB": true,
+    "sessionAlignment": false
+  },
+  "reason": "SSL swept at 3298, bullish CHoCH H1, clean OB at 3295, London session"
+}
+
+Scoring rules:
+- score 80-100 = A+ (take this trade now)
+- score 65-79 = A (strong setup)
+- score 50-64 = B (moderate, wait for confirmation)
+- score below 50 = C or No Trade
+- Grade each criteria true/false based on current Alchemist SMC rules
+- Base entry/SL/TP on the current live price: ${livePrice}
+`
+
+  const response = await callAlchemistAI(prompt, livePrice, pair)
+
+  try {
+    // Extract JSON from response
+    const jsonMatch = response.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        pair,
+        priceAtScan: livePrice,
+        lastScanned: new Date(),
+        ...parsed
+      } as SetupScore
+    }
+  } catch {}
+
+  // Fallback if JSON parsing fails
+  return {
+    pair,
+    score: 0,
+    grade: 'No Trade',
+    bias: 'Neutral',
+    probability: 0,
+    entry: `${livePrice.toFixed(2)}`,
+    stopLoss: '0',
+    tp1: '0',
+    riskReward: 0,
+    confluenceCount: 0,
+    criteria: {
+      htfStructure: false, premiumDiscount: false,
+      liquiditySweep: false, choch: false,
+      validOB: false, sessionAlignment: false
+    },
+    reason: 'Unable to score — AI response error',
+    lastScanned: new Date(),
+    priceAtScan: livePrice
+  }
+}
+
+// Scan all pairs and return sorted results
+export async function scanAllPairs(
+  prices: Record<string, number>,
+  onProgress: (completed: number, total: number, currentPair: string) => void
+): Promise<SetupScore[]> {
+  const results: SetupScore[] = []
+  const total = SCAN_PAIRS.length
+
+  // Scan in batches of 3 to avoid rate limiting
+  for (let i = 0; i < SCAN_PAIRS.length; i += 3) {
+    const batch = SCAN_PAIRS.slice(i, i + 3)
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async pair => {
+        const price = prices[pair] || 0
+        if (price === 0) {
+          onProgress(i + batch.indexOf(pair) + 1, total, pair)
+          return null
+        }
+        onProgress(i + batch.indexOf(pair) + 1, total, pair)
+        return await scorePair(pair, price)
+      })
+    )
+
+    batchResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value) {
+        results.push(result.value)
+      }
+    })
+
+    // Small delay between batches to respect rate limits
+    if (i + 3 < SCAN_PAIRS.length) {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+    }
+  }
+
+  // Sort by score descending
+  return results.sort((a, b) => b.score - a.score)
+}
+```
+
+**Scanner Page UI:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎯 TRADE SETUP SCANNER                    Last scan: 14:32:05  │
+│ Auto-scan every [5 min ▼]  [⚡ Scan Now]  [⏸ Pause Auto-scan]  │
+├─────────────────────────────────────────────────────────────────┤
+│ SCANNING PROGRESS (when active)                                 │
+│ Scanning XAUUSD... [███████████████░░░░░] 10/15 pairs          │
+├─────────────────────────────────────────────────────────────────┤
+│ 🏆 TOP 3 SETUPS — TRADE NOW                                     │
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐│
+│ │ 🥇 #1 XAUUSD — GOLD              Score: 87/100 Grade: A+   ││
+│ │ 📈 BULLISH | Probability: 82% | R:R 1:3.5                  ││
+│ │ Entry: 3,295–3,302 | SL: 3,281 | TP1: 3,328                ││
+│ │ ✅ HTF Structure ✅ Discount ✅ SSL Swept ✅ CHoCH           ││
+│ │ ✅ Valid OB ✅ London Session                               ││
+│ │ 💡 "SSL swept at 3,298, bullish CHoCH H1, clean OB"        ││
+│ │ [📊 Full Analysis] [📨 Send to Telegram] [📈 Open Chart]   ││
+│ └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐│
+│ │ 🥈 #2 GBPUSD — CABLE             Score: 74/100 Grade: A    ││
+│ │ 📉 BEARISH | Probability: 71% | R:R 1:2.8                  ││
+│ │ Entry: 1.2680–1.2695 | SL: 1.2715 | TP1: 1.2620           ││
+│ │ ✅ HTF Structure ✅ Premium ✅ BSL Swept ✅ CHoCH           ││
+│ │ ✅ Valid OB ❌ Session (NY overlap ending)                  ││
+│ │ 💡 "BSL grabbed at 1.2698, bearish OB H1 at 1.2680"        ││
+│ │ [📊 Full Analysis] [📨 Send to Telegram] [📈 Open Chart]   ││
+│ └─────────────────────────────────────────────────────────────┘│
+│                                                                 │
+│ ┌─────────────────────────────────────────────────────────────┐│
+│ │ 🥉 #3 EURUSD — FIBER             Score: 68/100 Grade: A    ││
+│ │ 📈 BULLISH | Probability: 65% | R:R 1:2.2                  ││
+│ │ Entry: 1.0840–1.0852 | SL: 1.0821 | TP1: 1.0885           ││
+│ │ ✅ HTF Structure ✅ Discount ❌ Liquidity ✅ CHoCH          ││
+│ │ ✅ Valid OB ❌ Session                                      ││
+│ │ 💡 "Bullish OB H1, needs liquidity sweep confirmation"      ││
+│ │ [📊 Full Analysis] [📨 Send to Telegram] [📈 Open Chart]   ││
+│ └─────────────────────────────────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────┤
+│ ALL PAIRS RANKED (15 pairs)                                     │
+│ PAIR     SCORE  GRADE  BIAS      PROB   R:R   LAST SCANNED     │
+│ XAUUSD   87/100  A+   📈 Bull   82%   1:3.5  2 min ago        │
+│ GBPUSD   74/100  A    📉 Bear   71%   1:2.8  2 min ago        │
+│ EURUSD   68/100  A    📈 Bull   65%   1:2.2  2 min ago        │
+│ USDJPY   51/100  B    📉 Bear   55%   1:1.8  2 min ago        │
+│ BTCUSD   34/100  C    ⚖️ Neut  38%   1:1.1  2 min ago        │
+│ ... (all 15 pairs shown)                                       │
+├─────────────────────────────────────────────────────────────────┤
+│ AUTO-SEND SETTINGS                                              │
+│ [✓] Auto-send A+ setups to Telegram when detected             │
+│ [✓] Sound alert when A+ setup found                           │
+│ [✓] Browser notification for new A+ setup                     │
+│ Min grade to auto-send: [A+ ▼]                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Auto-scan loop:**
+
+```typescript
+useEffect(() => {
+  const scan = async () => {
+    if (isScanning) return
+    setIsScanning(true)
+    setProgress({ completed: 0, total: 15, currentPair: '' })
+
+    const results = await scanAllPairs(prices, (completed, total, currentPair) => {
+      setProgress({ completed, total, currentPair })
+    })
+
+    setSetupScores(results)
+    setLastScanTime(new Date())
+    setIsScanning(false)
+
+    // Auto-send A+ setups to Telegram if enabled
+    const aplusSetups = results.filter(r => r.grade === 'A+')
+    if (autoSendEnabled && aplusSetups.length > 0 && telegramConfigured) {
+      for (const setup of aplusSetups) {
+        if (!recentlySent.includes(setup.pair)) {
+          await autoSendSetup(setup)
+          setRecentlySent(prev => [...prev, setup.pair])
+          // Clear from recently sent after 4 hours
+          setTimeout(() => {
+            setRecentlySent(prev => prev.filter(p => p !== setup.pair))
+          }, 4 * 60 * 60 * 1000)
+        }
+      }
+    }
+
+    // Sound alert for A+ setups
+    if (aplusSetups.length > 0) {
+      playAlertSound('setup_found')
+      if (Notification.permission === 'granted') {
+        new Notification('🎯 A+ Setup Found!', {
+          body: `${aplusSetups[0].pair} — ${aplusSetups[0].bias} — Score: ${aplusSetups[0].score}/100`,
+          icon: '/logo.png'
+        })
+      }
+    }
+  }
+
+  scan() // immediate first scan
+
+  const interval = setInterval(scan, scanInterval * 60 * 1000) // auto-scan every N minutes
+  return () => clearInterval(interval)
+}, [scanInterval, prices, autoSendEnabled])
+```
+
+---
+
+**=== UPGRADE 3: STREAM ALERT SOUNDS — DEEP STREAMLABS-STYLE INTEGRATION ===**
+
+Create `src/services/StreamAlertService.ts` and `src/components/streaming/StreamAlerts.tsx`.
+
+This is a complete alert system for live streaming events. Every alert plays a real sound, shows an animated overlay on the stream, and can be triggered by chat commands or manually.
+
+```typescript
+// src/services/StreamAlertService.ts
+
+// Alert types
+type AlertType = 'follow' | 'subscribe' | 'donate' | 'gift' | 'raid' | 'host' | 'comment' | 'share' | 'setup_found' | 'price_alert' | 'custom'
+
+interface StreamAlert {
+  id: string
+  type: AlertType
+  username: string
+  message?: string
+  amount?: number
+  currency?: string
+  timestamp: Date
+}
+
+interface AlertConfig {
+  type: AlertType
+  enabled: boolean
+  soundUrl: string
+  volume: number // 0-1
+  overlayDuration: number // seconds
+  overlayText: string // e.g. "{username} just followed!"
+  overlayColor: string
+  ttsEnabled: boolean
+  ttsText: string // e.g. "Thank you {username} for following!"
+  customSoundFile?: File
+}
+
+// Default alert configurations with real free sound URLs
+const DEFAULT_ALERT_CONFIGS: AlertConfig[] = [
+  {
+    type: 'follow',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/03/15/audio_942a2892e3.mp3',
+    volume: 0.8,
+    overlayDuration: 5,
+    overlayText: '❤️ {username} just followed!',
+    overlayColor: '#E91E8C',
+    ttsEnabled: true,
+    ttsText: 'Thank you {username} for following!'
+  },
+  {
+    type: 'subscribe',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/07/26/audio_6d87e5e8e4.mp3',
+    volume: 0.9,
+    overlayDuration: 7,
+    overlayText: '🌟 {username} just subscribed!',
+    overlayColor: '#9B59B6',
+    ttsEnabled: true,
+    ttsText: '{username} just subscribed! Welcome to the family!'
+  },
+  {
+    type: 'donate',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/03/24/audio_4dfc2e5ec1.mp3',
+    volume: 1.0,
+    overlayDuration: 10,
+    overlayText: '💰 {username} donated {amount} {currency}!',
+    overlayColor: '#D4AF37',
+    ttsEnabled: true,
+    ttsText: '{username} donated {amount} {currency}! Thank you so much!'
+  },
+  {
+    type: 'gift',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/03/15/audio_942a2892e3.mp3',
+    volume: 0.9,
+    overlayDuration: 8,
+    overlayText: '🎁 {username} sent a gift!',
+    overlayColor: '#E74C3C',
+    ttsEnabled: true,
+    ttsText: '{username} sent a gift! Amazing!'
+  },
+  {
+    type: 'raid',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/07/26/audio_6d87e5e8e4.mp3',
+    volume: 1.0,
+    overlayDuration: 15,
+    overlayText: '⚔️ {username} is raiding with {amount} viewers!',
+    overlayColor: '#E67E22',
+    ttsEnabled: true,
+    ttsText: 'Incoming raid from {username} with {amount} viewers! Welcome everyone!'
+  },
+  {
+    type: 'setup_found',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/10/30/audio_946c927ef5.mp3',
+    volume: 0.7,
+    overlayDuration: 6,
+    overlayText: '🎯 A+ Setup Found: {username}',
+    overlayColor: '#D4AF37',
+    ttsEnabled: false,
+    ttsText: ''
+  },
+  {
+    type: 'price_alert',
+    enabled: true,
+    soundUrl: 'https://cdn.pixabay.com/audio/2022/10/30/audio_946c927ef5.mp3',
+    volume: 0.8,
+    overlayDuration: 5,
+    overlayText: '🚨 {username} hit your price target!',
+    overlayColor: '#E74C3C',
+    ttsEnabled: true,
+    ttsText: 'Price alert triggered for {username}!'
+  }
+]
+
+class StreamAlertService {
+  private audioCache: Map<string, HTMLAudioElement> = new Map()
+  private alertQueue: StreamAlert[] = []
+  private isProcessing = false
+  private overlayCallback: ((alert: StreamAlert, config: AlertConfig) => void) | null = null
+  private configs: AlertConfig[] = this.loadConfigs()
+
+  loadConfigs(): AlertConfig[] {
+    try {
+      const saved = localStorage.getItem('jjnexus_alert_configs')
+      return saved ? JSON.parse(saved) : DEFAULT_ALERT_CONFIGS
+    } catch { return DEFAULT_ALERT_CONFIGS }
+  }
+
+  saveConfigs(configs: AlertConfig[]) {
+    this.configs = configs
+    localStorage.setItem('jjnexus_alert_configs', JSON.stringify(configs))
+  }
+
+  setOverlayCallback(cb: (alert: StreamAlert, config: AlertConfig) => void) {
+    this.overlayCallback = cb
+  }
+
+  // Preload all alert sounds
+  async preloadSounds() {
+    for (const config of this.configs) {
+      if (config.enabled && config.soundUrl && !this.audioCache.has(config.type)) {
+        try {
+          const audio = new Audio(config.soundUrl)
+          audio.volume = config.volume
+          audio.preload = 'auto'
+          await audio.load()
+          this.audioCache.set(config.type, audio)
+        } catch {}
+      }
+    }
+  }
+
+  // Play a specific alert sound
+  async playSound(type: AlertType, customUrl?: string) {
+    const config = this.configs.find(c => c.type === type)
+    if (!config?.enabled) return
+
+    try {
+      const url = customUrl || config.soundUrl
+      let audio = this.audioCache.get(type)
+
+      if (!audio || audio.src !== url) {
+        audio = new Audio(url)
+        this.audioCache.set(type, audio)
+      }
+
+      audio.volume = config.volume
+      audio.currentTime = 0
+      await audio.play()
+    } catch (e) {
+      console.warn('Alert sound failed:', e)
+      // Fallback: generate a tone with Web Audio API
+      this.generateAlertTone(type)
+    }
+  }
+
+  // Fallback tone generator when CDN sounds fail
+  generateAlertTone(type: AlertType) {
+    try {
+      const ctx = new AudioContext()
+      const tones: Record<AlertType, number[]> = {
+        follow: [440, 550, 660],
+        subscribe: [550, 660, 770, 880],
+        donate: [330, 440, 550, 660, 770],
+        gift: [440, 660, 880],
+        raid: [220, 330, 440, 550],
+        host: [440, 550],
+        comment: [440],
+        share: [440, 550],
+        setup_found: [880, 660, 880],
+        price_alert: [440, 880, 440],
+        custom: [440, 550, 660]
+      }
+
+      const frequencies = tones[type] || [440]
+      frequencies.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.frequency.value = freq
+        osc.type = 'sine'
+        gain.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.15)
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.4)
+        osc.start(ctx.currentTime + i * 0.15)
+        osc.stop(ctx.currentTime + i * 0.15 + 0.4)
+      })
+    } catch {}
+  }
+
+  // TTS announcement
+  speakAlert(text: string) {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = 1.0
+    utterance.pitch = 1.1
+    utterance.volume = 0.9
+    // Try to use a good voice
+    const voices = window.speechSynthesis.getVoices()
+    const preferredVoice = voices.find(v =>
+      v.name.includes('Google') || v.name.includes('Microsoft') || v.lang === 'en-US'
+    )
+    if (preferredVoice) utterance.voice = preferredVoice
+    window.speechSynthesis.speak(utterance)
+  }
+
+  // Process alert template (replace {username}, {amount} etc.)
+  processTemplate(template: string, alert: StreamAlert): string {
+    return template
+      .replace(/{username}/g, alert.username)
+      .replace(/{amount}/g, String(alert.amount || ''))
+      .replace(/{currency}/g, alert.currency || '')
+      .replace(/{message}/g, alert.message || '')
+  }
+
+  // Main alert trigger function
+  async triggerAlert(type: AlertType, data: Partial<StreamAlert>) {
+    const alert: StreamAlert = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type,
+      username: data.username || 'Anonymous',
+      message: data.message,
+      amount: data.amount,
+      currency: data.currency,
+      timestamp: new Date()
+    }
+
+    this.alertQueue.push(alert)
+    if (!this.isProcessing) this.processQueue()
+  }
+
+  private async processQueue() {
+    this.isProcessing = true
+
+    while (this.alertQueue.length > 0) {
+      const alert = this.alertQueue.shift()!
+      const config = this.configs.find(c => c.type === alert.type)
+      if (!config?.enabled) continue
+
+      // Play sound
+      await this.playSound(alert.type)
+
+      // Show overlay
+      if (this.overlayCallback) {
+        this.overlayCallback(alert, config)
+      }
+
+      // TTS
+      if (config.ttsEnabled && config.ttsText) {
+        const ttsText = this.processTemplate(config.ttsText, alert)
+        setTimeout(() => this.speakAlert(ttsText), 500) // delay TTS slightly after sound
+      }
+
+      // Wait for overlay duration before next alert
+      await new Promise(resolve => setTimeout(resolve, (config.overlayDuration + 1) * 1000))
+    }
+
+    this.isProcessing = false
+  }
+
+  // Get config for a specific alert type
+  getConfig(type: AlertType): AlertConfig | undefined {
+    return this.configs.find(c => c.type === type)
+  }
+}
+
+export const streamAlertService = new StreamAlertService()
+```
+
+**Stream Alert Overlay Component:**
+
+```typescript
+// src/components/streaming/StreamAlertOverlay.tsx
+// This renders on top of the stream canvas
+
+export default function StreamAlertOverlay() {
+  const [activeAlert, setActiveAlert] = useState<{ alert: StreamAlert; config: AlertConfig } | null>(null)
+  const [particles, setParticles] = useState(false)
+
+  useEffect(() => {
+    streamAlertService.setOverlayCallback((alert, config) => {
+      setActiveAlert({ alert, config })
+      setParticles(true)
+
+      // Auto-clear after overlay duration
+      setTimeout(() => {
+        setActiveAlert(null)
+        setParticles(false)
+      }, config.overlayDuration * 1000)
+    })
+  }, [])
+
+  if (!activeAlert) return null
+
+  const { alert, config } = activeAlert
+  const text = streamAlertService.processTemplate(config.overlayText, alert)
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '15%',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 99999,
+      pointerEvents: 'none'
+    }}>
+      <div style={{
+        background: 'rgba(0,0,0,0.85)',
+        border: `3px solid ${config.overlayColor}`,
+        borderRadius: 16,
+        padding: '20px 40px',
+        textAlign: 'center',
+        boxShadow: `0 0 40px ${config.overlayColor}88`,
+        animation: 'alertPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+        minWidth: 320
+      }}>
+        <div style={{
+          fontSize: 32,
+          fontWeight: 800,
+          color: config.overlayColor,
+          fontFamily: 'var(--font-sans)',
+          textShadow: `0 0 20px ${config.overlayColor}`,
+          marginBottom: 8
+        }}>
+          {text}
+        </div>
+        {alert.message && (
+          <div style={{
+            fontSize: 16,
+            color: '#fff',
+            opacity: 0.9,
+            fontStyle: 'italic'
+          }}>
+            "{alert.message}"
+          </div>
+        )}
+        {alert.amount && (
+          <div style={{
+            fontSize: 24,
+            fontWeight: 700,
+            color: '#D4AF37',
+            marginTop: 8
+          }}>
+            {alert.currency}{alert.amount}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+**Alert Settings Panel in Streaming Studio:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 🔔 STREAM ALERT SOUNDS                     [Test All Alerts]   │
+├─────────────────────────────────────────────────────────────────┤
+│ FOLLOW ALERT                           [✓] Enabled  [▶ Test]  │
+│ Sound: [Default ▼] [📁 Upload Custom]  Volume: ████░ 80%      │
+│ Overlay text: [❤️ {username} just followed!______________]     │
+│ Duration: [5s ▼]  TTS: [✓] "Thank you {username}..."         │
+│ Color: [●] #E91E8C  [Change]                                   │
+├─────────────────────────────────────────────────────────────────┤
+│ SUBSCRIBE ALERT                        [✓] Enabled  [▶ Test]  │
+│ Sound: [Default ▼] Volume: █████ 90%                          │
+│ Overlay: [🌟 {username} just subscribed!________________]      │
+│ Duration: [7s ▼]  TTS: [✓]  Color: [●] #9B59B6              │
+├─────────────────────────────────────────────────────────────────┤
+│ DONATION ALERT                         [✓] Enabled  [▶ Test]  │
+│ Sound: [Default ▼] Volume: █████ 100%                         │
+│ Overlay: [💰 {username} donated {amount} {currency}!_______]  │
+│ Duration: [10s ▼] TTS: [✓]  Color: [●] #D4AF37              │
+├─────────────────────────────────────────────────────────────────┤
+│ GIFT ALERT          RAID ALERT         [✓][✓] Enabled         │
+│ [▶ Test Gift]       [▶ Test Raid]                              │
+├─────────────────────────────────────────────────────────────────┤
+│ TRADING ALERTS                                                  │
+│ A+ Setup Found  [✓] Sound + Overlay    [▶ Test]               │
+│ Price Alert     [✓] Sound + TTS        [▶ Test]               │
+├─────────────────────────────────────────────────────────────────┤
+│ MANUAL TRIGGER (test during stream)                            │
+│ Username: [_____________]  Type: [Follow ▼]  [🔔 Fire Alert]  │
+│ Amount: [______]  Message: [_____________________]            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Manual alert trigger for live streaming (keyboard shortcut):**
+
+```typescript
+// Keyboard shortcuts for manual alerts during stream
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Only trigger when Alt key is held
+    if (!e.altKey) return
+
+    switch(e.key) {
+      case 'f': streamAlertService.triggerAlert('follow', { username: 'New Follower' }); break
+      case 's': streamAlertService.triggerAlert('subscribe', { username: 'New Subscriber' }); break
+      case 'd': streamAlertService.triggerAlert('donate', { username: 'Donor', amount: 5, currency: '$' }); break
+      case 'g': streamAlertService.triggerAlert('gift', { username: 'Gift Sender' }); break
+      case 'r': streamAlertService.triggerAlert('raid', { username: 'Raider', amount: 50 }); break
+    }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  return () => window.removeEventListener('keydown', handleKeyDown)
+}, [])
+```
+
+---
+
+**=== UPGRADE 4: NEW PRO TOOLS TO ADD ===**
+
+**Tool A: Morning Briefing Page** (`/morning-briefing`)
+
+```typescript
+// Auto-generates on app open if between 05:00-10:00 user's local time
+// Shows:
+// 1. Overnight price moves for all watchlist pairs (% change from yesterday close)
+// 2. Key levels broken overnight (structure events)
+// 3. Today's high-impact economic events with times
+// 4. AI recommendation: top 2 pairs to watch today + why
+// 5. Session that is currently active or opening soon
+// 6. Yesterday's top setup recap
+
+const generateMorningBriefing = async (prices: Record<string, number>) => {
+  const topMovers = Object.entries(prices)
+    .map(([pair, price]) => ({ pair, price }))
+    .sort((a, b) => Math.abs(b.price) - Math.abs(a.price))
+    .slice(0, 5)
+
+  const response = await callAlchemistAI(`
+Generate a professional morning trading briefing.
+Today: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Current time: ${new Date().toLocaleTimeString()}
+
+Current prices:
+XAUUSD: ${prices.XAUUSD || 'fetching'}
+EURUSD: ${prices.EURUSD || 'fetching'}
+GBPUSD: ${prices.GBPUSD || 'fetching'}
+US30: ${prices.US30 || 'fetching'}
+
+Provide:
+## 🌅 Good Morning, Trader
+
+## 📊 Overnight Market Summary
+[What moved significantly overnight and why]
+
+## 🎯 Top 2 Pairs to Watch Today
+[Pair 1 + specific reason based on current price]
+[Pair 2 + specific reason]
+
+## ⚠️ Key Levels to Watch
+[3-5 specific price levels across major pairs]
+
+## 📅 Today's Risk Events
+[High impact news events today with estimated times]
+
+## 💡 Today's Alchemist Focus
+[One specific strategy tip for today's market conditions]
+
+Keep it concise — a trader should read this in 60 seconds.
+  `, prices.XAUUSD, 'XAUUSD')
+
+  return response
+}
+```
+
+**Tool B: Smart Fibonacci Engine** (`/smc-tools` Tab)
+
+```typescript
+// User selects a pair, AI identifies the correct swing and gives exact Fib levels
+const getFibonacciLevels = async (pair: string, livePrice: number) => {
+  return callAlchemistAI(`
+Calculate Fibonacci retracement levels for ${pair} at current price ${livePrice}.
+
+Identify the most recent significant impulse move (the swing that defines the current trend).
+Then provide:
+
+## 📐 FIBONACCI LEVELS — ${pair}
+
+**Swing identified:** [High: X] to [Low: Y] (or Low to High for bullish)
+**Impulse direction:** Bullish/Bearish
+
+| Level | Price | Significance |
+|-------|-------|-------------|
+| 0% (Swing High/Low) | [price] | Extreme |
+| 23.6% | [price] | Minor retracement |
+| 38.2% | [price] | Moderate retracement |
+| 50% | [price] | Equilibrium — key level |
+| 61.8% | [price] | Golden ratio — OTE zone start |
+| 70.5% | [price] | OTE zone |
+| 78.6% | [price] | OTE zone end — deep retracement |
+| 88.6% | [price] | Very deep — near invalidation |
+| 100% | [price] | Full retracement — invalidation |
+
+## 🎯 OPTIMAL TRADE ENTRY (OTE) ZONE
+**Entry zone:** [61.8% price] — [78.6% price]
+**This is the Alchemist sweet spot for entries**
+
+## 💡 How to Use These Levels
+[Specific instructions for using these fibs with OBs and FVGs]
+  `, livePrice, pair)
+}
+```
+
+**Tool C: Prop Firm Challenge Tracker** (`/discipline` page — new tab)
+
+```typescript
+interface PropFirmChallenge {
+  firmName: string // FTMO, MyForexFunds, The5ers, etc.
+  accountSize: number
+  maxDailyLoss: number // usually 5%
+  maxTotalLoss: number // usually 10%
+  profitTarget: number // usually 8-10%
+  currentBalance: number
+  startBalance: number
+  startDate: Date
+  trades: JournalTrade[]
+  status: 'active' | 'passed' | 'failed'
+}
+
+// Real-time tracking
+const challengeStats = {
+  currentPnL: challenge.currentBalance - challenge.startBalance,
+  pnlPercent: ((challenge.currentBalance - challenge.startBalance) / challenge.startBalance) * 100,
+  dailyPnL: calculateTodayPnL(challenge.trades),
+  dailyPnLPercent: (calculateTodayPnL(challenge.trades) / challenge.startBalance) * 100,
+  remainingDailyLoss: challenge.maxDailyLoss - Math.abs(Math.min(0, calculateTodayPnL(challenge.trades) / challenge.startBalance * 100)),
+  remainingTotalLoss: challenge.maxTotalLoss - Math.abs(Math.min(0, ((challenge.currentBalance - challenge.startBalance) / challenge.startBalance) * 100)),
+  progressToTarget: ((challenge.currentBalance - challenge.startBalance) / challenge.startBalance) * 100 / challenge.profitTarget * 100,
+}
+
+// Alert thresholds
+if (challengeStats.dailyPnLPercent < -challenge.maxDailyLoss * 0.7) {
+  streamAlertService.triggerAlert('price_alert', {
+    username: `⚠️ PROP CHALLENGE WARNING`,
+    message: `You are at ${challengeStats.dailyPnLPercent.toFixed(2)}% daily loss. Limit is ${challenge.maxDailyLoss}%. STOP TRADING TODAY.`
+  })
+}
+```
+
+**Tool D: Analysis PDF Export** (add to Alchemist AI page and Telegram bot page)
+
+```typescript
+// Install: npm install jspdf
+import { jsPDF } from 'jspdf'
+
+const exportAnalysisPDF = (pair: string, analysis: string, price: number) => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  // Header
+  doc.setFillColor(10, 10, 10)
+  doc.rect(0, 0, 210, 297, 'F')
+
+  doc.setTextColor(212, 175, 55) // Gold color
+  doc.setFontSize(24)
+  doc.setFont('helvetica', 'bold')
+  doc.text('JJ NEXUS PRO', 15, 20)
+
+  doc.setFontSize(14)
+  doc.setTextColor(255, 255, 255)
+  doc.text(`${pair} Analysis Report`, 15, 30)
+
+  doc.setFontSize(10)
+  doc.setTextColor(150, 150, 150)
+  doc.text(`Live Price: $${price.toFixed(2)} | Generated: ${new Date().toLocaleString()}`, 15, 38)
+
+  doc.setFontSize(10)
+  doc.setTextColor(220, 220, 220)
+
+  // Analysis text (split into lines)
+  const lines = doc.splitTextToSize(
+    analysis.replace(/[#*]/g, '').replace(/─+/g, '---'),
+    180
+  )
+
+  let yPosition = 50
+  lines.forEach((line: string) => {
+    if (yPosition > 280) {
+      doc.addPage()
+      doc.setFillColor(10, 10, 10)
+      doc.rect(0, 0, 210, 297, 'F')
+      yPosition = 20
+    }
+
+    // Color section headers differently
+    if (line.includes('MARKET STRUCTURE') || line.includes('ORDER BLOCKS') ||
+        line.includes('TRADE PLAN') || line.includes('FUNDAMENTAL')) {
+      doc.setTextColor(212, 175, 55)
+      doc.setFont('helvetica', 'bold')
+    } else {
+      doc.setTextColor(220, 220, 220)
+      doc.setFont('helvetica', 'normal')
+    }
+
+    doc.text(line, 15, yPosition)
+    yPosition += 5
+  })
+
+  // Footer
+  doc.setTextColor(100, 100, 100)
+  doc.setFontSize(8)
+  doc.text('— Alchemist AI | JJ NEXUS PRO | Not financial advice', 15, 290)
+
+  doc.save(`${pair}-analysis-${Date.now()}.pdf`)
+}
+```
+
+**Tool E: Signal Card Image Generator** (add to Telegram bot and Watchlist)
+
+```typescript
+// Generate a beautiful branded image card for social media sharing
+const generateSignalCard = async (
+  pair: string,
+  bias: string,
+  probability: number,
+  entry: string,
+  sl: string,
+  tp1: string,
+  rr: number,
+  price: number
+): Promise<string> => {
+
+  const canvas = document.createElement('canvas')
+  canvas.width = 1080
+  canvas.height = 1080
+  const ctx = canvas.getContext('2d')!
+
+  // Dark background
+  ctx.fillStyle = '#0a0a0a'
+  ctx.fillRect(0, 0, 1080, 1080)
+
+  // Gold border
+  ctx.strokeStyle = '#D4AF37'
+  ctx.lineWidth = 8
+  ctx.strokeRect(20, 20, 1040, 1040)
+
+  // Inner border
+  ctx.strokeStyle = 'rgba(212,175,55,0.3)'
+  ctx.lineWidth = 2
+  ctx.strokeRect(35, 35, 1010, 1010)
+
+  // Logo
+  ctx.fillStyle = '#D4AF37'
+  ctx.font = 'bold 36px Arial'
+  ctx.fillText('JJ NEXUS PRO', 60, 90)
+
+  // Pair name
+  ctx.fillStyle = '#FFFFFF'
+  ctx.font = 'bold 80px Arial'
+  ctx.fillText(pair, 60, 200)
+
+  // Bias with color
+  ctx.fillStyle = bias.includes('Bullish') ? '#16a34a' : '#dc2626'
+  ctx.font = 'bold 60px Arial'
+  const biasText = bias.includes('Bullish') ? '📈 BULLISH' : '📉 BEARISH'
+  ctx.fillText(biasText, 60, 300)
+
+  // Price
+  ctx.fillStyle = '#D4AF37'
+  ctx.font = 'bold 40px Arial'
+  ctx.fillText(`Live Price: $${price.toFixed(2)}`, 60, 380)
+
+  // Probability
+  ctx.fillStyle = '#FFFFFF'
+  ctx.font = 'bold 50px Arial'
+  ctx.fillText(`Probability: ${probability}%`, 60, 460)
+
+  // Trade plan box
+  ctx.fillStyle = 'rgba(212,175,55,0.1)'
+  ctx.strokeStyle = '#D4AF37'
+  ctx.lineWidth = 2
+  roundedRect(ctx, 60, 500, 960, 360, 16)
+  ctx.fill()
+  ctx.stroke()
+
+  ctx.fillStyle = '#D4AF37'
+  ctx.font = 'bold 36px Arial'
+  ctx.fillText('TRADE PLAN', 100, 555)
+
+  ctx.fillStyle = '#FFFFFF'
+  ctx.font = '32px Arial'
+  ctx.fillText(`Entry: ${entry}`, 100, 610)
+  ctx.fillText(`Stop Loss: ${sl}`, 100, 660)
+  ctx.fillText(`Take Profit 1: ${tp1}`, 100, 710)
+  ctx.fillText(`Risk:Reward: 1:${rr}`, 100, 760)
+
+  // Bottom watermark
+  ctx.fillStyle = 'rgba(212,175,55,0.6)'
+  ctx.font = '24px Arial'
+  ctx.fillText('— Alchemist AI | JJ NEXUS PRO | Not financial advice', 60, 980)
+
+  return canvas.toDataURL('image/png', 0.95)
+}
+
+// Helper
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+```
+
+Add "Share Card" button to: Watchlist pair detail panel, Alchemist AI analysis result, Telegram bot page, Scanner top setups.
+
+---
+
+**=== UPGRADE 5: KEYBOARD SHORTCUTS SYSTEM ===**
+
+Create `src/hooks/useKeyboardShortcuts.ts`:
+
+```typescript
+// Global keyboard shortcuts for power users
+export function useKeyboardShortcuts() {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger when Ctrl/Cmd + Alt are held
+      if (!e.ctrlKey && !e.metaKey) return
+
+      switch(e.key.toLowerCase()) {
+        case 'g': // Ctrl+G = analyze Gold
+          e.preventDefault()
+          sendPromptToAlchemist('Analyze XAUUSD - full Alchemist analysis')
+          navigateTo('/alchemist')
+          break
+        case 'e': // Ctrl+E = analyze EURUSD
+          e.preventDefault()
+          sendPromptToAlchemist('Analyze EURUSD - full Alchemist analysis')
+          navigateTo('/alchemist')
+          break
+        case 'b': // Ctrl+B = analyze GBPUSD
+          e.preventDefault()
+          sendPromptToAlchemist('Analyze GBPUSD')
+          navigateTo('/alchemist')
+          break
+        case ' ': // Ctrl+Space = run full analysis on current pair
+          e.preventDefault()
+          runFullAnalysisOnCurrentPair()
+          break
+        case 's': // Ctrl+S = open scanner
+          e.preventDefault()
+          navigateTo('/scanner')
+          break
+        case 'r': // Ctrl+R = refresh all prices
+          e.preventDefault()
+          refreshAllPrices()
+          break
+        case 't': // Ctrl+T = open telegram bot
+          e.preventDefault()
+          navigateTo('/telegram-bot')
+          break
+        case 'm': // Ctrl+M = toggle music
+          e.preventDefault()
+          toggleMusic()
+          break
+        case 'f': // Ctrl+F = focus mode toggle
+          e.preventDefault()
+          toggleFocusMode()
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+}
+```
+
+Show a keyboard shortcuts help panel (press `?` key to open) listing all shortcuts.
+
+---
+
+**=== UPGRADE 6: FOCUS MODE ===**
+
+```typescript
+// When focus mode is active:
+// - Hide sidebar completely
+// - Hide top navigation
+// - Show only: TradingView chart + AI panel
+// - Minimal toolbar at very top: pair switcher + exit focus mode button + price display
+// - All other UI disappears
+// Toggle with Ctrl+F or button in top nav
+
+const FocusMode = () => (
+  <div style={{
+    position: 'fixed', inset: 0, zIndex: 9000,
+    background: '#0a0a0a',
+    display: 'flex', flexDirection: 'column'
+  }}>
+    {/* Minimal top bar */}
+    <div style={{
+      height: 44, display: 'flex', alignItems: 'center',
+      padding: '0 16px', gap: 12,
+      borderBottom: '1px solid rgba(212,175,55,0.2)'
+    }}>
+      <span style={{ color: '#D4AF37', fontWeight: 700, fontSize: 14 }}>JJ NEXUS PRO</span>
+      <ChartSymbolSwitcher currentSymbol={symbol} onSymbolChange={setSymbol} />
+      <span style={{ color: '#fff', fontSize: 14 }}>
+        {symbol}: ${prices[symbol]?.toFixed(2) || '—'}
+      </span>
+      <span style={{ marginLeft: 'auto' }} />
+      <button onClick={exitFocusMode} style={{
+        padding: '4px 12px', background: 'transparent',
+        border: '1px solid rgba(212,175,55,0.4)',
+        borderRadius: 6, color: '#D4AF37', cursor: 'pointer', fontSize: 12
+      }}>
+        Exit Focus Mode (Ctrl+F)
+      </button>
+    </div>
+
+    {/* Chart + AI split */}
+    <div style={{ flex: 1, display: 'flex' }}>
+      <div style={{ flex: 1 }}>
+        <TradingViewWidget symbol={symbol} />
+      </div>
+      <div style={{ width: 380, borderLeft: '1px solid rgba(212,175,55,0.2)', overflowY: 'auto' }}>
+        <AlchemistAIPanel compact />
+      </div>
+    </div>
+  </div>
+)
+```
+
+---
+
+**=== EXECUTION ORDER — COMPLETE EVERYTHING ===**
+
+```
+1.  npm install html2canvas jspdf canvas-confetti
+2.  Confirm app runs perfectly on npm run dev
+3.  Rebuild TelegramBotPage.tsx — full analysis + signal modes + multi-target
+4.  Add verifyBotToken and verifyChatId functions
+5.  Add pin message functionality
+6.  Add scheduled send system with localStorage
+7.  Create src/utils/setupScanner.ts with scorePair and scanAllPairs
+8.  Create src/pages/TradeSetupScannerPage.tsx with full UI
+9.  Add scanner route /scanner to router
+10. Add scanner to sidebar under AI TOOLS section
+11. Create src/services/StreamAlertService.ts with full audio system
+12. Create src/components/streaming/StreamAlertOverlay.tsx
+13. Create src/components/streaming/StreamAlertsSettings.tsx
+14. Add StreamAlertOverlay to the main App component (renders globally)
+15. Add StreamAlertsSettings to the Streaming Studio sidebar
+16. Add keyboard shortcuts Alt+F/S/D/G/R for manual alert triggers in Studio
+17. Create /morning-briefing page with auto-generation
+18. Add Smart Fibonacci Engine tab to SMC Tools page
+19. Add Prop Firm Challenge Tracker to Discipline page
+20. Create exportAnalysisPDF function and add Export PDF button to Alchemist AI page
+21. Create generateSignalCard function and add Share Card button everywhere
+22. Create useKeyboardShortcuts hook and add to App.tsx
+23. Create Focus Mode component and add toggle to top nav
+24. Add keyboard shortcuts help panel (press ? key)
+25. Update sidebar navigation with Morning Briefing and Scanner
+26. npm run build — fix ALL TypeScript errors — must build cleanly
+27. Test each feature: scanner finds setups, alert sounds play, Telegram sends both modes
+28. Report done — confirm scanner works, alert sounds play, Telegram sends full analysis
+```
+
+---
+
+**FINAL CHECK — before reporting done, verify:**
+- Trade Setup Scanner scans 15 pairs and shows top 3 ranked setups
+- Scanner A+ auto-send to Telegram works
+- Telegram bot sends FULL ANALYSIS (not just signal) with chart screenshot to both channels and groups
+- Telegram bot SIGNAL ONLY mode sends concise signal format
+- Stream alert sounds play on follow/subscribe/donate/gift/raid events
+- Stream alert overlay appears on screen with animation
+- TTS speaks alert text after sound plays
+- Manual alert trigger buttons work in Studio settings
+- PDF export downloads a real formatted PDF
+- Signal card generates a branded image
+- Focus mode hides all UI except chart and AI
+- Keyboard shortcuts work (Ctrl+G for Gold, Ctrl+S for scanner etc.)
+- Morning briefing generates on page load

@@ -1,0 +1,1029 @@
+Here's the complete regenerated prompt with the new name:
+
+---
+
+**JJ NEXUS PRO — CAMERA, STREAMING & AI FINAL UPGRADE**
+
+I have uploaded my JJ Nexus Pro project ZIP. Please install dependencies, run the app, and then apply all the upgrades below. This is a React + Vite + TypeScript app. The app must be fully rebranded as **"JJ NEXUS PRO"** — replace every instance of "EthioStream Pro", "Deep Work Studio", or any other old name throughout the entire codebase, UI, titles, meta tags, and comments.
+
+**MY ANTHROPIC API KEY:** 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
+
+Store in `.env` as `VITE_ANTHROPIC_API_KEY`. App reads from `localStorage('jjnexus_api_key')` first, then falls back to env.
+
+**First run:** `npm install` then `npm run dev` and confirm the app loads before making any changes.
+
+---
+
+**=== STEP 0 — FULL REBRAND TO JJ NEXUS PRO ===**
+
+Before any other change, do a global find-and-replace across ALL files:
+
+- "EthioStream Pro" → "JJ NEXUS PRO"
+- "EthioStream" → "JJ NEXUS"
+- "Deep Work Studio" → "JJ NEXUS PRO"
+- "ethiostream" → "jjnexus"
+- "The Debug Squad" → "JJ NEXUS PRO • 2026"
+- Update `index.html` title tag to: `<title>JJ NEXUS PRO — Forex Live Streaming & Trading Command Center</title>`
+- Update `package.json` name to: `"jj-nexus-pro"`
+- Update all page headings, sidebar logo, loading screen, and footer text
+- The app logo/wordmark displayed in the top navigation must say **"JJ NEXUS PRO"** in gold (#D4AF37)
+
+---
+
+**=== PRIORITY 1 — FIX ALL CAMERA MODES & PiP ===**
+
+The single most important fix. Every camera layout/scene must show a real live video feed.
+
+**Picture-in-Picture (PiP) — Trading Chart + Face:**
+
+This is the flagship mode. Build it properly:
+
+```
+Layout: Full TradingView chart fills the entire background (100% width, 100% height)
+        User's webcam face appears as a floating draggable rounded rectangle
+        PiP window: 240px × 180px, positioned bottom-right by default
+        PiP must be: draggable anywhere on screen, resizable (drag corner),
+        minimizable to just a 48px avatar circle
+        The PiP shows REAL live webcam video — not a placeholder
+```
+
+Create `src/components/streaming/PiPCameraWindow.tsx`:
+
+```typescript
+import { useRef, useEffect, useState } from 'react'
+import { useCamera } from '../../context/CameraContext'
+
+export default function PiPCameraWindow() {
+  const { stream, filters } = useCamera()
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [pos, setPos] = useState({ x: window.innerWidth - 260, y: window.innerHeight - 220 })
+  const [size, setSize] = useState({ w: 240, h: 180 })
+  const [minimized, setMinimized] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play()
+    }
+  }, [stream])
+
+  const filterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
+  const transformString = `scale(${filters.zoom}) ${filters.flipped ? 'scaleX(-1)' : ''}`
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    setDragging(true)
+    dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y }
+  }
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging) return
+      let nx = e.clientX - dragOffset.current.x
+      let ny = e.clientY - dragOffset.current.y
+      if (nx < 0) nx = 0
+      if (ny < 0) ny = 0
+      if (nx > window.innerWidth - size.w) nx = window.innerWidth - size.w
+      if (ny > window.innerHeight - size.h) ny = window.innerHeight - size.h
+      setPos({ x: nx, y: ny })
+    }
+    const onUp = () => setDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging, size])
+
+  if (!stream) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        width: minimized ? 56 : size.w,
+        height: minimized ? 56 : size.h,
+        border: '2px solid #D4AF37',
+        borderRadius: minimized ? '50%' : 12,
+        overflow: 'hidden',
+        cursor: dragging ? 'grabbing' : 'grab',
+        boxShadow: '0 0 20px rgba(212,175,55,0.5), 0 0 40px rgba(212,175,55,0.2)',
+        animation: 'pipGlow 2s ease-in-out infinite alternate',
+        transition: 'width 0.2s, height 0.2s, border-radius 0.2s'
+      }}
+      onMouseDown={onMouseDown}
+      onDoubleClick={() => setMinimized(!minimized)}
+    >
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          filter: filterString,
+          transform: transformString,
+          display: 'block'
+        }}
+      />
+      {!minimized && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            background: 'rgba(0,0,0,0.7)',
+            borderRadius: 4,
+            padding: '2px 8px',
+            color: '#D4AF37',
+            fontSize: 11,
+            cursor: 'pointer',
+            fontWeight: 600
+          }}
+          onClick={(e) => { e.stopPropagation(); setMinimized(true) }}
+        >
+          —
+        </div>
+      )}
+      {!minimized && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            left: 4,
+            background: 'rgba(0,0,0,0.7)',
+            borderRadius: 4,
+            padding: '2px 8px',
+            color: '#D4AF37',
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: 1
+          }}
+        >
+          JJ NEXUS PRO
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+Add this CSS to globals.css:
+
+```css
+@keyframes pipGlow {
+  from { box-shadow: 0 0 20px rgba(212,175,55,0.4), 0 0 40px rgba(212,175,55,0.1); }
+  to   { box-shadow: 0 0 30px rgba(212,175,55,0.7), 0 0 60px rgba(212,175,55,0.3); }
+}
+```
+
+**All Other Scene Modes — every one must use real camera:**
+
+```typescript
+// In StreamingStudio.tsx — scene switcher:
+const renderScene = () => {
+  switch (activeScene) {
+    case 'pip':
+      return (
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          <TradingViewWidget style={{ width: '100%', height: '100%' }} />
+          <PiPCameraWindow />
+        </div>
+      )
+    case 'face-chart':
+      return (
+        <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+          <CameraPreview style={{ width: '40%', height: '100%' }} />
+          <TradingViewWidget style={{ width: '60%', height: '100%' }} />
+        </div>
+      )
+    case 'full-chart':
+      return <TradingViewWidget style={{ width: '100%', height: '100%' }} />
+    case 'full-camera':
+      return <CameraPreview style={{ width: '100%', height: '100%' }} />
+    case 'vertical':
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+          <TradingViewWidget style={{ width: '100%', height: '60%' }} />
+          <CameraPreview style={{ width: '100%', height: '40%' }} />
+        </div>
+      )
+    case 'side-by-side':
+      return (
+        <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+          <TradingViewWidget style={{ width: '50%', height: '100%' }} />
+          <CameraPreview style={{ width: '50%', height: '100%' }} />
+        </div>
+      )
+    default:
+      return <TradingViewWidget style={{ width: '100%', height: '100%' }} />
+  }
+}
+```
+
+Create a reusable `CameraPreview.tsx` that reads the stream from CameraContext:
+
+```typescript
+import { useRef, useEffect } from 'react'
+import { useCamera } from '../../context/CameraContext'
+
+export default function CameraPreview({ style }: { style?: React.CSSProperties }) {
+  const { stream, filters, error } = useCamera()
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream
+      videoRef.current.play()
+    }
+  }, [stream])
+
+  const filterString = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturation}%)`
+  const transformString = `scale(${filters.zoom}) ${filters.flipped ? 'scaleX(-1)' : ''}`
+
+  if (error) {
+    return (
+      <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#0a0a0a', color: '#D4AF37', flexDirection: 'column', gap: 12, padding: 24 }}>
+        <span style={{ fontSize: 40 }}>📷</span>
+        <p style={{ textAlign: 'center', fontSize: 14 }}>{error}</p>
+        <p style={{ fontSize: 12, color: '#888', textAlign: 'center' }}>
+          Go to browser Settings → Privacy → Camera → Allow for this site
+        </p>
+      </div>
+    )
+  }
+
+  if (!stream) {
+    return (
+      <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#0a0a0a', color: '#666', flexDirection: 'column', gap: 12 }}>
+        <span style={{ fontSize: 40 }}>🎥</span>
+        <p style={{ fontSize: 14 }}>No camera active</p>
+      </div>
+    )
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      muted
+      playsInline
+      style={{
+        ...style,
+        objectFit: 'cover',
+        filter: filterString,
+        transform: transformString,
+        display: 'block'
+      }}
+    />
+  )
+}
+```
+
+**Create `src/context/CameraContext.tsx` — shared camera stream:**
+
+```typescript
+import { createContext, useContext, useRef, useState, useEffect, ReactNode } from 'react'
+
+interface CameraFilters {
+  brightness: number
+  contrast: number
+  saturation: number
+  zoom: number
+  flipped: boolean
+}
+
+interface CameraContextType {
+  stream: MediaStream | null
+  screenStream: MediaStream | null
+  devices: MediaDeviceInfo[]
+  selectedDevice: string
+  error: string
+  filters: CameraFilters
+  isActive: boolean
+  startCamera: (deviceId?: string) => Promise<void>
+  stopCamera: () => void
+  startScreenShare: () => Promise<void>
+  stopScreenShare: () => void
+  setSelectedDevice: (id: string) => void
+  setFilters: (f: Partial<CameraFilters>) => void
+}
+
+const CameraContext = createContext<CameraContextType | null>(null)
+
+export function CameraProvider({ children }: { children: ReactNode }) {
+  const [stream, setStream] = useState<MediaStream | null>(null)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDevice, setSelectedDevice] = useState<string>('')
+  const [error, setError] = useState<string>('')
+  const [isActive, setIsActive] = useState(false)
+  const [filters, setFiltersState] = useState<CameraFilters>({
+    brightness: 100, contrast: 100, saturation: 100, zoom: 1, flipped: false
+  })
+
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices()
+      .then(all => setDevices(all.filter(d => d.kind === 'videoinput')))
+      .catch(() => {})
+  }, [])
+
+  const startCamera = async (deviceId?: string) => {
+    try {
+      if (stream) stream.getTracks().forEach(t => t.stop())
+      const constraints: MediaStreamConstraints = {
+        video: deviceId
+          ? { deviceId: { exact: deviceId }, width: 1280, height: 720 }
+          : { width: 1280, height: 720 },
+        audio: true
+      }
+      const s = await navigator.mediaDevices.getUserMedia(constraints)
+      setStream(s)
+      setIsActive(true)
+      setError('')
+      // Re-enumerate after permission granted to get labels
+      const all = await navigator.mediaDevices.enumerateDevices()
+      setDevices(all.filter(d => d.kind === 'videoinput'))
+    } catch (e: any) {
+      setIsActive(false)
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        setError('Camera permission denied. Please allow camera access in your browser settings and refresh.')
+      } else if (e.name === 'NotFoundError') {
+        setError('No camera detected. Please connect a camera and try again.')
+      } else {
+        setError(`Camera error: ${e.message}`)
+      }
+    }
+  }
+
+  const stopCamera = () => {
+    stream?.getTracks().forEach(t => t.stop())
+    setStream(null)
+    setIsActive(false)
+  }
+
+  const startScreenShare = async () => {
+    try {
+      const s = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30 },
+        audio: true
+      })
+      s.getVideoTracks()[0].onended = () => setScreenStream(null)
+      setScreenStream(s)
+    } catch (e: any) {
+      if (e.name !== 'NotAllowedError') {
+        setError(`Screen share error: ${e.message}`)
+      }
+    }
+  }
+
+  const stopScreenShare = () => {
+    screenStream?.getTracks().forEach(t => t.stop())
+    setScreenStream(null)
+  }
+
+  const setFilters = (f: Partial<CameraFilters>) => {
+    setFiltersState(prev => ({ ...prev, ...f }))
+  }
+
+  return (
+    <CameraContext.Provider value={{
+      stream, screenStream, devices, selectedDevice, error, filters,
+      isActive, startCamera, stopCamera, startScreenShare, stopScreenShare,
+      setSelectedDevice, setFilters
+    }}>
+      {children}
+    </CameraContext.Provider>
+  )
+}
+
+export const useCamera = () => {
+  const ctx = useContext(CameraContext)
+  if (!ctx) throw new Error('useCamera must be used within CameraProvider')
+  return ctx
+}
+```
+
+Wrap `App.tsx` with `<CameraProvider>` at the root level.
+
+---
+
+**=== PRIORITY 2 — FIX ALL STREAMING MODES ===**
+
+**Real Recording:**
+
+```typescript
+const startRecording = (canvasRef: React.RefObject<HTMLCanvasElement>, cameraStream: MediaStream | null) => {
+  if (!canvasRef.current) return
+
+  const canvasStream = canvasRef.current.captureStream(30)
+
+  // Mix in audio from camera
+  cameraStream?.getAudioTracks().forEach(t => canvasStream.addTrack(t))
+
+  const recorder = new MediaRecorder(canvasStream, {
+    mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9'
+      : 'video/webm'
+  })
+
+  const chunks: Blob[] = []
+
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) {
+      chunks.push(e.data)
+      const totalMB = (chunks.reduce((a, b) => a + b.size, 0) / 1024 / 1024).toFixed(1)
+      setRecordingSize(`${totalMB} MB`)
+    }
+  }
+
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `jjnexus-pro-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.webm`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  recorder.start(1000)
+  setMediaRecorder(recorder)
+  setIsRecording(true)
+
+  let secs = 0
+  const timer = setInterval(() => {
+    secs++
+    const m = String(Math.floor(secs / 60)).padStart(2, '0')
+    const s = String(secs % 60).padStart(2, '0')
+    setRecordingTime(`${m}:${s}`)
+  }, 1000)
+  setRecordingTimer(timer)
+}
+```
+
+**Real FPS measurement:**
+
+```typescript
+useEffect(() => {
+  let frameCount = 0
+  let lastTime = performance.now()
+  let rafId: number
+
+  const measure = () => {
+    frameCount++
+    const now = performance.now()
+    if (now - lastTime >= 1000) {
+      setFps(frameCount)
+      frameCount = 0
+      lastTime = now
+    }
+    rafId = requestAnimationFrame(measure)
+  }
+
+  rafId = requestAnimationFrame(measure)
+  return () => cancelAnimationFrame(rafId)
+}, [])
+```
+
+**Real resolution from stream:**
+
+```typescript
+const getResolution = (stream: MediaStream | null) => {
+  if (!stream) return 'No signal'
+  const track = stream.getVideoTracks()[0]
+  if (!track) return 'No video track'
+  const { width, height } = track.getSettings()
+  return `${width ?? '?'}×${height ?? '?'}`
+}
+```
+
+**TikTok/YouTube/Instagram buttons — honest modal:**
+
+Do NOT fake going live. Show this modal when clicked:
+
+```
+┌─────────────────────────────────────────┐
+│  📡 Stream to [Platform]                │
+│                                         │
+│  RTMP URL:  [________________]          │
+│  Stream Key: [________________]  👁      │
+│                                         │
+│  How to go live:                        │
+│  1. Copy your stream key from [platform]│
+│  2. Open OBS Studio                     │
+│  3. Settings → Stream → Custom          │
+│  4. Paste the RTMP URL and Stream Key   │
+│  5. Click "Start Streaming" in OBS      │
+│                                         │
+│  [Copy RTMP URL]  [Open OBS Download]   │
+└─────────────────────────────────────────┘
+```
+
+---
+
+**=== PRIORITY 3 — ALCHEMIST AI: REAL & CURRENT ===**
+
+Replace `src/utils/claudeAPI.ts` entirely with:
+
+```typescript
+const getApiKey = () =>
+  localStorage.getItem('jjnexus_api_key') ||
+  import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+
+const getToday = () => new Date().toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+})
+
+export async function callAlchemistAI(userMessage: string): Promise<string> {
+  const apiKey = getApiKey()
+  if (!apiKey) throw new Error('No API key found. Please add your Anthropic API key in Settings.')
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'interleaved-thinking-2025-05-14'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      system: `You are Alchemist AI — the elite trading intelligence inside JJ NEXUS PRO.
+
+TODAY'S DATE: ${getToday()}
+
+ABSOLUTE RULE: Before ANY price analysis, use web_search to find the current live market price.
+Search "[PAIR] price right now" or "[PAIR] live price ${getToday()}".
+YOUR TRAINING DATA PRICES ARE OUTDATED AND WRONG. XAUUSD is currently around $3,300+, not $2,090.
+Only use prices discovered via web_search. Never assume a price.
+
+After finding the price, search for latest news and analysis.
+Format responses with clear markdown sections. Be specific with exact price levels.
+Sign off every response with: "— Alchemist AI | JJ NEXUS PRO"`,
+      messages: [{ role: 'user', content: userMessage }]
+    })
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.content
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => b.text)
+    .join('\n')
+}
+
+export async function analyzeTechnical(pair: string): Promise<string> {
+  return callAlchemistAI(`Analyze ${pair} for trading.
+Step 1: Use web_search to find the EXACT current price of ${pair} right now.
+Step 2: Use web_search for "${pair} technical analysis today ${getToday()}"
+Step 3: Full Smart Money Concepts (SMC/ICT) analysis:
+- Current Market Structure (BOS/CHoCH — where is it?)
+- Key Order Blocks (bullish OB and bearish OB — exact price zones)
+- Fair Value Gaps (FVGs open on current timeframe)
+- Liquidity levels (equal highs, equal lows, stop hunt zones)
+- Current trend and momentum direction
+Step 4: Specific trade plan based on the CURRENT price you found:
+- Bias: Bullish / Bearish / Neutral
+- Entry zone: exact price range
+- Stop Loss: exact price with reasoning
+- Take Profit 1: exact price (1:1 R:R minimum)
+- Take Profit 2: exact price
+- Take Profit 3: exact price (full target)
+- Risk:Reward ratio
+- Confidence level: X%
+Format with clear section headers.`)
+}
+
+export async function analyzeFundamental(pair: string): Promise<string> {
+  const [base, quote] = [pair.slice(0, 3), pair.slice(3, 6)]
+  return callAlchemistAI(`Complete fundamental analysis for ${pair}.
+Use web_search for ALL of these:
+1. "${base} economic outlook ${getToday()}"
+2. "${quote} central bank latest interest rate decision"
+3. "USD DXY dollar index analysis today"
+4. "${pair} COT report institutional positioning latest"
+5. "major forex economic events this week impact ${pair}"
+6. "${base} inflation GDP employment data latest"
+
+Then provide:
+## Macro Overview
+- Economic health of ${base} currency
+- Economic health of ${quote} currency
+
+## Central Bank Policy
+- ${base} central bank: current rate, last decision, forward guidance
+- ${quote} central bank: current rate, last decision, forward guidance
+- Policy divergence direction
+
+## News Impact
+- Top 3 news items affecting ${pair} this week
+- Directional impact of each (bullish/bearish for ${base})
+
+## COT / Institutional Positioning
+- Are large speculators net long or short ${pair}?
+
+## Fundamental Score
+- ${base}: X/10
+- ${quote}: X/10
+- Overall fundamental bias: Bullish/Bearish/Neutral with reasoning
+
+## Key Upcoming Events
+- List next 3 high-impact events with dates`)
+}
+
+export async function analyzeConfluence(pair: string, technicalAnalysis: string, fundamentalAnalysis: string): Promise<string> {
+  return callAlchemistAI(`You have these analyses for ${pair}:
+
+TECHNICAL ANALYSIS:
+${technicalAnalysis}
+
+FUNDAMENTAL ANALYSIS:
+${fundamentalAnalysis}
+
+Today is ${getToday()}.
+
+Use web_search to verify: "${pair} trading signal forecast ${getToday()}"
+
+Now synthesize into a final trade decision:
+
+## CONFLUENCE SCORE
+Rate agreement between technical and fundamental: X/10
+
+## FINAL BIAS
+Strongly Bullish / Bullish / Neutral / Bearish / Strongly Bearish
+
+## PROBABILITY SCORE
+X% — explain what drives this number
+
+## TRADE PLAN
+- Optimal Entry: exact price or zone
+- Stop Loss: exact price with reasoning
+- TP1: exact price
+- TP2: exact price  
+- TP3: exact price
+- Risk:Reward: X:1
+- Position sizing suggestion: risk 1-2% of account
+
+## KEY RISKS
+What price action would invalidate this trade?
+
+## TRADE RATING
+⭐⭐⭐⭐⭐ (X/5 stars) — brief explanation
+
+Be direct. A trader must be able to act on this immediately.`)
+}
+
+export async function analyzeSentiment(pair: string): Promise<string> {
+  return callAlchemistAI(`Current market sentiment for ${pair}.
+Use web_search: "${pair} retail sentiment IG client sentiment"
+Use web_search: "${pair} institutional outlook today"
+Use web_search: "${pair} COT data latest"
+
+Respond ONLY in this exact JSON format, no other text:
+{
+  "sentiment": "Bullish",
+  "score": 72,
+  "retailLong": "58%",
+  "retailShort": "42%",
+  "institutionalBias": "Bullish",
+  "reason": "One clear sentence explaining the overall sentiment",
+  "keyLevel": "Most important price level to watch right now",
+  "lastUpdated": "${getToday()}"
+}`)
+}
+```
+
+---
+
+**=== PRIORITY 4 — ECONOMIC CALENDAR ===**
+
+```typescript
+// src/hooks/useEconomicCalendar.ts
+import { useState, useEffect } from 'react'
+
+export interface ForexEvent {
+  title: string
+  date: string
+  impact: 'High' | 'Medium' | 'Low'
+  currency: string
+  forecast: string
+  previous: string
+  actual: string
+}
+
+export function useEconomicCalendar() {
+  const [events, setEvents] = useState<ForexEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const fetchEvents = async () => {
+    try {
+      const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json')
+      if (!res.ok) throw new Error('Failed to fetch')
+      const data = await res.json()
+      const sorted = data.sort((a: ForexEvent, b: ForexEvent) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      )
+      setEvents(sorted)
+      setError('')
+    } catch (e) {
+      setError('Calendar unavailable. Retrying...')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 30 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return { events, loading, error, refetch: fetchEvents }
+}
+
+// Countdown helper — update every second in component:
+export function getCountdown(dateStr: string): string {
+  const diff = new Date(dateStr).getTime() - Date.now()
+  if (diff <= 0) return 'Released'
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  if (h > 24) {
+    const days = Math.floor(h / 24)
+    return `${days}d ${h % 24}h`
+  }
+  return `${h}h ${m}m ${s}s`
+}
+```
+
+In the calendar UI: High impact = red badge `#DC2626`, Medium = orange `#D97706`, Low = gray `#6B7280`. Update countdowns every second with `setInterval`. Show "This Week's High Impact Events" summary at the top. Past events show actual vs forecast with color coding.
+
+---
+
+**=== PRIORITY 5 — WATCHLIST REAL PRICES ===**
+
+```typescript
+// src/hooks/usePriceData.ts
+const PAIRS = [
+  { symbol: 'EURUSD', frankfurter: 'EUR' },
+  { symbol: 'GBPUSD', frankfurter: 'GBP' },
+  { symbol: 'USDJPY', frankfurter: 'JPY', invert: true },
+  { symbol: 'USDCHF', frankfurter: 'CHF', invert: true },
+  { symbol: 'AUDUSD', frankfurter: 'AUD' },
+  { symbol: 'NZDUSD', frankfurter: 'NZD' },
+  { symbol: 'USDCAD', frankfurter: 'CAD', invert: true },
+]
+
+export function usePriceData() {
+  const [prices, setPrices] = useState<Record<string, { price: number; change: number; direction: 'up' | 'down' | 'flat' }>>({})
+  const prevPrices = useRef<Record<string, number>>({})
+
+  const fetchPrices = async () => {
+    try {
+      const res = await fetch('https://api.frankfurter.app/latest?from=USD')
+      const data = await res.json()
+
+      const updated: typeof prices = {}
+      PAIRS.forEach(({ symbol, frankfurter, invert }) => {
+        const raw = data.rates[frankfurter]
+        const price = invert ? raw : 1 / raw  // EURUSD = 1/rate if USD is base
+        // Actually for EUR: EUR/USD = 1/USD per EUR — adjust logic per pair
+        const prev = prevPrices.current[symbol] || price
+        const change = ((price - prev) / prev) * 100
+        updated[symbol] = {
+          price,
+          change,
+          direction: price > prev ? 'up' : price < prev ? 'down' : 'flat'
+        }
+        prevPrices.current[symbol] = price
+      })
+
+      setPrices(updated)
+    } catch (e) {
+      console.warn('Price fetch failed:', e)
+    }
+  }
+
+  useEffect(() => {
+    fetchPrices()
+    const interval = setInterval(fetchPrices, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  return prices
+}
+```
+
+Price change animation: flash the price cell green for 500ms on up, red on down using a CSS class toggled via setTimeout.
+
+---
+
+**=== PRIORITY 6 — BACKGROUND MUSIC ===**
+
+```typescript
+// src/hooks/useAmbientMusic.ts
+const TRACKS = [
+  { name: 'Ambient Focus', url: 'https://cdn.pixabay.com/audio/2022/10/16/audio_05f67b3be9.mp3' },
+  { name: 'Deep Concentration', url: 'https://cdn.pixabay.com/audio/2022/03/15/audio_c8e0a5c27e.mp3' }
+]
+
+export function useAmbientMusic() {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [volume, setVolumeState] = useState(0.3)
+  const [trackIndex, setTrackIndex] = useState(0)
+  const [trackName, setTrackName] = useState(TRACKS[0].name)
+
+  useEffect(() => {
+    const audio = new Audio(TRACKS[0].url)
+    audio.loop = true
+    audio.volume = 0.3
+    audioRef.current = audio
+
+    audio.onerror = () => {
+      // Fallback: Web Audio API ambient tone
+      const ctx = new AudioContext()
+      const freqs = [110, 165, 220, 330, 440]
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.frequency.value = freq
+        osc.type = i % 2 === 0 ? 'sine' : 'triangle'
+        gain.gain.value = 0.03
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+      })
+      setTrackName('Ambient Tone (Generated)')
+    }
+
+    return () => { audio.pause(); audio.src = '' }
+  }, [])
+
+  const toggle = () => {
+    if (!audioRef.current) return
+    if (playing) {
+      audioRef.current.pause()
+      setPlaying(false)
+    } else {
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    }
+  }
+
+  const setVolume = (v: number) => {
+    if (audioRef.current) audioRef.current.volume = v
+    setVolumeState(v)
+  }
+
+  const nextTrack = () => {
+    const next = (trackIndex + 1) % TRACKS.length
+    if (audioRef.current) {
+      audioRef.current.src = TRACKS[next].url
+      if (playing) audioRef.current.play()
+    }
+    setTrackIndex(next)
+    setTrackName(TRACKS[next].name)
+  }
+
+  return { playing, toggle, volume, setVolume, trackName, nextTrack }
+}
+```
+
+---
+
+**=== PRIORITY 7 — SETTINGS ALL WORKING ===**
+
+```typescript
+// src/hooks/useSettings.ts
+export function useSettings() {
+  const apply = (key: string, value: string) => {
+    localStorage.setItem(`jjnexus_${key}`, value)
+    switch (key) {
+      case 'theme':
+        document.documentElement.setAttribute('data-theme', value)
+        break
+      case 'accent':
+        document.documentElement.style.setProperty('--color-accent', value)
+        break
+      case 'fontSize':
+        document.documentElement.style.fontSize = value + 'px'
+        break
+    }
+  }
+
+  // Restore all settings on app load
+  const restore = () => {
+    const theme = localStorage.getItem('jjnexus_theme') || 'dark'
+    const accent = localStorage.getItem('jjnexus_accent') || '#D4AF37'
+    const fontSize = localStorage.getItem('jjnexus_fontSize') || '16'
+    apply('theme', theme)
+    apply('accent', accent)
+    apply('fontSize', fontSize)
+  }
+
+  return { apply, restore }
+}
+```
+
+Call `restore()` in `App.tsx` useEffect on first load.
+
+---
+
+**=== PRIORITY 8 — LOCAL HOSTING BUILD ===**
+
+Update `vite.config.ts`:
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+        }
+      }
+    }
+  }
+})
+```
+
+Create `.env.example`:
+
+```
+VITE_ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+VITE_APP_NAME=JJ NEXUS PRO
+VITE_APP_VERSION=2.0.0
+```
+
+Create `README.md`:
+
+```markdown
+# JJ NEXUS PRO
+## The Ultimate Forex Live Streaming & Intelligent Trading Command Center
+
+### Quick Start (Local Hosting)
+npm install
+cp .env.example .env
+# Edit .env and add your Anthropic API key
+npm run dev
+
+### Production Build
+npm run build
+npx serve dist
+# Open http://localhost:3000
+
+### Requirements
+- Node.js 18+
+- Modern browser with camera permissions
+- Anthropic API key (get at console.anthropic.com)
+```
+
+---
+
+**EXECUTION ORDER — DO NOT SKIP ANY STEP:**
+
+1. `npm install` → confirm app runs on `npm run dev`
+2. Global rebrand: replace all old names with "JJ NEXUS PRO"
+3. Create `src/context/CameraContext.tsx` and wrap `App.tsx`
+4. Create `src/components/streaming/PiPCameraWindow.tsx`
+5. Create `src/components/streaming/CameraPreview.tsx`
+6. Update `StreamingStudio.tsx` scene switcher with all 6 real scene layouts
+7. Replace `src/utils/claudeAPI.ts` entirely with the new version above
+8. Update every AI call site to use `analyzeTechnical`, `analyzeFundamental`, `analyzeConfluence`, `analyzeSentiment`
+9. Create `src/hooks/useEconomicCalendar.ts` and wire into calendar UI
+10. Create `src/hooks/usePriceData.ts` and wire into watchlist
+11. Create `src/hooks/useAmbientMusic.ts` and wire into top nav music button
+12. Create `src/hooks/useSettings.ts` and wire into settings page
+13. Fix recording with `MediaRecorder` + real timer + download
+14. Fix FPS measurement with `requestAnimationFrame`
+15. Update `vite.config.ts` with `base: './'`
+16. Create `.env.example` and `README.md`
+17. Run `npm run build` — confirm `dist/` folder is generated without errors
+18. Confirm: camera works ✓, PiP works ✓, AI uses live prices ✓, calendar loads ✓, music plays ✓
+19. Report complete with a summary of all changes made

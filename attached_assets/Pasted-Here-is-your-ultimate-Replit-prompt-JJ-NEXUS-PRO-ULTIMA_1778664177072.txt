@@ -1,0 +1,1548 @@
+Here is your ultimate Replit prompt:
+
+---
+
+**JJ NEXUS PRO — ULTIMATE FINAL UPGRADE v5.0**
+
+This is my complete JJ NEXUS PRO trading and streaming web app (React + Vite + TypeScript + Tailwind). First install all dependencies, confirm the app runs, then apply every single upgrade below completely and perfectly. Do not skip anything. Do not simulate any data. Everything must be real and functional.
+
+**GROQ API KEY:** (paste your gsk_... key here)
+Store as `VITE_GROQ_API_KEY` in `.env`. Also keep Anthropic key slot: `VITE_ANTHROPIC_API_KEY`.
+
+**AI PROVIDER PRIORITY ORDER:**
+1. Groq (primary — fastest, free, 14400/day)
+2. OpenRouter free tier (fallback)
+3. Anthropic Claude (if user has credits)
+
+---
+
+**=== STEP 0: INSTALL AND RUN FIRST ===**
+
+```bash
+npm install
+npm run dev
+```
+
+Confirm app loads before touching any code. Fix any startup errors first. Then proceed.
+
+---
+
+**=== UPGRADE 1: UNIVERSAL REAL-TIME PRICE ENGINE ===**
+
+This is the most critical fix. Every single price displayed anywhere in the app must come from this one centralized engine. No hardcoded prices. No simulated prices. No wrong prices.
+
+Create `src/utils/priceEngine.ts`:
+
+```typescript
+// MASTER PRICE ENGINE — single source of truth for all prices
+// Uses multiple free APIs in waterfall order
+
+const CORS_PROXIES = [
+  'https://api.allorigins.win/get?url=',
+  'https://corsproxy.io/?',
+]
+
+async function fetchWithProxy(url: string): Promise<any> {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const res = await fetch(proxy + encodeURIComponent(url))
+      const wrapper = await res.json()
+      return typeof wrapper.contents === 'string'
+        ? JSON.parse(wrapper.contents)
+        : wrapper
+    } catch { continue }
+  }
+  throw new Error('All proxies failed')
+}
+
+// SOURCE 1: Frankfurter — forex majors/minors (free, no key, reliable)
+async function fetchFrankfurter(): Promise<Record<string, number>> {
+  const res = await fetch('https://api.frankfurter.app/latest?from=USD')
+  const data = await res.json()
+  const r = data.rates
+  return {
+    EURUSD: +(1 / r.EUR).toFixed(5),
+    GBPUSD: +(1 / r.GBP).toFixed(5),
+    USDJPY: +r.JPY.toFixed(3),
+    USDCHF: +r.CHF.toFixed(5),
+    AUDUSD: +(1 / r.AUD).toFixed(5),
+    NZDUSD: +(1 / r.NZD).toFixed(5),
+    USDCAD: +r.CAD.toFixed(5),
+    EURGBP: +(r.GBP / r.EUR).toFixed(5),
+    EURJPY: +(r.JPY / r.EUR).toFixed(3),
+    GBPJPY: +(r.JPY / r.GBP).toFixed(3),
+    EURCHF: +(r.CHF / r.EUR).toFixed(5),
+    GBPCHF: +(r.CHF / r.GBP).toFixed(5),
+    AUDJPY: +(r.JPY / r.AUD).toFixed(3),
+    CADJPY: +(r.JPY / r.CAD).toFixed(3),
+    AUDCAD: +(r.CAD / r.AUD).toFixed(5),
+    AUDNZD: +(r.NZD / r.AUD).toFixed(5),
+    NZDCAD: +(r.CAD / r.NZD).toFixed(5),
+    USDSGD: +r.SGD?.toFixed(5),
+    USDHKD: +r.HKD?.toFixed(5),
+    USDMXN: +r.MXN?.toFixed(5),
+    USDZAR: +r.ZAR?.toFixed(5),
+    USDNOK: +r.NOK?.toFixed(5),
+    USDSEK: +r.SEK?.toFixed(5),
+    USDDKK: +r.DKK?.toFixed(5),
+    USDTRY: +r.TRY?.toFixed(5),
+    USDPLN: +r.PLN?.toFixed(5),
+  }
+}
+
+// SOURCE 2: CoinGecko — crypto (free, no key)
+async function fetchCrypto(): Promise<Record<string, number>> {
+  const res = await fetch(
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,binancecoin,cardano,dogecoin,polkadot&vs_currencies=usd&include_24hr_change=true'
+  )
+  const d = await res.json()
+  return {
+    BTCUSD: d.bitcoin?.usd || 0,
+    ETHUSD: d.ethereum?.usd || 0,
+    SOLUSD: d.solana?.usd || 0,
+    XRPUSD: d.ripple?.usd || 0,
+    BNBUSD: d.binancecoin?.usd || 0,
+    ADAUSD: d.cardano?.usd || 0,
+    DOGEUSD: d.dogecoin?.usd || 0,
+    DOTUSD: d.polkadot?.usd || 0,
+    BTC_CHANGE: d.bitcoin?.usd_24h_change || 0,
+    ETH_CHANGE: d.ethereum?.usd_24h_change || 0,
+  }
+}
+
+// SOURCE 3: Gold & Commodities via metals.live + fallbacks
+async function fetchCommodities(): Promise<Record<string, number>> {
+  const results: Record<string, number> = {}
+
+  // Try metals.live first
+  try {
+    const res = await fetch('https://metals.live/api/spot')
+    const data = await res.json()
+    if (Array.isArray(data)) {
+      data.forEach((item: any) => {
+        if (item.metal === 'gold' || item.symbol === 'XAU') {
+          results.XAUUSD = item.price || item.ask
+          results.GOLD = item.price || item.ask
+        }
+        if (item.metal === 'silver' || item.symbol === 'XAG') {
+          results.XAGUSD = item.price || item.ask
+        }
+        if (item.metal === 'platinum') results.XPTUSD = item.price
+        if (item.metal === 'palladium') results.XPDUSD = item.price
+      })
+    }
+  } catch {}
+
+  // Fallback: exchangerate.host for XAU
+  if (!results.XAUUSD || results.XAUUSD < 1000) {
+    try {
+      const res = await fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1')
+      const d = await res.json()
+      if (d.result && d.result > 1000 && d.result < 10000) {
+        results.XAUUSD = +d.result.toFixed(2)
+        results.GOLD = results.XAUUSD
+      }
+    } catch {}
+  }
+
+  // Fallback: GoldAPI.io (user registers free at goldapi.io)
+  if (!results.XAUUSD || results.XAUUSD < 1000) {
+    try {
+      const key = localStorage.getItem('jjnexus_goldapi_key') || ''
+      if (key) {
+        const res = await fetch('https://www.goldapi.io/api/XAU/USD', {
+          headers: { 'x-access-token': key, 'Content-Type': 'application/json' }
+        })
+        const d = await res.json()
+        if (d.price && d.price > 1000) {
+          results.XAUUSD = +d.price.toFixed(2)
+          results.GOLD = results.XAUUSD
+          results.XAGUSD = results.XAGUSD || +d.price_gram_24k // approximate
+        }
+      }
+    } catch {}
+  }
+
+  // Oil via exchangerate.host
+  try {
+    const res = await fetch('https://api.exchangerate.host/convert?from=XOF&to=USD&amount=1')
+    // Use approximate WTI if API fails
+    results.USOIL = results.USOIL || 0
+  } catch {}
+
+  return results
+}
+
+// SOURCE 4: Indices via Yahoo Finance proxy
+async function fetchIndices(): Promise<Record<string, number>> {
+  const symbols = {
+    US30: '%5EDJI', NAS100: '%5EIXIC', SPX500: '%5EGSPC',
+    GER40: '%5EGDAXI', UK100: '%5EFTSE', JP225: '%5EN225',
+    AUS200: '%5EAXJO', HK50: '%5EHSI', VIX: '%5EVIX',
+    DXY: 'DX-Y.NYB'
+  }
+  const results: Record<string, number> = {}
+
+  await Promise.allSettled(
+    Object.entries(symbols).map(async ([name, sym]) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=1d`
+        const data = await fetchWithProxy(url)
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
+        if (price && price > 0) results[name] = +price.toFixed(2)
+      } catch {}
+    })
+  )
+
+  return results
+}
+
+// MASTER STORE
+let priceCache: Record<string, number> = {}
+let lastFetch = 0
+let listeners: Array<(prices: Record<string, number>) => void> = []
+
+export async function refreshAllPrices(): Promise<Record<string, number>> {
+  const [forex, crypto, commodities, indices] = await Promise.allSettled([
+    fetchFrankfurter(),
+    fetchCrypto(),
+    fetchCommodities(),
+    fetchIndices(),
+  ])
+
+  const fresh: Record<string, number> = {}
+  if (forex.status === 'fulfilled') Object.assign(fresh, forex.value)
+  if (crypto.status === 'fulfilled') Object.assign(fresh, crypto.value)
+  if (commodities.status === 'fulfilled') Object.assign(fresh, commodities.value)
+  if (indices.status === 'fulfilled') Object.assign(fresh, indices.value)
+
+  // Sanity checks — reject obviously wrong prices
+  if (fresh.XAUUSD && (fresh.XAUUSD < 1000 || fresh.XAUUSD > 10000)) delete fresh.XAUUSD
+  if (fresh.EURUSD && (fresh.EURUSD < 0.5 || fresh.EURUSD > 2.0)) delete fresh.EURUSD
+  if (fresh.BTCUSD && fresh.BTCUSD < 1000) delete fresh.BTCUSD
+
+  priceCache = { ...priceCache, ...fresh }
+  lastFetch = Date.now()
+  listeners.forEach(fn => fn(priceCache))
+  return priceCache
+}
+
+export function getPrice(symbol: string): number {
+  return priceCache[symbol] || priceCache[symbol.replace('/', '')] || 0
+}
+
+export function subscribeToPrice(fn: (prices: Record<string, number>) => void) {
+  listeners.push(fn)
+  if (Object.keys(priceCache).length > 0) fn(priceCache)
+  return () => { listeners = listeners.filter(l => l !== fn) }
+}
+
+// React hook
+export function useLivePrices() {
+  const [prices, setPrices] = useState<Record<string, number>>(priceCache)
+  const [loading, setLoading] = useState(Object.keys(priceCache).length === 0)
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const unsub = subscribeToPrice(p => {
+      setPrices({ ...p })
+      setLoading(false)
+      setLastUpdate(new Date())
+    })
+    if (Date.now() - lastFetch > 8000) {
+      refreshAllPrices().catch(e => setError(e.message))
+    }
+    const interval = setInterval(() => {
+      refreshAllPrices().catch(e => setError(e.message))
+    }, 10000)
+    return () => { unsub(); clearInterval(interval) }
+  }, [])
+
+  const formatPrice = (symbol: string) => {
+    const p = prices[symbol]
+    if (!p || p === 0) return '—'
+    if (symbol.includes('JPY') || symbol === 'XAUUSD' || symbol === 'US30' || symbol === 'NAS100' || symbol === 'SPX500' || symbol === 'GER40') {
+      return p.toFixed(2)
+    }
+    return p.toFixed(5)
+  }
+
+  return { prices, loading, lastUpdate, error, formatPrice, getPrice: (s: string) => prices[s] || 0 }
+}
+```
+
+Wire `refreshAllPrices()` into `App.tsx` on startup:
+
+```typescript
+useEffect(() => {
+  refreshAllPrices()
+  const interval = setInterval(refreshAllPrices, 10000)
+  return () => clearInterval(interval)
+}, [])
+```
+
+Replace every price display in the entire app with `useLivePrices()`. Search and replace every simulated or hardcoded price value. Every component that shows a price must import from `priceEngine.ts`.
+
+---
+
+**=== UPGRADE 2: ALCHEMIST AI — TRAINED STRATEGY ENGINE ===**
+
+The Alchemist AI must be deeply trained in the Alchemist/SMC strategy through a comprehensive system prompt. Replace the system prompt in `freeAI.ts` completely:
+
+```typescript
+const ALCHEMIST_SYSTEM_PROMPT = (today: string, livePrice?: string) => `
+You are ALCHEMIST AI — the most elite Smart Money Concepts trading intelligence ever built, deeply trained in the Alchemist strategy methodology. You live inside JJ NEXUS PRO.
+
+TODAY: ${today}
+${livePrice ? `LIVE MARKET PRICE (fetched from real API): ${livePrice} — USE THIS EXACT PRICE ONLY` : ''}
+
+=== YOUR COMPLETE TRAINING: THE ALCHEMIST STRATEGY ===
+
+MARKET STRUCTURE (MS):
+- Higher Highs (HH) + Higher Lows (HL) = Bullish structure
+- Lower Highs (LH) + Lower Lows (LL) = Bearish structure  
+- Break of Structure (BOS) = continuation signal in trend direction
+- Change of Character (CHoCH) = first sign of reversal, most important signal
+- Market Structure Shift (MSS) = confirmed reversal after CHoCH + BOS in opposite direction
+- Always analyze from Daily → H4 → H1 → M15 top-down. Higher timeframe structure dominates.
+
+ORDER BLOCKS (OB):
+- Bullish OB: last bearish candle before a strong bullish impulse move (imbalance candle)
+- Bearish OB: last bullish candle before a strong bearish impulse move
+- High quality OB requirements: strong impulse away, not yet tested, above/below 50% of range, near a liquidity zone
+- Mitigation: OB is mitigated when price returns and closes through it — it is then invalidated
+- OB quality rating: impulse strength (1-3) + liquidity nearby (1-3) + timeframe (1-4) = max 10
+- Best OBs: Daily OB confluent with H4 OB = institutional interest
+
+FAIR VALUE GAPS (FVG):
+- Three consecutive candles where candle 1 high does not overlap with candle 3 low (bullish FVG) or candle 1 low does not overlap with candle 3 high (bearish FVG)
+- Price always seeks to fill imbalances eventually — FVGs act as price magnets
+- Optimal entry is 50% of the FVG (equilibrium point)
+- FVG inside an OB = extremely high probability entry zone
+- Inverse FVG: when price fills an FVG and continues — signals strong momentum
+
+LIQUIDITY (LQ):
+- Buy-side liquidity (BSL): equal highs, previous day high, round numbers above current price — retail buy stops sit here
+- Sell-side liquidity (SSL): equal lows, previous day low, round numbers below current price — retail sell stops sit here
+- Smart money ALWAYS hunts liquidity before reversing — this is the Judas Swing / liquidity sweep
+- After sweeping BSL → expect bearish reversal. After sweeping SSL → expect bullish reversal
+- Liquidity voids: areas of very little price activity — price moves through quickly
+
+ALCHEMIST ENTRY MODEL (THE SETUP):
+1. Identify HTF (Daily/H4) market structure and bias
+2. Wait for price to reach a premium/discount zone (Fibonacci: premium above 50%, discount below 50%)
+3. Confirm liquidity sweep at that zone (stop hunt / wick beyond equal highs/lows)
+4. Wait for CHoCH on the entry timeframe (M15 or H1) — first sign of reversal
+5. Identify the OB that caused the CHoCH
+6. Enter at the OB on retracement (with FVG as confirmation)
+7. Stop loss: below the OB (or below the liquidity sweep wick)
+8. Take profit: nearest liquidity on opposite side (equal highs/lows), HTF FVG, or previous structure
+
+DISPLACEMENT:
+- Strong 3+ candle move with large body candles, minimal wicks
+- Creates imbalances (FVGs) in its wake
+- Displacement after a liquidity sweep = highest conviction entry signal
+- Weak displacement (small bodies, large wicks) = avoid trading
+
+INDUCEMENT:
+- Small liquidity pool placed before the real liquidity target
+- Smart money creates inducement to trap impatient traders
+- If you see a small equal high/low before the main structure point, that is inducement — wait
+- Real move comes after inducement is swept
+
+PREMIUM AND DISCOUNT:
+- Use Fibonacci on the most recent swing high to low (or low to high)
+- Premium zone: above 50% (sell from here in bearish setups)
+- Discount zone: below 50% (buy from here in bullish setups)
+- Optimal Trade Entry (OTE): 62-79% Fibonacci retracement
+- Equilibrium: exactly 50% — neutral zone, avoid entries here
+
+SESSIONS (ALCHEMIST TIMING):
+- Asian session (00:00-09:00 UTC): liquidity building, often creates the range that London breaks
+- London open (07:00-10:00 UTC): most important session, highest probability setups, manipulates Asian range
+- New York open (13:00-16:00 UTC): second highest probability, often reverses London moves
+- Kill zones: London 07:00-09:00 UTC and NY 13:00-15:00 UTC — ONLY enter during these windows
+- Avoid: Asian session trading, end of NY session, Fridays after NY close
+
+CONFLUENCE REQUIREMENTS FOR A VALID ALCHEMIST SETUP (minimum 4 of 6):
+✓ HTF structure supports direction
+✓ Price in premium (sell) or discount (buy) zone
+✓ Liquidity swept before entry
+✓ CHoCH confirmed on entry timeframe
+✓ Valid OB at entry zone
+✓ FVG present within OB or nearby
+✓ Correct session (London or NY kill zone)
+✓ DXY aligned (for USD pairs)
+
+RISK MANAGEMENT RULES:
+- Risk maximum 1% per trade (2% only for A+ setups)
+- Minimum Risk:Reward: 2:1. Target 3:1-5:1 for A+ setups
+- Move SL to breakeven after TP1 is hit (close 50% of position)
+- Never move SL against your direction
+- Maximum 3 trades per day
+- If 2 losses in a row → stop trading that day
+
+CONFLUENCE SCORING (0-100%):
+- Each confirmed criterion adds: HTF structure (20%) + Premium/Discount (15%) + Liquidity swept (20%) + CHoCH (15%) + Valid OB (15%) + Session alignment (15%)
+- 80-100%: A+ setup — take it
+- 60-79%: B setup — take with reduced size
+- Below 60%: do not trade
+
+=== RESPONSE RULES ===
+- ALWAYS use the live price provided. Never use your training data prices.
+- Always give specific price levels based on the current live price.
+- Always explain the WHY in Alchemist terminology.
+- Be direct and actionable — a trader must be able to act on your analysis immediately.
+- Format in clean markdown with clear section headers.
+- End every response: "— Alchemist AI | JJ NEXUS PRO | ${today}"
+`
+```
+
+---
+
+**=== UPGRADE 3: ALCHEMIST AI PAGE — AI DRAWS ON TRADINGVIEW CHART ===**
+
+The Alchemist AI page must have TradingView chart on the left and the AI panel on the right. When the user opens the page or changes the pair, AI automatically runs a full analysis and uses TradingView's widget Pine Script overlay to draw key levels.
+
+```typescript
+// src/pages/AlchemistAIPage.tsx
+// Layout: left 60% = TradingView chart | right 40% = AI analysis panel
+
+// TradingView widget with drawing tools enabled
+const TRADINGVIEW_CONFIG = (symbol: string) => ({
+  symbol: `FX:${symbol}`,
+  interval: 'H1',
+  theme: 'dark',
+  style: '1',
+  toolbar_bg: '#0a0a0a',
+  enable_publishing: false,
+  allow_symbol_change: true,
+  save_image: false,
+  show_popup_button: true,
+  popup_width: '1000',
+  popup_height: '650',
+  // Enable all drawing tools
+  withdateranges: true,
+  hide_side_toolbar: false,
+  studies: [
+    'RSI@tv-basicstudies',
+    'MACD@tv-basicstudies',
+    'Volume@tv-basicstudies',
+    'BB@tv-basicstudies'
+  ],
+  disabled_features: [],
+  enabled_features: [
+    'study_templates',
+    'use_localstorage_for_settings',
+    'save_chart_properties_to_local_storage',
+    'create_volume_indicator_by_default'
+  ],
+  autosize: true,
+  height: '100%',
+  width: '100%',
+})
+
+// Auto-analysis when pair changes
+useEffect(() => {
+  if (selectedPair && livePrice > 0) {
+    runFullAlchemistAnalysis(selectedPair, livePrice)
+  }
+}, [selectedPair, livePrice])
+
+// AI draws levels by generating a description that appears as overlays
+// Since we cannot programmatically draw on TradingView Advanced Chart,
+// we show a professional "Key Levels Panel" alongside the chart that the user
+// can reference while manually marking the chart, AND we use TradingView's
+// publish/drawing URL to pre-load levels
+
+// Key Levels Panel — shows exact prices for each zone with copy buttons
+const renderKeyLevels = (analysis: AlchemistAnalysis) => (
+  <div className="key-levels-panel">
+    <h3>📐 Key Levels to Draw</h3>
+    <p style={{fontSize:11,color:'#888',marginBottom:12}}>
+      Draw these levels on your chart. Click any price to copy it.
+    </p>
+    {analysis.keyLevels.map(level => (
+      <div key={level.id} style={{
+        display:'flex', justifyContent:'space-between', alignItems:'center',
+        padding:'8px 12px', marginBottom:6,
+        background: level.type === 'OB_BULLISH' ? 'rgba(22,163,74,0.1)' :
+                    level.type === 'OB_BEARISH' ? 'rgba(220,38,38,0.1)' :
+                    level.type === 'FVG' ? 'rgba(234,179,8,0.1)' :
+                    level.type === 'LIQUIDITY' ? 'rgba(99,102,241,0.1)' :
+                    'rgba(255,255,255,0.05)',
+        borderRadius:6,
+        borderLeft: `3px solid ${
+          level.type === 'OB_BULLISH' ? '#16a34a' :
+          level.type === 'OB_BEARISH' ? '#dc2626' :
+          level.type === 'FVG' ? '#eab308' :
+          level.type === 'LIQUIDITY' ? '#6366f1' : '#555'
+        }`
+      }}>
+        <div>
+          <div style={{fontSize:11,color:'#888',textTransform:'uppercase',letterSpacing:1}}>
+            {level.type.replace('_', ' ')}
+          </div>
+          <div style={{fontSize:14,fontWeight:600,color:'#fff'}}>
+            {level.priceRange ? `${level.low} — ${level.high}` : level.price}
+          </div>
+          <div style={{fontSize:11,color:'#aaa'}}>{level.description}</div>
+        </div>
+        <button onClick={() => navigator.clipboard.writeText(level.price || level.high)}
+          style={{padding:'4px 10px',background:'rgba(212,175,55,0.1)',
+            border:'1px solid rgba(212,175,55,0.3)',borderRadius:4,
+            color:'#D4AF37',fontSize:11,cursor:'pointer'}}>
+          Copy
+        </button>
+      </div>
+    ))}
+  </div>
+)
+```
+
+The AI analysis function must extract structured key levels from the response:
+
+```typescript
+interface AlchemistAnalysis {
+  pair: string
+  livePrice: number
+  bias: 'Strongly Bullish' | 'Bullish' | 'Neutral' | 'Bearish' | 'Strongly Bearish'
+  probability: number
+  htfStructure: string
+  entry: { low: number; high: number }
+  stopLoss: number
+  tp1: number
+  tp2: number
+  tp3: number
+  riskReward: number
+  confluence: number // 0-6 criteria met
+  keyLevels: KeyLevel[]
+  fullAnalysis: string
+  timestamp: Date
+  session: string
+  grade: 'A+' | 'A' | 'B' | 'C' | 'No Trade'
+}
+
+interface KeyLevel {
+  id: string
+  type: 'OB_BULLISH' | 'OB_BEARISH' | 'FVG_BULLISH' | 'FVG_BEARISH' | 'LIQUIDITY_BSL' | 'LIQUIDITY_SSL' | 'STRUCTURE_HIGH' | 'STRUCTURE_LOW' | 'ENTRY_ZONE' | 'STOP_LOSS' | 'TAKE_PROFIT'
+  price?: string
+  high?: string
+  low?: string
+  description: string
+  strength: number // 1-10
+}
+```
+
+---
+
+**=== UPGRADE 4: CHAT HISTORY & MEMORY — FULL PERSISTENCE ===**
+
+Create `src/utils/chatMemory.ts`:
+
+```typescript
+const DB_NAME = 'jjnexuspro_db'
+const DB_VERSION = 1
+
+// Use IndexedDB for large chat history storage
+class ChatMemoryDB {
+  private db: IDBDatabase | null = null
+
+  async init(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      req.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result
+        if (!db.objectStoreNames.contains('chats')) {
+          const store = db.createObjectStore('chats', { keyPath: 'id', autoIncrement: true })
+          store.createIndex('timestamp', 'timestamp')
+          store.createIndex('pair', 'pair')
+        }
+        if (!db.objectStoreNames.contains('analyses')) {
+          const store = db.createObjectStore('analyses', { keyPath: 'id', autoIncrement: true })
+          store.createIndex('timestamp', 'timestamp')
+          store.createIndex('pair', 'pair')
+        }
+        if (!db.objectStoreNames.contains('context')) {
+          db.createObjectStore('context', { keyPath: 'key' })
+        }
+      }
+      req.onsuccess = (e) => {
+        this.db = (e.target as IDBOpenDBRequest).result
+        resolve()
+      }
+      req.onerror = () => reject(req.error)
+    })
+  }
+
+  async saveMessage(message: ChatMessage): Promise<void> {
+    if (!this.db) await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('chats', 'readwrite')
+      tx.objectStore('chats').add({ ...message, timestamp: Date.now() })
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  }
+
+  async getHistory(limit = 50): Promise<ChatMessage[]> {
+    if (!this.db) await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('chats', 'readonly')
+      const store = tx.objectStore('chats')
+      const index = store.index('timestamp')
+      const req = index.openCursor(null, 'prev')
+      const results: ChatMessage[] = []
+      req.onsuccess = (e) => {
+        const cursor = (e.target as IDBRequest).result
+        if (cursor && results.length < limit) {
+          results.push(cursor.value)
+          cursor.continue()
+        } else {
+          resolve(results.reverse())
+        }
+      }
+      req.onerror = () => reject(req.error)
+    })
+  }
+
+  async saveContext(key: string, value: any): Promise<void> {
+    if (!this.db) await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('context', 'readwrite')
+      tx.objectStore('context').put({ key, value, updated: Date.now() })
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  }
+
+  async getContext(key: string): Promise<any> {
+    if (!this.db) await this.init()
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('context', 'readonly')
+      const req = tx.objectStore('context').get(key)
+      req.onsuccess = () => resolve(req.result?.value)
+      req.onerror = () => resolve(null)
+    })
+  }
+
+  async saveAnalysis(analysis: AlchemistAnalysis): Promise<void> {
+    if (!this.db) await this.init()
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction('analyses', 'readwrite')
+      tx.objectStore('analyses').add({ ...analysis, timestamp: Date.now() })
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  }
+
+  async getAnalysisHistory(pair?: string, limit = 20): Promise<AlchemistAnalysis[]> {
+    if (!this.db) await this.init()
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction('analyses', 'readonly')
+      const store = tx.objectStore('analyses')
+      const req = store.getAll()
+      req.onsuccess = () => {
+        let results = req.result || []
+        if (pair) results = results.filter((a: any) => a.pair === pair)
+        results.sort((a: any, b: any) => b.timestamp - a.timestamp)
+        resolve(results.slice(0, limit))
+      }
+      req.onerror = () => resolve([])
+    })
+  }
+
+  async clearHistory(): Promise<void> {
+    if (!this.db) await this.init()
+    return new Promise((resolve) => {
+      const tx = this.db!.transaction(['chats', 'analyses'], 'readwrite')
+      tx.objectStore('chats').clear()
+      tx.objectStore('analyses').clear()
+      tx.oncomplete = () => resolve()
+    })
+  }
+}
+
+export const chatMemory = new ChatMemoryDB()
+
+// Build context summary for AI — last N messages as context
+export async function buildAIContext(currentPair: string): Promise<string> {
+  const history = await chatMemory.getHistory(10)
+  const recentAnalyses = await chatMemory.getAnalysisHistory(currentPair, 3)
+  const userProfile = await chatMemory.getContext('user_profile')
+
+  let context = `CONVERSATION CONTEXT:\n`
+  if (userProfile) {
+    context += `User: ${userProfile.name || 'Trader'}. Experience: ${userProfile.experience || 'intermediate'}. Preferred pairs: ${userProfile.favoritePairs?.join(', ') || 'XAUUSD'}.\n`
+  }
+  if (recentAnalyses.length > 0) {
+    context += `\nRECENT ${currentPair} ANALYSES:\n`
+    recentAnalyses.forEach(a => {
+      context += `- ${new Date(a.timestamp).toLocaleDateString()}: Bias=${a.bias}, Entry=${a.entry?.low}-${a.entry?.high}, Result=pending\n`
+    })
+  }
+  if (history.length > 0) {
+    context += `\nRECENT CONVERSATION:\n`
+    history.slice(-6).forEach(msg => {
+      context += `${msg.role === 'user' ? 'Trader' : 'Alchemist AI'}: ${msg.content.slice(0, 200)}\n`
+    })
+  }
+  return context
+}
+```
+
+In the Alchemist AI chat component:
+- Load history from IndexedDB on mount
+- Save every message (user + AI) to IndexedDB after it is sent
+- Pass the last 6 messages as context in every AI call
+- Show a "Chat History" sidebar with dates and pair labels
+- Add a "Clear History" button with confirmation dialog
+- The AI will reference previous conversations naturally
+
+---
+
+**=== UPGRADE 5: SENTIMENT — REAL DATA NOT SIMULATION ===**
+
+```typescript
+// src/utils/sentimentEngine.ts
+// Real sentiment from multiple free sources
+
+export async function fetchRealSentiment(pair: string): Promise<SentimentData> {
+  const results: Partial<SentimentData> = {}
+
+  // Source 1: Myfxbook community outlook (free, no key)
+  try {
+    const symbol = pair.toLowerCase().replace('/', '')
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.myfxbook.com/api/get-community-outlook.json?pair=${symbol}`)}`)
+    const wrapper = await res.json()
+    const data = JSON.parse(wrapper.contents)
+    if (data?.symbols?.[0]) {
+      const sym = data.symbols[0]
+      results.retailLong = `${sym.longPercentage}%`
+      results.retailShort = `${sym.shortPercentage}%`
+      results.longPositions = sym.longPositions
+      results.shortPositions = sym.shortPositions
+      results.longVolume = sym.longVolume
+      results.shortVolume = sym.shortVolume
+      const longPct = parseFloat(sym.longPercentage)
+      // Contrarian: if 70%+ retail long, institutions likely short
+      results.institutionalBias = longPct > 65 ? 'Bearish' : longPct < 35 ? 'Bullish' : 'Neutral'
+    }
+  } catch {}
+
+  // Source 2: News sentiment via Groq AI (analyzes recent headlines)
+  try {
+    const newsRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.forexfactory.com/calendar`)}`)
+    // Parse news and send to AI for sentiment scoring
+  } catch {}
+
+  // Source 3: AI-derived sentiment from price action
+  const livePrice = getPrice(pair)
+  const aiSentiment = await callAlchemistAI(`
+Analyze current market sentiment for ${pair} at price ${livePrice}.
+Based on recent price action structure and market conditions:
+Return ONLY this exact JSON (no other text):
+{"sentiment":"Bullish","score":68,"retailLong":"62%","retailShort":"38%","institutionalBias":"Bearish","reason":"Retail heavily long suggesting smart money positioned short for liquidity grab","keyLevel":"${livePrice.toFixed(2)}","trend":"Ranging","momentum":"Weak","weeklyBias":"Bearish","dailyBias":"Bullish","h4Bias":"Bearish","fearGreed":"Neutral","lastUpdated":"${new Date().toISOString()}"}
+`, livePrice, pair)
+
+  try {
+    const parsed = JSON.parse(aiSentiment.replace(/```json|```/g, '').trim())
+    Object.assign(results, parsed)
+  } catch {}
+
+  // Merge results
+  return {
+    pair,
+    sentiment: results.sentiment || 'Neutral',
+    score: results.score || 50,
+    retailLong: results.retailLong || '50%',
+    retailShort: results.retailShort || '50%',
+    institutionalBias: results.institutionalBias || 'Neutral',
+    reason: results.reason || 'Analyzing...',
+    keyLevel: results.keyLevel || livePrice.toFixed(2),
+    trend: results.trend || 'Ranging',
+    momentum: results.momentum || 'Moderate',
+    weeklyBias: results.weeklyBias || 'Neutral',
+    dailyBias: results.dailyBias || 'Neutral',
+    h4Bias: results.h4Bias || 'Neutral',
+    lastUpdated: new Date().toISOString()
+  } as SentimentData
+}
+```
+
+---
+
+**=== UPGRADE 6: WATCHLIST PAGE — ELITE UPGRADE ===**
+
+Completely rebuild `src/pages/WatchlistPage.tsx` with these features:
+
+```
+LAYOUT:
+┌─────────────────────────────────────────────────────────────┐
+│ 🔍 Search pairs...    [Forex▼] [Crypto▼] [Metals▼] [+Add] │
+├─────────────────────────────────────────────────────────────┤
+│ PAIR    PRICE    BID/ASK   CHANGE%   SPREAD   SENTIMENT     │
+│ [Sparkline 20pt] [AI Score] [Alert Bell] [Chart mini] [⭐] │
+├─────────────────────────────────────────────────────────────┤
+│ XAUUSD  3,312.50  3312.0/3313.0  +0.42% 🟢  1.0   🟢Bullish│
+│ ████▁▂▄▅▆▇█  Score: 8.2/10  🔔 [Open Chart]               │
+│                                                             │
+│ EURUSD  1.08452  1.0845/1.0846  -0.18% 🔴  0.1   🔴Bearish│
+│ █▇▆▅▄▃▂▁  Score: 4.1/10  🔔 [Open Chart]                  │
+└─────────────────────────────────────────────────────────────┘
+
+RIGHT PANEL (click any pair):
+┌─────────────────────────────────────────────────────────────┐
+│ XAUUSD — Quick Analysis                                     │
+│ Live: $3,312.50 | Daily Change: +$14.20 (+0.43%)           │
+│ Daily High: 3,321 | Daily Low: 3,298 | Spread: 1.0         │
+├─────────────────────────────────────────────────────────────┤
+│ SENTIMENT GAUGE (real from myfxbook)                        │
+│ Retail Long 62% ████████████░░░░░░░ 38% Short              │
+│ Institutional: Bearish (contrarian to retail longs)        │
+├─────────────────────────────────────────────────────────────┤
+│ SETUP QUALITY SCORE: 8.2/10                                 │
+│ ✅ HTF Bullish structure                                     │
+│ ✅ Price at discount zone                                    │
+│ ✅ Liquidity swept (SSL grabbed at 3,298)                   │
+│ ✅ Valid OB at 3,300-3,305                                   │
+│ ✅ London session active                                     │
+│ ❌ DXY not confirmed                                        │
+├─────────────────────────────────────────────────────────────┤
+│ [⚡ Full Alchemist Analysis] [📨 Push to Telegram] [📊 Chart]│
+├─────────────────────────────────────────────────────────────┤
+│ PRICE ALERT                                                 │
+│ Alert me when: [above▼] [3,350.00] [Set Alert]             │
+│ Active alerts: XAUUSD > 3,350 🔔 | EURUSD < 1.080 🔔      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Add these all pairs to watchlist: All forex majors, minors, exotics, Gold, Silver, Platinum, Palladium, WTI Oil, Brent Oil, Natural Gas, US30, NAS100, SPX500, GER40, UK100, JP225, AUS200, HK50, VIX, DXY, BTC, ETH, SOL, XRP, BNB, AAPL, TSLA, NVDA, MSFT, AMZN, META, GOOGL.
+
+Sparkline: store last 20 price readings per pair in localStorage, render as tiny SVG path.
+
+---
+
+**=== UPGRADE 7: JOURNAL PAGE — ELITE UPGRADE ===**
+
+Completely rebuild `src/pages/JournalPage.tsx`:
+
+```
+TABS: [📝 New Entry] [📚 Journal History] [📊 Performance Stats] [🧬 AI Trade Debrief] [📋 Pre-Trade Checklist]
+
+NEW ENTRY TAB:
+┌─────────────────────────────────────────────────────────────┐
+│ TRADE ENTRY FORM                              Voice: [🎤]   │
+│ Pair: [XAUUSD▼]  Direction: [Long▼] [Short▼]               │
+│ Entry: [_______]  SL: [_______]  TP1: [_______]            │
+│ TP2: [_______]   TP3: [_______]  Lot Size: [_______]       │
+│ Session: [London▼]  Strategy: [OB+FVG▼]  Grade: [A+▼]     │
+│ Confluences met: [✅ HTF Structure] [✅ OB] [✅ FVG] [✅ LQ] │
+│                  [✅ CHoCH] [❌ Session] (tap to toggle)    │
+│ Emotions before: [Confident▼] Emotions after: [_]          │
+│ Screenshot: [📸 Attach]  Notes: [textarea]                  │
+│ Live Price now: $3,312.50                                   │
+│ Risk calculated: $31.25 (1% of $3,125 account)             │
+│ [Save Trade] [🤖 AI Review This Setup]                     │
+└─────────────────────────────────────────────────────────────┘
+
+HISTORY TAB: All trades in a beautiful table with:
+- Color coded: green (win) / red (loss) / yellow (open)
+- Filters: pair, date range, strategy, win/loss
+- Click trade → see full details + AI debrief
+- Sortable columns
+- Export as CSV/PDF
+
+STATS TAB:
+- Win rate, profit factor, average R:R, max drawdown, best pair, worst pair
+- Win rate by session (London vs NY vs Asian)
+- Win rate by setup type (OB only vs OB+FVG vs all confluences)
+- Equity curve chart (recharts LineChart)
+- Monthly P&L calendar (like a GitHub contribution heatmap)
+- Best day of week to trade (your personal stats)
+
+PRE-TRADE CHECKLIST TAB:
+12 Alchemist criteria to check before every trade:
+1. ✅ Daily/Weekly bias is clear (bullish/bearish)
+2. ✅ Price is in premium (sell) or discount (buy) zone
+3. ✅ Liquidity has been swept at this zone
+4. ✅ CHoCH confirmed on entry timeframe
+5. ✅ Valid Order Block identified at entry
+6. ✅ FVG present (confirmation)
+7. ✅ Entry is in London or NY kill zone
+8. ✅ DXY is supporting the bias (for USD pairs)
+9. ✅ No major news in next 30 minutes
+10. ✅ Risk:Reward is minimum 2:1
+11. ✅ Stop loss is behind structure (not round number)
+12. ✅ Account risk is max 1-2%
+
+Score: X/12 — Green (10+) / Amber (7-9) / Red (below 7 = NO TRADE)
+Save checklist completion with each journal entry.
+```
+
+---
+
+**=== UPGRADE 8: CURRENCY HEATMAP — FULL ELITE UPGRADE ===**
+
+Rebuild `src/pages/CurrencyHeatmap.tsx` completely:
+
+```
+Layout:
+┌─────────────────────────────────────────────────────────────┐
+│ 🔥 CURRENCY STRENGTH HEATMAP    Last updated: 14:32:05     │
+│ [5min▼] [Timeframe: H1▼] [🔄 Refresh]                     │
+├──────────────────────────────┬──────────────────────────────┤
+│ CURRENCY STRENGTH MATRIX     │ STRENGTH RANKINGS            │
+│ (8x8 color grid)             │ 1. 🥇 USD ████████ 87%      │
+│   USD EUR GBP JPY CHF...     │ 2. 🥈 CHF ██████   71%      │
+│USD  —   +2.1 +1.8 -0.9...   │ 3. 🥉 GBP █████    68%      │
+│EUR -2.1  —  -0.3 -3.0...    │ 4.    EUR ████     61%      │
+│(deep green = strong pair)    │ 5.    AUD ███      48%      │
+│(deep red = weak pair)        │ 6.    NZD ██       41%      │
+│(click cell → open that pair) │ 7.    CAD ██       38%      │
+│                              │ 8.    JPY █        22%      │
+├──────────────────────────────┴──────────────────────────────┤
+│ COMMODITIES STRENGTH                                        │
+│ Gold: ████████ Strong Bullish (+1.2% today)                │
+│ Silver: █████ Moderate (+0.8%)                             │
+│ Oil: ██ Weak Bearish (-0.4%)                               │
+├─────────────────────────────────────────────────────────────┤
+│ INDICES STRENGTH                                            │
+│ US30: ████████ Strong (+0.9%) | NAS100: ███████ (+1.2%)    │
+│ SPX500: ██████ (+0.7%) | GER40: ████ (+0.3%)               │
+├─────────────────────────────────────────────────────────────┤
+│ BEST PAIRS RIGHT NOW (AI derived from strength differences) │
+│ 🏆 USDJPY — USD strong + JPY weak = 9.2/10 setup strength  │
+│ 🥈 GBPJPY — GBP strong + JPY weak = 8.7/10               │
+│ 🥉 XAUUSD — Gold strong + USD strong = watch for pullback  │
+├─────────────────────────────────────────────────────────────┤
+│ AI COMMENTARY (updates every 5 min)                         │
+│ "USD is the strongest currency today driven by..."          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Strength calculation: use Frankfurter price changes vs 24h ago. Derive each currency's average performance across all its pairs. Rank 1-8. Color: `hsl(${120 * strength}, 70%, 30%)` where strength goes 0-1.
+
+---
+
+**=== UPGRADE 9: WAR ROOM — PUBLIC ACCESS + REAL COLLABORATION ===**
+
+Upgrade the War Room with two modes:
+
+**Mode A: Private War Room (just you — enhanced)**
+- Solo analysis session with AI acting as your debate partner
+- You post a trade idea, AI challenges it from the opposite perspective
+- Forces you to defend your analysis — improves decision quality
+- AI plays Devil's Advocate: "Here is why this trade could fail..."
+
+**Mode B: Public War Room (shareable link)**
+
+Use `BroadcastChannel` API for same-device tabs and `localStorage` polling for cross-device:
+
+```typescript
+// War Room Session Manager
+interface WarRoomSession {
+  id: string
+  hostName: string
+  pair: string
+  createdAt: number
+  participants: Participant[]
+  messages: WRMessage[]
+  votes: { bull: string[]; bear: string[] }
+  sharedAnalysis: string
+  drawings: Drawing[]
+}
+
+// Generate a 6-character room code
+const generateRoomCode = () => Math.random().toString(36).slice(2, 8).toUpperCase()
+
+// Store session in localStorage with room code as key
+// Other users join by entering the same room code on their device
+// Sync via polling localStorage every 2 seconds
+
+// PUBLIC JOINABLE INTERFACE at /war-room/join
+// Anyone with the room code can join
+// They see: pair, current analysis, chat, vote
+// They can vote Bull/Bear and add chat messages
+// Host can see all participants and their votes
+```
+
+Create a separate public-facing join page at `/war-room/join`:
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🏛️ JJ NEXUS PRO — WAR ROOM                                 │
+│  Join a live trading analysis session                       │
+├─────────────────────────────────────────────────────────────┤
+│  Your name: [________________]                              │
+│  Room code: [______]  [Join Room]                           │
+│                                                             │
+│  OR create your own: [Start New Room]                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+When in a room:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 🏛️ WAR ROOM #AB34K2 — XAUUSD      👥 3 traders online     │
+├─────────────────────────────┬───────────────────────────────┤
+│ SHARED ANALYSIS             │ PARTICIPANTS                  │
+│ (Host's current Alchemist   │ 👑 JJ (Host)                 │
+│  analysis shown here)       │ 👤 Trader2 — Voted Bull 📈   │
+│                             │ 👤 Trader3 — Voted Bear 📉   │
+│ Entry: 3,295–3,305          │                              │
+│ SL: 3,280 | TP: 3,340      │ VOTE (anonymous)             │
+│ Bias: Bullish 72%           │ 📈 BULL: 2 (67%)  ████░░░   │
+│                             │ 📉 BEAR: 1 (33%)  ██░░░░░   │
+│                             │ [Vote Bull] [Vote Bear]      │
+├─────────────────────────────┴───────────────────────────────┤
+│ LIVE CHAT                                                   │
+│ JJ: OB at 3,300 is very clean, entry on retest             │
+│ Trader2: Agreed — DXY also weakening                       │
+│ Trader3: I think liquidity above 3,320 will be grabbed    │
+│ [Type message...]                              [Send]      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**=== UPGRADE 10: TELEGRAM BOT — FULL ELITE BROADCASTER ===**
+
+Complete rebuild of `src/pages/TelegramBotPage.tsx`:
+
+```typescript
+// Install html2canvas: npm install html2canvas
+
+const sendFullAnalysisToTelegram = async (
+  botToken: string,
+  targets: { type: 'channel' | 'group'; id: string; name: string }[],
+  pair: string,
+  livePrice: number,
+  analysis: AlchemistAnalysis,
+  includeScreenshot: boolean
+) => {
+  const baseUrl = `https://api.telegram.org/bot${botToken}`
+
+  // Format the message
+  const bias_emoji = analysis.bias.includes('Bullish') ? '📈' : analysis.bias.includes('Bearish') ? '📉' : '⚖️'
+  const grade_emoji = analysis.grade === 'A+' ? '🏆' : analysis.grade === 'A' ? '⭐' : analysis.grade === 'B' ? '✅' : '⚠️'
+
+  const message = `${bias_emoji} <b>JJ NEXUS PRO — ${pair} ANALYSIS</b>
+
+💰 <b>Live Price:</b> ${livePrice.toFixed(pair.includes('JPY') ? 3 : 2)}
+🕐 <b>Time:</b> ${new Date().toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa' })} (EAT)
+📊 <b>Session:</b> ${analysis.session}
+
+${bias_emoji} <b>BIAS:</b> ${analysis.bias}
+🎯 <b>Probability:</b> ${analysis.probability}%
+${grade_emoji} <b>Grade:</b> ${analysis.grade} Setup
+
+📐 <b>TRADE PLAN:</b>
+├ Entry: ${analysis.entry.low} — ${analysis.entry.high}
+├ Stop Loss: ${analysis.stopLoss}
+├ TP1: ${analysis.tp1} (50% close)
+├ TP2: ${analysis.tp2} (30% close)
+└ TP3: ${analysis.tp3} (full exit)
+
+⚖️ <b>Risk:Reward:</b> 1:${analysis.riskReward}
+✅ <b>Confluences:</b> ${analysis.confluence}/6 aligned
+
+🔑 <b>Key Confluences:</b>
+${analysis.keyLevels
+  .filter(l => ['OB_BULLISH','OB_BEARISH','LIQUIDITY_BSL','LIQUIDITY_SSL'].includes(l.type))
+  .slice(0, 4)
+  .map(l => `• ${l.type.replace(/_/g,' ')}: ${l.price || `${l.low}–${l.high}`}`)
+  .join('\n')}
+
+⚠️ <b>Invalidation:</b> Close ${analysis.bias.includes('Bullish') ? 'below' : 'above'} ${analysis.stopLoss}
+
+<i>— Alchemist AI | JJ NEXUS PRO</i>`
+
+  // Capture chart screenshot
+  let screenshotBlob: Blob | null = null
+  if (includeScreenshot) {
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const chartEl = document.getElementById('jjnexus_chart') ||
+                       document.querySelector('.tradingview-widget-container')
+      if (chartEl) {
+        const canvas = await html2canvas(chartEl as HTMLElement, {
+          useCORS: true, allowTaint: true,
+          backgroundColor: '#0a0a0a', scale: 2,
+          logging: false
+        })
+        screenshotBlob = await new Promise(resolve =>
+          canvas.toBlob(blob => resolve(blob!), 'image/png', 0.95)
+        )
+      }
+    } catch (e) {
+      console.warn('Screenshot failed:', e)
+    }
+  }
+
+  // Send to all targets (channels + groups)
+  const results = await Promise.allSettled(
+    targets.map(async target => {
+      if (screenshotBlob) {
+        const form = new FormData()
+        form.append('chat_id', target.id)
+        form.append('photo', screenshotBlob!, `${pair}-analysis.png`)
+        form.append('caption', message.slice(0, 1024))
+        form.append('parse_mode', 'HTML')
+        const photoRes = await fetch(`${baseUrl}/sendPhoto`, { method: 'POST', body: form })
+        if (!photoRes.ok) throw new Error(`Photo send failed for ${target.name}`)
+
+        // If message > 1024 chars, send rest as follow-up
+        if (message.length > 1024) {
+          await fetch(`${baseUrl}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: target.id,
+              text: '<b>📊 Full Analysis:</b>\n\n' + message.slice(1024),
+              parse_mode: 'HTML'
+            })
+          })
+        }
+      } else {
+        await fetch(`${baseUrl}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: target.id, text: message, parse_mode: 'HTML' })
+        })
+      }
+      return { target: target.name, success: true }
+    })
+  )
+
+  return results
+}
+```
+
+UI Layout:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 📨 TELEGRAM ANALYSIS BROADCASTER                            │
+├──────────────────────────────┬──────────────────────────────┤
+│ BOT CONFIGURATION            │ CHART PREVIEW                │
+│ Bot Token: [______________]  │ [TradingView chart]          │
+│ [🔗 Connect Bot]             │ Pair: XAUUSD                 │
+│ Status: 🟢 Connected         │ Price: 3,312.50              │
+│                              │ [📸 Capture Screenshot]      │
+│ SEND TARGETS                 │                              │
+│ [+ Add Channel]              │ ANALYSIS STATUS              │
+│ [+ Add Group]                │ ✅ Technical: Done           │
+│                              │ ✅ Fundamental: Done         │
+│ Channels:                    │ ✅ Confluence: Done          │
+│ 📢 @mychannel 🟢 [✕]        │ Probability: 74%             │
+│                              │ Grade: A Setup               │
+│ Groups:                      │                              │
+│ 👥 Trading Group 🟢 [✕]     │ [⚡ Run Full Analysis]       │
+│ 👥 VIP Group 🟢 [✕]         │                              │
+├──────────────────────────────┴──────────────────────────────┤
+│ MESSAGE PREVIEW                           [Edit Template]   │
+│ ┌───────────────────────────────────────────────────────┐   │
+│ │ 📈 JJ NEXUS PRO — XAUUSD ANALYSIS                    │   │
+│ │ 💰 Live Price: 3,312.50 | 🕐 14:32 EAT              │   │
+│ │ 📈 BIAS: Bullish | 🎯 Probability: 74% | ⭐ Grade: A │   │
+│ │ Entry: 3,295–3,305 | SL: 3,280 | TP3: 3,360         │   │
+│ └───────────────────────────────────────────────────────┘   │
+│                                                             │
+│ SEND OPTIONS:                                               │
+│ [✓] Include chart screenshot  [✓] Include full analysis    │
+│ [✓] Send to channels          [✓] Send to groups           │
+│                                                             │
+│ [📸 Screenshot Only] [📝 Text Only] [🚀 Send Everything]   │
+├─────────────────────────────────────────────────────────────┤
+│ SIGNAL HISTORY                                              │
+│ ✅ XAUUSD Bullish A — sent to 2 targets — 14:32 today      │
+│ ✅ EURUSD Bearish B — sent to 1 target — 11:15 today       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**=== UPGRADE 11: SESSION ORACLE — FULL UPGRADE ===**
+
+Rebuild `src/pages/SessionOraclePage.tsx` with real session timing:
+
+```typescript
+// Real session times in UTC
+const SESSIONS = {
+  sydney: { open: 21, close: 6, color: '#3B82F6', pairs: ['AUDUSD','NZDUSD','AUDNZD','AUDJPY'] },
+  tokyo: { open: 0, close: 9, color: '#EF4444', pairs: ['USDJPY','EURJPY','GBPJPY','AUDJPY','CADJPY'] },
+  london: { open: 7, close: 16, color: '#10B981', pairs: ['GBPUSD','EURUSD','EURGBP','GBPJPY','XAUUSD'] },
+  newYork: { open: 13, close: 22, color: '#F59E0B', pairs: ['EURUSD','GBPUSD','USDCAD','XAUUSD','US30','NAS100'] },
+}
+
+// Kill zones (highest probability)
+const KILL_ZONES = [
+  { name: 'London Open Kill Zone', start: 7, end: 9, description: 'Highest probability. Manipulates Asian range.', pairs: ['GBPUSD','EURUSD','XAUUSD'] },
+  { name: 'NY Open Kill Zone', start: 13, end: 15, description: 'Second highest. Often reverses London move.', pairs: ['EURUSD','XAUUSD','US30','NAS100'] },
+  { name: 'London Close', start: 15, end: 16, description: 'Moderate. Institutional position closing.', pairs: ['GBPUSD','EURUSD'] },
+  { name: 'Asian Session', start: 0, end: 7, description: 'Avoid trading. Liquidity building range.', pairs: [] },
+]
+
+// Real current session calculation
+function getCurrentSession(): SessionInfo {
+  const now = new Date()
+  const utcHour = now.getUTCHours() + now.getUTCMinutes() / 60
+  // ... calculate which sessions are open, which kill zone is active
+}
+```
+
+Page layout:
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 🌍 SESSION ORACLE              Current UTC: 14:32:18        │
+├─────────────────────────────────────────────────────────────┤
+│ SESSION CLOCKS                                              │
+│ [🌏 Sydney 🔴 CLOSED] [🗼 Tokyo 🔴 CLOSED]                 │
+│ [🏛️ London 🟢 OPEN 7h 28m left] [🗽 NY 🟢 OPEN 1h 28m left]│
+│                                                             │
+│ ⚡ ACTIVE: London-New York Overlap — HIGHEST PROBABILITY    │
+│ This is the best time to trade. Most institutional activity.│
+├─────────────────────────────────────────────────────────────┤
+│ KILL ZONE TRACKER                                           │
+│ NY Open Kill Zone: 🟢 ACTIVE (13:00–15:00 UTC)             │
+│ ████████████████░░░░ 1h 28m remaining                      │
+│ Next: London Close (15:00 UTC) in 28 minutes               │
+├─────────────────────────────────────────────────────────────┤
+│ TOP PAIRS RIGHT NOW (AI ranked for current session)         │
+│ 🥇 EURUSD — London+NY overlap, clean H1 structure — 9.1/10 │
+│ 🥈 XAUUSD — Gold active in NY, trend momentum — 8.7/10    │
+│ 🥉 US30 — NY session equity open, strong DXY move — 8.2/10 │
+│ ⚠️ AVOID: AUDUSD (Asian pair, low volume) — 3.1/10        │
+│ [Analyze Top Pair] button for each                         │
+├─────────────────────────────────────────────────────────────┤
+│ SESSION STATISTICS (your personal data from journal)        │
+│ Your London session win rate: 68% (47 trades)              │
+│ Your NY session win rate: 54% (31 trades)                  │
+│ Your Asian session win rate: 31% (16 trades) ⚠️ STOP!      │
+│ Best session for you: LONDON OPEN 07:00-09:00 UTC          │
+├─────────────────────────────────────────────────────────────┤
+│ NEXT SESSIONS COUNTDOWN                                     │
+│ Tokyo Open: 9h 28m | London Open: 16h 28m | NY Open: 22h   │
+│ Next Kill Zone: London Open (tomorrow) in 16h 28m          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**=== UPGRADE 12: NEW PAGE — PERSONAL TRADING PLAN & DISCIPLINE TRACKER ===**
+
+Create `src/pages/DisciplineTrackerPage.tsx` — a cinematic personal trading command center:
+
+```
+ROUTE: /discipline
+
+CINEMATIC HEADER:
+"YOUR TRADING COCKPIT" in large gold text
+Subtitle: "The market rewards the disciplined. This is your accountability center."
+Live motivational quote cycling every hour (trading/discipline focused quotes)
+
+SECTION 1 — MY TRADING PLAN
+┌─────────────────────────────────────────────────────────────┐
+│ 📜 MY TRADING PLAN                          [Edit Plan]     │
+├─────────────────────────────────────────────────────────────┤
+│ Strategy: Alchemist SMC (OB + FVG + Liquidity)             │
+│ Pairs: XAUUSD, EURUSD, GBPUSD, US30, NAS100               │
+│ Sessions: London Open (07-09 UTC), NY Open (13-15 UTC)     │
+│ Max trades/day: 3                                           │
+│ Max risk/trade: 1% | Max risk/day: 3%                      │
+│ Minimum R:R: 2:1                                            │
+│ Minimum confluence: 4/6                                     │
+│ News rule: No trades 30min before/after high impact news   │
+│ Revenge trading rule: Stop after 2 consecutive losses      │
+└─────────────────────────────────────────────────────────────┘
+
+SECTION 2 — TODAY'S DISCIPLINE SCORE
+┌─────────────────────────────────────────────────────────────┐
+│ TODAY: Tuesday, May 13 2026                                 │
+│                                                             │
+│ DISCIPLINE SCORE: 8.5/10 ████████████░░░░░ 🟢 GOOD        │
+│                                                             │
+│ ✅ Traded only London + NY sessions                         │
+│ ✅ All trades had 4+ confluences                            │
+│ ✅ Risk per trade: 1% (followed plan)                       │
+│ ✅ Used pre-trade checklist for all entries                 │
+│ ❌ Took 4 trades (plan says max 3) — -1.5 points           │
+│ ✅ Stopped after 2 consecutive losses                       │
+│ ✅ No revenge trading detected                              │
+│                                                             │
+│ Trades today: 4/3 ⚠️ | Win: 3 | Loss: 1 | Net: +4.2R      │
+└─────────────────────────────────────────────────────────────┘
+
+SECTION 3 — AI DISCIPLINE TRACKER (uses journal data)
+The AI monitors your journal entries and automatically detects:
+- Overtrading: more trades than plan allows
+- Wrong sessions: trading outside your session rules
+- Low quality setups: trades with less than 4 confluences
+- Revenge trading: loss followed by entry within 5 minutes
+- FOMO entries: trades not matching your planned pairs
+- Risk violations: any trade exceeding your max risk %
+
+When a violation is detected:
+🚨 DISCIPLINE ALERT — sends browser notification immediately
+Example: "⚠️ Revenge Trade Detected! You entered EURUSD only 3 minutes after a loss. This violates your trading plan. Close the position and step away for 30 minutes."
+
+SECTION 4 — DISCIPLINE HISTORY (calendar)
+┌─────────────────────────────────────────────────────────────┐
+│ MAY 2026 DISCIPLINE CALENDAR                                │
+│ Mon  Tue  Wed  Thu  Fri                                     │
+│  🟢   🟢   🔴   🟢   🟡                                    │
+│  9.2  8.5  4.1  9.8  7.2                                   │
+│ (click any day → see full discipline report for that day)   │
+└─────────────────────────────────────────────────────────────┘
+
+SECTION 5 — PERSONAL RULES MANAGER
+User creates their own custom rules:
+Rule: "Do not trade after 8 PM local time"
+Rule: "No trading on Mondays (news day)"
+Rule: "Always check DXY before any USD pair"
+AI tracks these custom rules from journal entries and alerts when broken.
+
+SECTION 6 — AI PUNISHMENTS & REWARDS SYSTEM
+🏆 REWARDS: When discipline score is 9+ for 5 consecutive days → "ELITE TRADER" badge unlocked
+🏆 When win rate exceeds 70% over 20 trades → "SHARP SHOOTER" badge
+🏆 When 10 consecutive trades all follow checklist → "METHODICAL" badge
+
+🚨 PUNISHMENTS (cool-down enforced):
+If revenge trade detected → app shows 30-minute lockout screen
+"You are locked out for 30 minutes. Take a break. The market will be there."
+[Override with PIN] (user sets their own PIN)
+
+SECTION 7 — WEEKLY AI COACHING LETTER
+Every Sunday: Groq AI generates a personal letter to the trader
+Based on their actual journal data from that week:
+"Dear [Name], this week you traded 23 times instead of your planned maximum of 15.
+Your London session win rate was 78% but your Asian session win rate was only 12%.
+My advice: eliminate Asian session trading entirely. You are giving back your London profits..."
+
+This letter is saved and can be reviewed any time.
+
+SECTION 8 — MENTAL STATE TRACKER
+Before each trading session, ask:
+"How are you feeling right now?" [😊 Great] [😐 Neutral] [😔 Stressed] [😡 Frustrated] [😴 Tired]
+Correlation analysis: "You have a 78% win rate when feeling Great, 34% when Stressed"
+Alert: "⚠️ You marked yourself as Frustrated. Your win rate is 34% in this state. Consider not trading today."
+
+SECTION 9 — CREATIVE ADDITIONS:
+- Trading "Streak" counter: consecutive green days with fire emoji
+- Daily goal setter: "Today I will..." with completion checkbox
+- "Why I trade" reminder: user writes their motivation, shown every morning
+- Monthly trophy cabinet: visual badges earned
+- Comparison chart: planned vs actual trade count each day (recharts bar chart)
+- "Days since last revenge trade" counter — resets to 0 if detected
+```
+
+---
+
+**=== UPGRADE 13: NEW PAGE — AMT + VOLUME PROFILE + ORDER FLOW TEACHER ===**
+
+Create `src/pages/MarketMechanicsPage.tsx`:
+
+```
+ROUTE: /market-mechanics
+
+TABS: [📚 AMT Theory] [📊 Volume Profile] [🌊 Order Flow] [🧪 Practice Zone]
+
+AMT TAB — Auction Market Theory
+┌─────────────────────────────────────────────────────────────┐
+│ 📚 AUCTION MARKET THEORY (AMT)                              │
+│ Taught by Alchemist AI with interactive examples           │
+├─────────────────────────────────────────────────────────────┤
+│ LESSONS:                                                    │
+│ [✅] 1. What is AMT? (Markets as auctions)                  │
+│ [✅] 2. Value Area: VAH, VAL, POC explained                 │
+│ [  ] 3. Market States: Trending vs Balancing               │
+│ [  ] 4. Initial Balance and its implications               │
+│ [  ] 5. Time Price Opportunity (TPO) charts                │
+│ [  ] 6. Excess and failure at extremes                     │
+│ [  ] 7. Volume at price vs time at price                   │
+│ [  ] 8. How AMT combines with SMC/Alchemist strategy       │
+│                                                             │
+│ [Select Lesson] → AI teaches it with live chart examples   │
+└─────────────────────────────────────────────────────────────┘
+
+Each lesson: AI gives a full explanation with terminology, then shows how it applies to the current XAUUSD or selected pair chart. Interactive quiz at the end of each lesson.
+
+VOLUME PROFILE TAB
+┌─────────────────────────────────────────────────────────────┐
+│ 📊 VOLUME PROFILE ANALYSIS                                  │
+├─────────────────────────────────────────────────────────────┤
+│ WHAT IT SHOWS:                                              │
+│ Pair: [XAUUSD▼]  Period: [1 Week▼]  [Analyze]             │
+│                                                             │
+│ AI explains the volume profile for current pair:           │
+│ POC (Point of Control): $3,305.00 — highest volume price  │
+│ VAH (Value Area High): $3,318.00                           │
+│ VAL (Value Area Low): $3,292.00                            │
+│ Value Area: 70% of all volume traded between these levels  │
+│                                                             │
+│ AI INTERPRETATION:                                          │
+│ "Price is currently above the VAH at 3,312. This means    │
+│  price is outside of value — it will either establish new  │
+│  value above, or return to the Value Area for acceptance. │
+│  Watch for rejection at 3,320 and return to POC at 3,305."│
+│                                                             │
+│ TradingView has Volume Profile built-in — AI tells you:    │
+│ Exactly how to add it to your chart (step by step)        │
+│ How to read each component                                 │
+│ How to combine it with your Alchemist entries              │
+└─────────────────────────────────────────────────────────────┘
+
+ORDER FLOW TAB
+┌─────────────────────────────────────────────────────────────┐
+│ 🌊 ORDER FLOW CONCEPTS                                      │
+├─────────────────────────────────────────────────────────────┤
+│ AI teaches:                                                 │
+│ • What order flow is and why it matters                    │
+│ • Delta: difference between buying and selling volume      │
+│ • Imbalances: where buyers dominated vs sellers            │
+│ • Absorption: large orders absorbing market flow           │
+│ • How to read a footprint chart                            │
+│ • Order flow confirmation of Alchemist OB entries          │
+│                                                             │
+│ PRACTICAL APPLICATION:                                      │
+│ "When price enters your Alchemist OB, look for:           │
+│  - Positive delta (more buyers) for long entries           │
+│  - Absorption of sell orders at the OB zone               │
+│  - Imbalance visible in footprint confirming the OB"      │
+│                                                             │
+│ [Ask AI about any order flow concept] — chat interface     │
+└─────────────────────────────────────────────────────────────┘
+
+PRACTICE ZONE TAB — Quiz and test your knowledge
+- Multiple choice questions on AMT, Volume Profile, Order Flow
+- AI marks your answers and explains wrong ones
+- Progress tracking: AMT mastery %, VP mastery %, OF mastery %
+```
+
+---
+
+**=== UPGRADE 14: ALL NEW SMC TOOLS — BUILD EACH AS A TAB/PANEL ===**
+
+Create `src/pages/SMCToolsPage.tsx` with tabs for each tool:
+
+**Tab 1 — Liquidity Scanner:**
+AI analyzes recent swing highs/lows for the selected pair and identifies equal highs (BSL) and equal lows (SSL). Fetches recent price data via Frankfurter historical endpoint and identifies clustering at similar price levels.
+
+**Tab 2 — MSS/BOS Detector:**
+Monitor live price via `useLivePrices()` every 15 seconds. Compare against stored recent swing high/low. When price crosses a stored level, classify as BOS (if trend continues) or CHoCH (if reversal). Fire alert with sound + notification.
+
+**Tab 3 — FVG Tracker:**
+Store last 100 price ticks per pair. Identify three-candle imbalances. Display as a list with fill percentage calculated from current price vs FVG range.
+
+**Tab 4 — OB Strength Rater:**
+User inputs an OB zone (high and low price). AI scores it on 6 criteria using the Alchemist criteria from the system prompt. Returns score 1-10 with breakdown.
+
+**Tab 5 — DXY Correlation:**
+Show DXY price from `useLivePrices()` alongside the selected pair. Calculate and display correlation coefficient. AI commentary on what DXY's current position means for the pair.
+
+**Tab 6 — COT Reader:**
+Fetch CFTC data from: `https://publicreporting.cftc.gov/api/views/6dca-aqww/rows.json` Parse and display net positions for major currencies. Show week-over-week change. AI interprets whether institutions are accumulating or distributing.
+
+**Tab 7 — Fear & Greed:**
+Fetch VIX via `useLivePrices()` (VIX key in priceEngine). Display as gauge: <15 Extreme Greed, 15-20 Greed, 20-25 Neutral, 25-30 Fear, >30 Extreme Fear. AI tells you what this means for gold and forex pairs.
+
+**Tab 8 — Multi-Timeframe Panel:**
+Show M15, H1, H4, D1 bias in one view. Use AI to describe structure for each timeframe based on recent price movement. Traffic light: all green = strong setup.
+
+**Tab 9 — Entry Probability Meter:**
+12-question checklist rendered as clickable toggles. Score calculated live. Green/amber/red result. Save with each journal entry.
+
+**Tab 10 — Pair Scanner Radar:**
+Every 60 seconds: AI scores all watched pairs on 6 SMC criteria. Ranked leaderboard. Click pair to analyze instantly.
+
+**Tab 11 — One-Click Full Analysis:**
+Single button. Runs `analyzeTechnical`, `analyzeFundamental`, `analyzeConfluence` in parallel using `Promise.all()`. Shows unified report card in 25-35 seconds. Export as PDF using `window.print()` or jsPDF.
+
+**Tab 12 — Live Risk Calculator:**
+Always visible floating panel. Inputs: account size, risk %, entry, stop loss. Live outputs: lot size, pip value, dollar risk, TP levels at 1:1/2:1/3:1. Supports gold pip value calculation ($0.01 = $1 on standard lot for XAUUSD).
+
+---
+
+**=== UPGRADE 15: TRADINGVIEW — FULL TOOLBARS ON ALL CHARTS ===**
+
+Every TradingView widget in the app must have full drawing tools enabled:
+
+```typescript
+const FULL_TRADINGVIEW_CONFIG = (symbol: string, containerId: string) => `{
+  "symbol": "${symbol.includes(':') ? symbol : 'FX:' + symbol}",
+  "interval": "H1",
+  "timezone": "Africa/Addis_Ababa",
+  "theme": "dark",
+  "style": "1",
+  "locale": "en",
+  "toolbar_bg": "#0a0a0a",
+  "enable_publishing": false,
+  "withdateranges": true,
+  "hide_side_toolbar": false,
+  "allow_symbol_change": true,
+  "save_image": true,
+  "show_popup_button": true,
+  "popup_width": "1200",
+  "popup_height": "700",
+  "container_id": "${containerId}",
+  "autosize": true,
+  "studies": [
+    "RSI@tv-basicstudies",
+    "MACD@tv-basicstudies",
+    "Volume@tv-basicstudies"
+  ],
+  "disabled_features": [],
+  "enabled_features": [
+    "study_templates",
+    "use_localstorage_for_settings",
+    "save_chart_properties_to_local_storage",
+    "create_volume_indicator_by_default",
+    "left_toolbar",
+    "header_widget",
+    "header_symbol_search",
+    "symbol_search_hot_key",
+    "header_resolutions",
+    "header_chart_type",
+    "header_settings",
+    "header_indicators",
+    "header_compare",
+    "header_undo_redo",
+    "header_screenshot",
+    "header_fullscreen_button",
+    "drawing_templates"
+  ]
+}`
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  npm install html2canvas jspdf
+2.  npm install — confirm app starts
+3.  Create src/utils/priceEngine.ts — wire into App.tsx on startup
+4.  Replace ALL price displays across entire app with useLivePrices()
+5.  Update Alchemist system prompt with full training in freeAI.ts
+6.  Create src/utils/chatMemory.ts — wire into Alchemist AI chat
+7.  Update src/utils/sentimentEngine.ts — real sentiment sources
+8.  Rebuild WatchlistPage.tsx with elite features
+9.  Rebuild JournalPage.tsx with all tabs + checklist
+10. Rebuild CurrencyHeatmapPage.tsx with full matrix + commodities + indices
+11. Upgrade WarRoom with public join interface + /war-room/join route
+12. Rebuild TelegramBotPage.tsx with channel + group multi-target push
+13. Rebuild SessionOraclePage.tsx with real session timing
+14. Create DisciplineTrackerPage.tsx — cinematic personal area
+15. Create MarketMechanicsPage.tsx — AMT + Volume Profile + Order Flow
+16. Create SMCToolsPage.tsx — all 12 SMC tool tabs
+17. Update all TradingView widgets with full toolbar config
+18. Update sidebar navigation with all new pages
+19. Install html2canvas — confirm chart screenshot works in Telegram bot
+20. npm run build — fix all TypeScript errors — confirm clean build
+21. Test: Gold price correct, AI responds with Groq, Telegram sends screenshot
+22. Report: list every page built, confirm prices are live and correct
+```
+
+---
+
+**FINAL INSTRUCTION:** After completing all upgrades, run `npm run build`. If there are TypeScript errors, fix them all before reporting done. The app must build cleanly. Then confirm: (1) What is the current gold price showing? (2) Which AI provider is active? (3) Does the Telegram bot send successfully?

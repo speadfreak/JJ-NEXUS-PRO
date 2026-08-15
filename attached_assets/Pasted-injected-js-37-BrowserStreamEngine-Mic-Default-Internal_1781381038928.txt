@@ -1,0 +1,370 @@
+injected.js:37 [BrowserStreamEngine] ✅ Mic — "Default - Internal Mic" | 48000Hz
+injected.js:37 [BrowserStreamEngine] Connecting WS: wss://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/stream/ws
+injected.js:37 [BrowserStreamEngine] ✅ WS connected
+04gk~2xbm9ml2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 04gk~2xbm9ml2.js:21
+(anonymous) @ 080ns14b~8201.js:68
+injected.js:37 [BrowserStreamEngine] MediaRecorder codec: video/webm;codecs=vp8,opus
+injected.js:37 [BrowserStreamEngine] ✅ MediaRecorder started (1s segments)
+injected.js:37 [BrowserStreamEngine] Server buffering: Relay configured — waiting for first video segment…
+injected.js:37 [BrowserStreamEngine] Server buffering: Connecting FIFO pipe to FFmpeg…
+04gk~2xbm9ml2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 04gk~2xbm9ml2.js:21
+(anonymous) @ 080ns14b~8201.js:68
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=DX-Y.NYB 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:148
+fetchIndices @ priceEngine.ts:146
+(anonymous) @ priceEngine.ts:189
+(anonymous) @ priceEngine.ts:263
+yahoo-price?symbol=DX-Y.NYB:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=%5EVIX 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:148
+fetchIndices @ priceEngine.ts:146
+(anonymous) @ priceEngine.ts:189
+(anonymous) @ priceEngine.ts:263
+yahoo-price?symbol=%5EVIX:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=CL%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:119
+fetchCommodities @ priceEngine.ts:116
+await in fetchCommodities
+refreshAllPrices @ priceEngine.ts:186
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=CL%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=SI%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:119
+fetchCommodities @ priceEngine.ts:116
+await in fetchCommodities
+refreshAllPrices @ priceEngine.ts:186
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=SI%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=BZ%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:119
+fetchCommodities @ priceEngine.ts:116
+await in fetchCommodities
+refreshAllPrices @ priceEngine.ts:186
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=BZ%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=SI%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:125
+fetchCommodities @ priceEngine.ts:122
+await in fetchCommodities
+(anonymous) @ priceEngine.ts:188
+(anonymous) @ priceEngine.ts:263
+yahoo-price?symbol=SI%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=BZ%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:125
+fetchCommodities @ priceEngine.ts:122
+await in fetchCommodities
+(anonymous) @ priceEngine.ts:188
+(anonymous) @ priceEngine.ts:263
+yahoo-price?symbol=BZ%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=CL%3DF 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:125
+fetchCommodities @ priceEngine.ts:122
+await in fetchCommodities
+(anonymous) @ priceEngine.ts:188
+(anonymous) @ priceEngine.ts:263
+yahoo-price?symbol=CL%3DF:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=TSLA 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=TSLA:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=NVDA 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=NVDA:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=MSFT 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=MSFT:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=AMZN 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=AMZN:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=AAPL 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=AAPL:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=META 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=META:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=GOOGL 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=GOOGL:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=NFLX 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=NFLX:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=AMD 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=AMD:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+injected.js:214  GET https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/proxy/yahoo-price?symbol=INTC 502 (Bad Gateway)
+apply @ injected.js:214
+(anonymous) @ priceEngine.ts:164
+fetchStocks @ priceEngine.ts:162
+refreshAllPrices @ priceEngine.ts:200
+await in refreshAllPrices
+(anonymous) @ App.tsx?t=1781378346530:590
+yahoo-price?symbol=INTC:1  Failed to load resource: the server responded with a status of 502 (Bad Gateway)
+04gk~2xbm9ml2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 04gk~2xbm9ml2.js:21
+(anonymous) @ 080ns14b~8201.js:68
+0i8wy8tbht2ow.js:2 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'ambient-light-sensor'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'battery'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-not-rendered'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'execution-while-out-of-viewport'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'layout-animations'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'legacy-image-formats'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'navigation-override'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'oversized-images'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'publickey-credentials'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'speaker-selection'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unoptimized-images'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'unsized-media'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Unrecognized feature: 'pointer-lock'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowfullscreen'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0i8wy8tbht2ow.js:2 Allow attribute will take precedence over 'allowpaymentrequest'.
+C @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oO @ 0i8wy8tbht2ow.js:2
+oD @ 0i8wy8tbht2ow.js:2
+oR @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0kwdnxz2wmbue.js:2 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev') does not match the recipient window's origin ('https://replit.com').
+A @ 0kwdnxz2wmbue.js:2
+e @ 080ns14b~8201.js:13
+(anonymous) @ 080ns14b~8201.js:13
+uI @ 0i8wy8tbht2ow.js:2
+oU @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+0kwdnxz2wmbue.js:2 Failed to execute 'postMessage' on 'DOMWindow': The target origin provided ('https://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev') does not match the recipient window's origin ('https://replit.com').
+A @ 0kwdnxz2wmbue.js:2
+e @ 080ns14b~8201.js:13
+(anonymous) @ 080ns14b~8201.js:13
+uI @ 0i8wy8tbht2ow.js:2
+oU @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+oI @ 0i8wy8tbht2ow.js:2
+o_ @ 0i8wy8tbht2ow.js:2
+r8 @ 0i8wy8tbht2ow.js:2
+(anonymous) @ 0i8wy8tbht2ow.js:2
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Error while parsing the 'sandbox' attribute: 'allow-downloads-without-user-activation' is an invalid sandbox flag.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'ambient-light-sensor'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'battery'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'execution-while-not-rendered'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'execution-while-out-of-viewport'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'layout-animations'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'legacy-image-formats'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'navigation-override'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'oversized-images'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'publickey-credentials'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'speaker-selection'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'unoptimized-images'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Unrecognized feature: 'unsized-media'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Allow attribute will take precedence over 'allowfullscreen'.
+workspace_iframe.html?initialPath=%2Fstream&id=artifacts%2Fethiostream-pro:32 Allow attribute will take precedence over 'allowpaymentrequest'.
+injected.js:37 [BrowserStreamEngine] 📱 Phone mic cleared
+injected.js:37 [BrowserStreamEngine] ✅ Mic — "Default - Internal Mic" | 48000Hz
+injected.js:37 [BrowserStreamEngine] Connecting WS: wss://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/stream/ws
+injected.js:37 [BrowserStreamEngine] ✅ WS connected
+04gk~2xbm9ml2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 04gk~2xbm9ml2.js:21
+(anonymous) @ 080ns14b~8201.js:68
+injected.js:37 [BrowserStreamEngine] MediaRecorder codec: video/webm;codecs=vp8,opus
+injected.js:37 [BrowserStreamEngine] ✅ MediaRecorder started (1s segments)
+injected.js:37 [BrowserStreamEngine] Server buffering: Ready — waiting for first video segment…
+injected.js:37 [BrowserStreamEngine] Server buffering: Starting FFmpeg encoder…
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...
+injected.js:37 Stream failed: Screen share permission denied. Click 'Share' in the browser dialog.
+(anonymous) @ injected.js:37
+(anonymous) @ StreamingCommandCenter.tsx:1131
+injected.js:37 [BrowserStreamEngine] Screen share stopped by user
+04gk~2xbm9ml2.js:21 Haven't heard from the server in a while, resetting connection...
+(anonymous) @ 04gk~2xbm9ml2.js:21
+(anonymous) @ 080ns14b~8201.js:68
+injected.js:37 [BrowserStreamEngine] ✅ Mic — "Default - Internal Mic" | 48000Hz
+injected.js:37 [BrowserStreamEngine] Connecting WS: wss://d8b14a1a-232c-49f2-8dc4-5a761f3a4862-00-2lc357oyqyhh6.janeway.replit.dev/api/stream/ws
+injected.js:37 [BrowserStreamEngine] ✅ WS connected
+injected.js:37 [BrowserStreamEngine] MediaRecorder codec: video/webm;codecs=vp8,opus
+injected.js:37 [BrowserStreamEngine] ✅ MediaRecorder started (1s segments)
+injected.js:37 [BrowserStreamEngine] Server buffering: Ready — waiting for first video segment…
+injected.js:37 [BrowserStreamEngine] Server buffering: Starting FFmpeg encoder…
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...
+injected.js:37 [BrowserStreamEngine] Server auto-recovering FFmpeg...

@@ -1,0 +1,49 @@
+dist/public/assets/inter-latin-600-normal-LgqL8muc.woff2            24.45 kB
+dist/public/assets/inter-latin-400-normal-CyCys3Eg.woff             30.70 kB
+dist/public/assets/inter-latin-300-normal-i8F0SvXL.woff             31.01 kB
+dist/public/assets/inter-latin-600-normal-CiBQ2DWP.woff             31.26 kB
+dist/public/assets/inter-latin-500-normal-BL9OpVg8.woff             31.28 kB
+dist/public/assets/inter-latin-700-normal-BLAVimhd.woff             31.32 kB
+dist/public/assets/inter-latin-ext-400-normal-C1nco2VV.woff2        35.00 kB
+dist/public/assets/inter-latin-ext-300-normal-CPgO9Ksf.woff2        35.88 kB
+dist/public/assets/inter-latin-ext-500-normal-CV4jyFjo.woff2        36.02 kB
+dist/public/assets/inter-latin-ext-700-normal-Ca8adRJv.woff2        36.24 kB
+dist/public/assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2        36.26 kB
+dist/public/assets/inter-latin-ext-400-normal-77YHD8bZ.woff         47.56 kB
+dist/public/assets/inter-latin-ext-500-normal-BxGbmqWO.woff         48.49 kB
+dist/public/assets/inter-latin-ext-300-normal-Dp1L8vcn.woff         48.61 kB
+dist/public/assets/inter-latin-ext-700-normal-TidjK2hL.woff         48.63 kB
+dist/public/assets/inter-latin-ext-600-normal-CIVaiw4L.woff         48.67 kB
+dist/public/assets/index-Bs8qzIi4.css                              204.64 kB │ gzip:  29.39 kB
+dist/public/assets/purify.es-DfZ_cBTv.js                            24.11 kB │ gzip:   9.06 kB
+dist/public/assets/browser-D3PwCh4x.js                              25.78 kB │ gzip:  10.13 kB
+dist/public/assets/index.es-DJ1l7oGP.js                            158.83 kB │ gzip:  53.04 kB
+dist/public/assets/html2canvas.esm-DXEQVQnt.js                     201.04 kB │ gzip:  47.43 kB
+dist/public/assets/jspdf.es.min-DI_jyZUE.js                        385.99 kB │ gzip: 126.32 kB
+dist/public/assets/index-B8KT0iXO.js                             2,300.39 kB │ gzip: 667.65 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.84s
+✅ Build complete
+==> Uploading build...
+==> Uploaded in 4.6s. Compression took 2.2s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'NODE_ENV=production BASE_PATH=/ node --enable-source-maps ./artifacts/api-server/dist/index.mjs'
+[StreamRelay] ✅ ffmpeg-static: /opt/render/project/src/node_modules/.pnpm/ffmpeg-static@5.3.0/node_modules/ffmpeg-static/ffmpeg
+{"level":30,"time":1785321363242,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","frontendDist":"/opt/render/project/src/artifacts/ethiostream-pro/dist/public","msg":"Serving frontend static files"}
+{"level":30,"time":1785321363336,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","keepWarmUrl":"http://localhost:10000/api/healthz","msg":"Keep-warm ping enabled — polling every 4 min to prevent cold-sleep"}
+{"level":30,"time":1785321363336,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","port":10000,"msg":"Server listening — backend + frontend + WebSocket relay on one port"}
+{"level":30,"time":1785321363336,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","port":10000,"msg":"Stream relay: /api/stream/ws | Health: /api/healthz"}
+{"level":30,"time":1785321364101,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","req":{"id":1,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":5,"msg":"request completed"}
+==> Your service is live 🎉
+{"level":30,"time":1785321371153,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-5966549dc6-wtjpz","req":{"id":2,"method":"GET","url":"/"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://jj-nexus-pro.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////

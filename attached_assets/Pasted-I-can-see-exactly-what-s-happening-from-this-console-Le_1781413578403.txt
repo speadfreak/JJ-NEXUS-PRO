@@ -1,0 +1,927 @@
+I can see exactly what's happening from this console. Let me diagnose before writing the prompt:
+
+**Real problems identified:**
+1. `"Screen share permission denied"` — the app is inside a Replit **iframe preview** which blocks `getDisplayMedia()` entirely. This is why it always fails.
+2. `"Server auto-recovering FFmpeg"` 3 times then stops — FFmpeg crashes instantly because VP8 webm needs different args than what's configured.
+3. 502 errors on Yahoo proxy — server proxy not running correctly.
+4. Missing files — `Seasonality.tsx`, `WarRoom.tsx`, `MarketMechanics.tsx` etc causing 404s.
+
+**The iframe is the root cause of everything.** `getDisplayMedia` is blocked by Chrome when called from inside an iframe without `allow="display-capture"`. You must open the streaming page in its own full tab, not Replit's preview panel.
+
+Here is your complete fix prompt:
+
+---
+
+**JJ NEXUS PRO — STREAMING COMPLETE REBUILD + ALL ERRORS FIXED**
+
+Read this entire prompt before touching anything.
+
+---
+
+**=== CRITICAL DISCOVERY: WHY STREAMING NEVER WORKS IN REPLIT PREVIEW ===**
+
+The streaming page is being tested inside Replit's iframe preview panel. `getDisplayMedia()` is completely blocked by Chrome when called from inside an iframe unless that iframe has `allow="display-capture"` set. Replit's preview iframe does NOT have this. This is why screen share always fails or auto-cancels.
+
+**The streaming page must be opened in its own full browser tab to work.** Add this to the top of the streaming page component so it forces a full tab open:
+
+```typescript
+// At the very top of StreamingCommandCenter.tsx useEffect:
+useEffect(() => {
+  // Detect if we are inside an iframe
+  if (window.self !== window.top) {
+    // We are in an iframe — streaming cannot work here
+    // Open a new full tab automatically
+    const fullUrl = window.location.href
+    window.open(fullUrl, '_blank', 'noopener')
+  }
+}, [])
+```
+
+Also add a visible banner on the streaming page:
+
+```typescript
+// Show this banner when inside iframe:
+{window.self !== window.top && (
+  <div style={{
+    background: '#dc2626', color: '#fff', padding: '16px 24px',
+    borderRadius: 10, marginBottom: 20, fontSize: 14,
+    display: 'flex', alignItems: 'center', gap: 12
+  }}>
+    <span style={{ fontSize: 20 }}>⚠️</span>
+    <div>
+      <div style={{ fontWeight: 700 }}>Open in Full Tab Required</div>
+      <div style={{ opacity: 0.9, marginTop: 4 }}>
+        Screen capture is blocked inside preview frames.
+        Click the button to open the streaming studio in its own tab.
+      </div>
+    </div>
+    <button
+      onClick={() => window.open(window.location.href, '_blank')}
+      style={{
+        marginLeft: 'auto', background: '#fff', color: '#dc2626',
+        border: 'none', borderRadius: 8, padding: '8px 20px',
+        fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'
+      }}
+    >
+      Open Full Tab →
+    </button>
+  </div>
+)}
+```
+
+---
+
+**=== STEP 1: SETUP CLEANLY ===**
+
+```bash
+cat package.json
+npm install
+cp .env.example .env 2>/dev/null || true
+ffmpeg -version | head -1
+```
+
+Fix `replit.nix`:
+```nix
+{ pkgs }: {
+  deps = [ pkgs.nodejs-20_x pkgs.ffmpeg-full pkgs.nodePackages.npm ];
+  env = { FFMPEG_PATH = "${pkgs.ffmpeg-full}/bin/ffmpeg"; };
+}
+```
+
+Add to `.env`:
+```
+VITE_GROQ_API_KEY=your_key
+VITE_ANTHROPIC_API_KEY=your_key
+NODE_ENV=development
+```
+
+Fix missing page files — these are imported in `App.tsx` but do not exist, causing 404 crashes:
+
+```bash
+grep -n "import\|lazy" src/App.tsx | grep -E "Seasonal|WarRoom|MarketMech|DisciplineTrack|Teleprompter"
+```
+
+For every missing file found, create a simple placeholder:
+
+```typescript
+// src/pages/[MissingPage].tsx
+export default function MissingPage() {
+  return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#D4AF37' }}>
+      <div style={{ fontSize: 40, marginBottom: 16 }}>🚧</div>
+      <h2>Coming Soon</h2>
+      <p style={{ color: '#888' }}>This feature is under development.</p>
+    </div>
+  )
+}
+```
+
+Run `npx tsc --noEmit` — fix ALL TypeScript errors. Run `npm run build` — must succeed with zero errors.
+
+---
+
+**=== STEP 2: FIX THE 502 PROXY ERRORS ===**
+
+All Yahoo Finance calls return 502 because the proxy endpoint is at `/api/proxy/yahoo-price` but the server only registers `/proxy/yahoo-price` or vice versa. Find the mismatch:
+
+```bash
+grep -rn "yahoo-price\|/proxy/" src/utils/priceEngine.ts | head -20
+grep -rn "yahoo-price\|app.get.*proxy" artifacts/ server/ --include="*.ts" --include="*.js" 2>/dev/null | head -20
+```
+
+Make sure the server registers exactly the path that `priceEngine.ts` calls. If `priceEngine.ts` calls `/api/proxy/yahoo-price` then the server must register `app.get('/api/proxy/yahoo-price', ...)`. If it calls `/proxy/yahoo-price` then register that. Fix the mismatch whichever direction it is.
+
+Also fix Yahoo Finance blocking — Yahoo blocks server-side requests without a real browser User-Agent. Update the proxy:
+
+```javascript
+const options = {
+  hostname: 'query1.finance.yahoo.com',
+  path: `/v8/finance/chart/${symbol}?interval=1m&range=1d`,
+  method: 'GET',
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://finance.yahoo.com/',
+    'Origin': 'https://finance.yahoo.com'
+  },
+  timeout: 10000
+}
+```
+
+---
+
+**=== STEP 3: COMPLETE STREAMING ENGINE REBUILD ===**
+
+Delete the existing streaming relay server code and `BrowserStreamEngine.ts` entirely. Rebuild from scratch.
+
+**NEW SERVER RELAY — `server/streamRelay.ts`:**
+
+```typescript
+import { WebSocketServer, WebSocket } from 'ws'
+import { spawn, ChildProcess, execSync } from 'child_process'
+import { Server as HTTPServer } from 'http'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
+
+// ═══════════════════════
+// FFMPEG RESOLUTION
+// ═══════════════════════
+function resolveFFmpeg(): string {
+  const candidates = [
+    process.env.FFMPEG_PATH,
+    '/run/current-system/sw/bin/ffmpeg',
+    (() => { try { return execSync('which ffmpeg', { encoding: 'utf8' }).trim() } catch { return null } })(),
+    (() => {
+      try {
+        return execSync(
+          'find /nix/store -name "ffmpeg" -type f 2>/dev/null | grep "bin/ffmpeg$" | head -1',
+          { encoding: 'utf8' }
+        ).trim()
+      } catch { return null }
+    })(),
+  ]
+  for (const c of candidates) {
+    if (!c) continue
+    try {
+      execSync(`"${c}" -version`, { timeout: 5000, stdio: 'pipe' })
+      console.log(`[StreamRelay] ✅ FFmpeg: ${c}`)
+      return c
+    } catch {}
+  }
+  console.error('[StreamRelay] ❌ FFmpeg not found')
+  return 'ffmpeg'
+}
+
+const FFMPEG_BIN = resolveFFmpeg()
+
+// ═══════════════════════
+// SESSION TYPE
+// ═══════════════════════
+interface Session {
+  id: string
+  ws: WebSocket
+  workDir: string
+  ffmpeg: ChildProcess | null
+  rtmpUrl: string
+  config: any
+  isLive: boolean
+  startTime: number
+  lastChunkTime: number
+  segmentCount: number
+  stderrLog: string[]
+  watchdog: NodeJS.Timeout | null
+}
+
+const sessions = new Map<string, Session>()
+
+// ═══════════════════════
+// ATTACH TO HTTP SERVER
+// ═══════════════════════
+export function attachStreamRelay(httpServer: HTTPServer) {
+  const wss = new WebSocketServer({
+    server: httpServer,
+    path: '/api/stream/ws',
+    maxPayload: 100 * 1024 * 1024
+  })
+
+  // Heartbeat every 20s — prevents Replit proxy from killing idle WS
+  function heartbeat(this: any) { this.isAlive = true }
+  const hbInterval = setInterval(() => {
+    wss.clients.forEach((ws: any) => {
+      if (ws.isAlive === false) { ws.terminate(); return }
+      ws.isAlive = false
+      ws.ping()
+    })
+  }, 20000)
+  wss.on('close', () => clearInterval(hbInterval))
+
+  wss.on('connection', (ws: any) => {
+    ws.isAlive = true
+    ws.on('pong', heartbeat)
+
+    const id = `s${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+    const workDir = path.join(os.tmpdir(), `jjnexus_${id}`)
+    fs.mkdirSync(workDir, { recursive: true })
+
+    const session: Session = {
+      id, ws, workDir, ffmpeg: null,
+      rtmpUrl: '', config: null, isLive: false,
+      startTime: Date.now(), lastChunkTime: Date.now(),
+      segmentCount: 0, stderrLog: [], watchdog: null
+    }
+    sessions.set(id, session)
+    console.log(`[${id}] Connected`)
+    ws.send(JSON.stringify({ type: 'connected', sessionId: id }))
+
+    ws.on('message', (data: Buffer, isBinary: boolean) => {
+      if (!isBinary) {
+        try {
+          const msg = JSON.parse(data.toString())
+          if (msg.type === 'init') handleInit(session, msg)
+          if (msg.type === 'stop') cleanupSession(session)
+        } catch {}
+        return
+      }
+      handleVideoChunk(session, data)
+    })
+
+    ws.on('close', () => { console.log(`[${id}] Disconnected`); cleanupSession(session) })
+    ws.on('error', (e: Error) => { console.error(`[${id}] WS error:`, e.message); cleanupSession(session) })
+  })
+
+  console.log('[StreamRelay] WebSocket relay attached at /api/stream/ws')
+}
+
+// ═══════════════════════
+// INIT — configure session
+// ═══════════════════════
+function handleInit(session: Session, msg: any) {
+  session.rtmpUrl = `${msg.rtmpUrl}/${msg.streamKey}`
+  session.config = msg
+  console.log(`[${session.id}] Initialized — RTMP: ${msg.rtmpUrl}/***`)
+  session.ws.send(JSON.stringify({
+    type: 'server_status',
+    message: 'Ready — waiting for first video segment…'
+  }))
+}
+
+// ═══════════════════════
+// VIDEO CHUNK HANDLER
+// ═══════════════════════
+function handleVideoChunk(session: Session, data: Buffer) {
+  session.lastChunkTime = Date.now()
+  session.segmentCount++
+
+  // Write segment to disk
+  const segFile = path.join(session.workDir, `seg_${String(session.segmentCount).padStart(6, '0')}.webm`)
+  fs.writeFileSync(segFile, data)
+
+  console.log(`[${session.id}] Segment #${session.segmentCount} — ${data.length} bytes`)
+
+  // Validate first chunk is valid WebM (starts with EBML header 0x1A45DFA3)
+  if (session.segmentCount === 1) {
+    const magic = data.subarray(0, 4).toString('hex')
+    console.log(`[${session.id}] First chunk magic: ${magic} (should be 1a45dfa3)`)
+    if (!magic.startsWith('1a45')) {
+      console.error(`[${session.id}] ❌ Invalid WebM header — got ${magic}`)
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: `Invalid video data. Expected WebM header but got: ${magic}. Try a different browser or codec.`
+      }))
+      cleanupSession(session)
+      return
+    }
+    console.log(`[${session.id}] ✅ Valid WebM header confirmed`)
+  }
+
+  // Start FFmpeg after receiving first 2 segments
+  if (session.segmentCount === 2 && !session.ffmpeg) {
+    session.ws.send(JSON.stringify({
+      type: 'server_status',
+      message: 'Starting FFmpeg encoder…'
+    }))
+    spawnFFmpeg(session)
+  }
+
+  // For ongoing segments — append to FFmpeg stdin directly
+  if (session.ffmpeg?.stdin && !session.ffmpeg.stdin.destroyed && session.segmentCount > 2) {
+    try {
+      session.ffmpeg.stdin.write(data)
+    } catch (e) {
+      console.warn(`[${session.id}] stdin write error:`, e)
+    }
+  }
+
+  // Watchdog reset
+  if (session.watchdog) clearInterval(session.watchdog)
+  session.watchdog = setInterval(() => {
+    if (Date.now() - session.lastChunkTime > 25000) {
+      console.log(`[${session.id}] Watchdog — no chunks for 25s`)
+      cleanupSession(session)
+    }
+  }, 10000)
+}
+
+// ═══════════════════════
+// FFMPEG SPAWN
+// ═══════════════════════
+function spawnFFmpeg(session: Session) {
+  const {
+    videoBitrate = '1500k',
+    audioBitrate = '128k',
+    fps = 24
+  } = session.config || {}
+
+  // Concatenate first 2 segments and pipe them as the initial input
+  // Then subsequent chunks are written directly to stdin
+  const seg1 = path.join(session.workDir, 'seg_000001.webm')
+  const seg2 = path.join(session.workDir, 'seg_000002.webm')
+
+  // Create initial data by concatenating first segments
+  const initData = Buffer.concat([
+    fs.readFileSync(seg1),
+    fs.readFileSync(seg2)
+  ])
+
+  const args = [
+    '-re',
+    '-fflags', '+genpts+igndts',
+    '-analyzeduration', '3000000',
+    '-probesize', '3000000',
+    '-i', 'pipe:0',
+
+    // Video
+    '-c:v', 'libx264',
+    '-preset', 'ultrafast',
+    '-tune', 'zerolatency',
+    '-profile:v', 'baseline',
+    '-level', '3.1',
+    '-pix_fmt', 'yuv420p',
+    '-b:v', videoBitrate,
+    '-maxrate', videoBitrate,
+    '-bufsize', `${parseInt(videoBitrate) * 2}k`,
+    '-g', String(Math.round(fps) * 2),
+    '-keyint_min', String(Math.round(fps)),
+    '-sc_threshold', '0',
+    '-r', String(fps),
+    '-vsync', 'cfr',
+
+    // Audio
+    '-c:a', 'aac',
+    '-b:a', audioBitrate,
+    '-ar', '44100',
+    '-ac', '2',
+    '-af', 'aresample=async=1:min_hard_comp=0.100000:first_pts=0',
+
+    // Output
+    '-f', 'flv',
+    '-flvflags', 'no_duration_filesize',
+    '-reconnect', '1',
+    '-reconnect_at_eof', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+    session.rtmpUrl
+  ]
+
+  console.log(`[${session.id}] Spawning FFmpeg → ${FFMPEG_BIN}`)
+  const ffmpeg = spawn(FFMPEG_BIN, args, { stdio: ['pipe', 'pipe', 'pipe'] })
+  session.ffmpeg = ffmpeg
+
+  // Write initial data
+  ffmpeg.stdin.write(initData)
+
+  let firstProgress = true
+  ffmpeg.stderr?.on('data', (d: Buffer) => {
+    const line = d.toString()
+    session.stderrLog.push(line)
+    if (session.stderrLog.length > 200) session.stderrLog.shift()
+
+    // Log everything for first 8 seconds
+    if (Date.now() - session.startTime < 8000) {
+      console.log(`[${session.id}] FFmpeg: ${line.trim()}`)
+    }
+
+    // Progress update
+    if (line.includes('frame=') && firstProgress) {
+      firstProgress = false
+      session.isLive = true
+      console.log(`[${session.id}] ✅ FFmpeg encoding started — LIVE`)
+      try {
+        session.ws.send(JSON.stringify({ type: 'stream_starting' }))
+      } catch {}
+    }
+
+    if (line.includes('frame=')) {
+      const fpsMatch = line.match(/fps=\s*([\d.]+)/)
+      const bitrateMatch = line.match(/bitrate=\s*([\d.]+kbits\/s)/)
+      const speedMatch = line.match(/speed=\s*([\d.]+x)/)
+      try {
+        session.ws.send(JSON.stringify({
+          type: 'ffmpeg_progress',
+          fps: fpsMatch?.[1] || '0',
+          bitrate: bitrateMatch?.[1] || '0',
+          speed: speedMatch?.[1] || '0x'
+        }))
+      } catch {}
+    }
+
+    // Detect RTMP auth failure
+    if (line.includes('Connection refused') || line.includes('403') || line.includes('rtmp') && line.includes('error')) {
+      console.error(`[${session.id}] RTMP error:`, line.trim())
+    }
+  })
+
+  ffmpeg.on('close', (code: number) => {
+    console.log(`[${session.id}] FFmpeg closed: code=${code}`)
+    console.log(`[${session.id}] Last stderr:\n${session.stderrLog.slice(-20).join('')}`)
+    session.isLive = false
+
+    if (code !== 0 && sessions.has(session.id)) {
+      const lastLog = session.stderrLog.slice(-15).join('')
+      try {
+        session.ws.send(JSON.stringify({
+          type: 'error',
+          message: `Stream stopped (code ${code}). Check your Restream stream key and RTMP URL.`,
+          debugLog: lastLog
+        }))
+      } catch {}
+    }
+    session.ffmpeg = null
+  })
+
+  ffmpeg.on('error', (e: Error) => {
+    console.error(`[${session.id}] FFmpeg spawn error:`, e.message)
+    try {
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: e.message.includes('ENOENT')
+          ? 'FFmpeg not found on server. Check replit.nix has pkgs.ffmpeg-full'
+          : `FFmpeg error: ${e.message}`
+      }))
+    } catch {}
+  })
+}
+
+// ═══════════════════════
+// CLEANUP
+// ═══════════════════════
+function cleanupSession(session: Session) {
+  if (session.watchdog) clearInterval(session.watchdog)
+  if (session.ffmpeg) {
+    try {
+      session.ffmpeg.stdin?.end()
+      setTimeout(() => { try { session.ffmpeg?.kill('SIGKILL') } catch {} }, 2000)
+    } catch {}
+    session.ffmpeg = null
+  }
+  try { fs.rmSync(session.workDir, { recursive: true, force: true }) } catch {}
+  sessions.delete(session.id)
+}
+
+export function getRelayStats() {
+  return {
+    ffmpegBin: FFMPEG_BIN,
+    ffmpegAvailable: true,
+    activeSessions: sessions.size,
+    sessions: Array.from(sessions.values()).map(s => ({
+      id: s.id, isLive: s.isLive, segments: s.segmentCount,
+      uptime: Math.round((Date.now() - s.startTime) / 1000)
+    }))
+  }
+}
+```
+
+---
+
+**NEW `BrowserStreamEngine.ts` — clean minimal rebuild:**
+
+```typescript
+export interface StreamConfig {
+  rtmpUrl: string
+  streamKey: string
+  videoBitrate: string
+  audioBitrate: string
+  fps: number
+  audioDeviceId?: string
+  audioDeviceIsBluetooth?: boolean
+}
+
+export interface StreamStats {
+  status: 'idle' | 'connecting' | 'live' | 'error' | 'stopped'
+  duration: number
+  fps: string
+  bitrate: string
+  speed: string
+  error: string | null
+  debugLog?: string
+}
+
+export class BrowserStreamEngine {
+  private ws: WebSocket | null = null
+  private mediaRecorder: MediaRecorder | null = null
+  private displayStream: MediaStream | null = null
+  private micStream: MediaStream | null = null
+  private durationTimer: ReturnType<typeof setInterval> | null = null
+  private onStatsCb: ((s: StreamStats) => void) | null = null
+  private config: StreamConfig | null = null
+  stats: StreamStats = {
+    status: 'idle', duration: 0, fps: '0',
+    bitrate: '0', speed: '0x', error: null
+  }
+
+  onStats(cb: (s: StreamStats) => void) { this.onStatsCb = cb }
+
+  private emit(partial: Partial<StreamStats>) {
+    this.stats = { ...this.stats, ...partial }
+    this.onStatsCb?.(this.stats)
+  }
+
+  async startStream(config: StreamConfig): Promise<void> {
+    if (this.stats.status === 'connecting' || this.stats.status === 'live') return
+    this.config = config
+    this.emit({ status: 'connecting', error: null, duration: 0 })
+
+    // Guard: validate stream key
+    if (!config.streamKey?.trim()) {
+      this.emit({ status: 'error', error: '❌ Stream key is empty. Paste your Restream stream key first.' })
+      return
+    }
+
+    // Guard: must be in a real top-level window (not iframe)
+    if (window.self !== window.top) {
+      this.emit({ status: 'error', error: '❌ Open this page in a full browser tab (not inside the Replit preview frame). Screen capture requires a real browser window.' })
+      return
+    }
+
+    // Health check
+    try {
+      const health = await fetch('/api/stream/health').then(r => r.json())
+      if (!health.ffmpegAvailable) {
+        this.emit({ status: 'error', error: '❌ FFmpeg not found on server. Check replit.nix has pkgs.ffmpeg-full and republish.' })
+        return
+      }
+    } catch {
+      this.emit({ status: 'error', error: '❌ Cannot reach relay server. Make sure the app is running.' })
+      return
+    }
+
+    // Screen capture — MUST be called directly from button click handler (user gesture)
+    try {
+      this.displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: config.fps, max: 60 },
+          cursor: 'always'
+        } as MediaTrackConstraints,
+        audio: false // Never request system audio — causes Bluetooth disconnect
+      })
+
+      this.displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+        console.log('[BrowserStreamEngine] Screen share ended by user')
+        this.stopStream()
+      })
+    } catch (e: any) {
+      const msg = e.name === 'NotAllowedError'
+        ? '❌ Screen share permission denied. Click "Share" in the browser dialog, or open this page in a full tab.'
+        : `❌ Screen capture failed: ${e.message}`
+      this.emit({ status: 'error', error: msg })
+      return
+    }
+
+    // Microphone
+    try {
+      const audioConstraints = config.audioDeviceId
+        ? {
+            deviceId: { exact: config.audioDeviceId },
+            echoCancellation: !config.audioDeviceIsBluetooth,
+            noiseSuppression: !config.audioDeviceIsBluetooth,
+            autoGainControl: !config.audioDeviceIsBluetooth,
+            sampleRate: config.audioDeviceIsBluetooth ? 16000 : 48000
+          }
+        : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+
+      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints })
+    } catch {
+      this.micStream = null
+      console.warn('[BrowserStreamEngine] Mic unavailable — streaming without audio')
+    }
+
+    // Combine video + audio
+    const tracks: MediaStreamTrack[] = [...this.displayStream.getVideoTracks()]
+    if (this.micStream) {
+      try {
+        const ctx = new AudioContext({ sampleRate: 44100 })
+        const dest = ctx.createMediaStreamDestination()
+        const compressor = ctx.createDynamicsCompressor()
+        ctx.createMediaStreamSource(this.micStream).connect(compressor)
+        compressor.connect(dest)
+        tracks.push(...dest.stream.getAudioTracks())
+      } catch {
+        tracks.push(...this.micStream.getAudioTracks())
+      }
+    }
+    const combined = new MediaStream(tracks)
+
+    // Connect WebSocket
+    try {
+      await this.connectWebSocket()
+    } catch (e: any) {
+      this.emit({ status: 'error', error: `❌ WebSocket failed: ${e.message}` })
+      this.cleanup()
+      return
+    }
+
+    // Send stream config to server
+    this.ws!.send(JSON.stringify({
+      type: 'init',
+      rtmpUrl: config.rtmpUrl,
+      streamKey: config.streamKey,
+      videoBitrate: config.videoBitrate,
+      audioBitrate: config.audioBitrate,
+      fps: config.fps
+    }))
+
+    // Start MediaRecorder
+    this.startMediaRecorder(combined, config)
+  }
+
+  private connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const url = `${proto}//${location.host}/api/stream/ws`
+      console.log(`[BrowserStreamEngine] Connecting WS: ${url}`)
+
+      const ws = new WebSocket(url)
+      const timeout = setTimeout(() => {
+        ws.close()
+        reject(new Error(`WebSocket timeout — server not responding at ${url}`))
+      }, 10000)
+
+      ws.onopen = () => console.log('[BrowserStreamEngine] WS open')
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          console.log('[BrowserStreamEngine] Server:', msg.type, msg.message || '')
+
+          if (msg.type === 'connected') {
+            clearTimeout(timeout)
+            this.ws = ws
+            resolve()
+          }
+          if (msg.type === 'server_status') {
+            this.emit({ error: null }) // clear any previous error
+            console.log('[BrowserStreamEngine] Server buffering:', msg.message)
+          }
+          if (msg.type === 'stream_starting') {
+            this.emit({ status: 'live', error: null })
+            this.startDurationTimer()
+          }
+          if (msg.type === 'ffmpeg_progress') {
+            this.emit({ fps: msg.fps, bitrate: msg.bitrate, speed: msg.speed })
+          }
+          if (msg.type === 'error') {
+            console.error('[BrowserStreamEngine] Server error:', msg.message)
+            this.emit({ status: 'error', error: msg.message, debugLog: msg.debugLog })
+            this.cleanup()
+          }
+        } catch {}
+      }
+
+      ws.onerror = (e) => {
+        clearTimeout(timeout)
+        console.error('[BrowserStreamEngine] WS error:', e)
+        reject(new Error('WebSocket connection failed'))
+      }
+
+      ws.onclose = (e) => {
+        if (this.stats.status === 'live') {
+          this.emit({ status: 'error', error: `Connection lost (${e.code}). Refresh and try again.` })
+          this.cleanup()
+        }
+      }
+    })
+  }
+
+  private startMediaRecorder(stream: MediaStream, config: StreamConfig) {
+    const mimeTypes = [
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm',
+    ]
+    const mime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+    console.log(`[BrowserStreamEngine] MediaRecorder codec: ${mime}`)
+
+    this.mediaRecorder = new MediaRecorder(stream, {
+      mimeType: mime,
+      videoBitsPerSecond: parseInt(config.videoBitrate) * 1000,
+      audioBitsPerSecond: parseInt(config.audioBitrate) * 1000
+    })
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 100 && this.ws?.readyState === WebSocket.OPEN) {
+        e.data.arrayBuffer().then(buf => {
+          try { this.ws?.send(buf) } catch {}
+        })
+      }
+    }
+
+    this.mediaRecorder.onerror = (e: any) => {
+      console.error('[BrowserStreamEngine] MediaRecorder error:', e)
+      this.emit({ status: 'error', error: `Recording error: ${e.error?.message || 'unknown'}` })
+    }
+
+    // Start with 1 second timeslice
+    this.mediaRecorder.start(1000)
+    console.log('[BrowserStreamEngine] ✅ MediaRecorder started (1s segments)')
+  }
+
+  private startDurationTimer() {
+    if (this.durationTimer) clearInterval(this.durationTimer)
+    this.durationTimer = setInterval(() => {
+      this.emit({ duration: this.stats.duration + 1 })
+    }, 1000)
+  }
+
+  stopStream() {
+    this.cleanup()
+    this.emit({ status: 'stopped', error: null })
+  }
+
+  private cleanup() {
+    if (this.durationTimer) { clearInterval(this.durationTimer); this.durationTimer = null }
+    if (this.mediaRecorder?.state !== 'inactive') { try { this.mediaRecorder?.stop() } catch {} }
+    this.displayStream?.getTracks().forEach(t => t.stop())
+    this.micStream?.getTracks().forEach(t => t.stop())
+    if (this.ws?.readyState === WebSocket.OPEN) { try { this.ws.send(JSON.stringify({ type: 'stop' })) } catch {} }
+    this.ws?.close()
+    this.ws = null
+    this.mediaRecorder = null
+    this.displayStream = null
+    this.micStream = null
+  }
+
+  static formatDuration(s: number): string {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = s % 60
+    return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':')
+  }
+}
+
+export const streamEngine = new BrowserStreamEngine()
+```
+
+---
+
+**=== STEP 4: WIRE RELAY INTO MAIN SERVER ===**
+
+In the main server entry point find where the HTTP server is created and add:
+
+```typescript
+import { attachStreamRelay, getRelayStats } from './streamRelay'
+
+// After: const httpServer = createServer(app)
+attachStreamRelay(httpServer)
+
+// Health endpoint
+app.get('/api/stream/health', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.json({
+    status: 'ok',
+    ffmpegAvailable: true,
+    ...getRelayStats(),
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  })
+})
+
+// Self-ping for Autoscale warmth
+if (process.env.NODE_ENV === 'production') {
+  const selfUrl = process.env.REPLIT_DEV_DOMAIN
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}/api/stream/health`
+    : null
+  if (selfUrl) {
+    setInterval(() => fetch(selfUrl).catch(() => {}), 4 * 60 * 1000)
+    console.log(`[Server] Self-ping enabled: ${selfUrl}`)
+  }
+}
+```
+
+---
+
+**=== STEP 5: ADD DEBUG LOG DISPLAY IN UI ===**
+
+In `StreamingCommandCenter.tsx` add a debug panel that shows the last FFmpeg output when there's an error:
+
+```typescript
+{stats.status === 'error' && (
+  <div style={{
+    background: 'rgba(220,38,38,0.1)',
+    border: '1px solid #dc2626',
+    borderRadius: 10, padding: 16, marginBottom: 16
+  }}>
+    <div style={{ color: '#dc2626', fontWeight: 700, marginBottom: 8 }}>
+      ❌ Stream Error
+    </div>
+    <div style={{ color: '#fca5a5', fontSize: 13, marginBottom: 8 }}>
+      {stats.error}
+    </div>
+    {stats.debugLog && (
+      <details>
+        <summary style={{ color: '#888', fontSize: 11, cursor: 'pointer' }}>
+          Show FFmpeg debug log
+        </summary>
+        <pre style={{
+          color: '#666', fontSize: 10, marginTop: 8,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+          maxHeight: 200, overflow: 'auto',
+          background: '#000', padding: 8, borderRadius: 4
+        }}>
+          {stats.debugLog}
+        </pre>
+      </details>
+    )}
+  </div>
+)}
+```
+
+---
+
+**=== STEP 6: DEPLOY AND TEST PROPERLY ===**
+
+```bash
+npm run build
+NODE_ENV=production node [server-file] &
+sleep 3
+curl http://localhost:5000/api/stream/health
+```
+
+Health must return `ffmpegAvailable: true`.
+
+**Then publish and test by opening the streaming page in its OWN tab — NOT the Replit preview panel.**
+
+```
+1. Publish the app
+2. Copy the published URL
+3. Open a NEW Chrome tab (not inside Replit at all)
+4. Navigate to: https://[your-app].replit.app/stream
+5. Paste your Restream stream key
+6. Click Go Live
+7. When Chrome shows the screen share picker — select the tab or screen
+8. Watch server terminal for: [Relay] Segment #1, #2, FFmpeg spawned, frame= output
+9. Watch Restream dashboard for "receiving" status
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  npm install, fix replit.nix, verify ffmpeg -version
+2.  Create placeholder files for all missing pages (404 errors)
+3.  Fix proxy path mismatch between priceEngine.ts and server
+4.  Fix Yahoo Finance User-Agent headers in proxy
+5.  Delete old streamRelay and BrowserStreamEngine
+6.  Create new server/streamRelay.ts
+7.  Wire attachStreamRelay() into main server
+8.  Create new BrowserStreamEngine.ts
+9.  Add iframe detection banner to StreamingCommandCenter.tsx
+10. Add error debug panel to StreamingCommandCenter.tsx
+11. npx tsc --noEmit — fix ALL errors
+12. npm run build — zero errors
+13. Test health endpoint locally
+14. Deploy
+15. Open published URL in a REAL browser tab (not Replit preview)
+16. Test Go Live — watch server logs for segment reception and FFmpeg progress
+17. Check Restream dashboard
+18. Report: First chunk magic bytes, FFmpeg stderr first 5 seconds, 
+    Restream receiving status, stream duration achieved
+```
+
+---
+
+**Most important thing:** After publishing, open the streaming page in a real Chrome tab at `https://[yourapp].replit.app/stream` — not inside the Replit editor preview. This single change will likely fix the `getDisplayMedia` permission issue that has been causing failures the entire time.

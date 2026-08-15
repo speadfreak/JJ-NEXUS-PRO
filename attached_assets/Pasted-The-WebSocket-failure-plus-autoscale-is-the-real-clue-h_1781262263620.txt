@@ -1,0 +1,457 @@
+The WebSocket failure plus "autoscale" is the real clue here — autoscale deployments can sleep/restart and don't reliably hold persistent WebSocket+FFmpeg processes. Here's your fix prompt:
+
+---
+
+**CRITICAL FIX: WebSocket connection fails on published app — switch from Autoscale to Reserved VM + harden the relay**
+
+The browser console shows:
+
+```
+WebSocket connection to 'wss://[app].replit.dev/api/stream/ws' failed
+```
+
+This happens because the deployment is using **Autoscale**, which is designed for stateless HTTP requests that start and stop quickly. Autoscale deployments can spin down idle instances, restart mid-session, and do not reliably support long-lived WebSocket connections with attached FFmpeg child processes. Streaming NEEDS a deployment type that stays running continuously. Fix everything below.
+
+---
+
+**=== STEP 1: DIAGNOSE CURRENT STATE FIRST ===**
+
+```bash
+cat .replit
+find . -name "streamRelay*" -not -path "*/node_modules/*"
+find . -name "*.ts" -path "*server*" -not -path "*/node_modules/*"
+echo $FFMPEG_PATH
+which ffmpeg
+curl -s http://localhost:5000/health 2>/dev/null || curl -s http://localhost:3001/health 2>/dev/null
+```
+
+Report what each command returns before making changes.
+
+---
+
+**=== STEP 2: SWITCH DEPLOYMENT TYPE TO RESERVED VM ===**
+
+Autoscale is wrong for this app. Update `.replit` deployment section:
+
+```toml
+[deployment]
+deploymentTarget = "vm"
+build = ["sh", "-c", "npm run build"]
+run = ["sh", "-c", "NODE_ENV=production node SERVER_FILE_PATH"]
+```
+
+Replace `SERVER_FILE_PATH` with the actual server file path found in Step 1. A Reserved VM deployment stays running continuously, keeps WebSocket connections alive, and lets FFmpeg child processes run for the full duration of a stream without being killed by a scale-down event.
+
+If using Replit's deployment UI instead of editing .replit directly, change the deployment type from Autoscale to **Reserved VM** in the deployment settings panel.
+
+---
+
+**=== STEP 3: HARDEN THE WEBSOCKET SERVER FOR STABILITY ===**
+
+Read the server file completely. Then make sure it has ALL of the following:
+
+**3a — WebSocket server attached directly to the HTTP server (not a separate port):**
+
+```typescript
+import { WebSocketServer } from 'ws'
+import { createServer } from 'http'
+import express from 'express'
+
+const app = express()
+const httpServer = createServer(app)
+
+const wss = new WebSocketServer({
+  server: httpServer,
+  path: '/api/stream/ws',
+  // Increase max payload for video chunks
+  maxPayload: 50 * 1024 * 1024, // 50MB
+  // Perform per-message deflate for bandwidth savings
+  perMessageDeflate: false // disable — adds latency to video chunks
+})
+```
+
+**3b — WebSocket heartbeat to prevent idle disconnection:**
+
+```typescript
+// Add heartbeat to keep connections alive through proxies/load balancers
+function heartbeat(this: any) {
+  this.isAlive = true
+}
+
+wss.on('connection', (ws: any) => {
+  ws.isAlive = true
+  ws.on('pong', heartbeat)
+  // ... rest of connection handler
+})
+
+// Ping every 25 seconds — Replit's edge proxy times out idle connections faster than 30s
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws: any) => {
+    if (ws.isAlive === false) {
+      console.log('[StreamRelay] Terminating dead connection')
+      return ws.terminate()
+    }
+    ws.isAlive = false
+    ws.ping()
+  })
+}, 25000)
+
+wss.on('close', () => clearInterval(heartbeatInterval))
+```
+
+**3c — Reconnection-safe session handling:**
+
+```typescript
+// Each session must survive brief disconnects without killing FFmpeg immediately
+ws.on('close', (code, reason) => {
+  console.log(`[${sessionId}] WS closed: ${code} ${reason}`)
+
+  // Do NOT immediately kill FFmpeg — give 10 seconds for reconnect
+  session.disconnectedAt = Date.now()
+
+  setTimeout(() => {
+    if (session.disconnectedAt && Date.now() - session.disconnectedAt >= 10000) {
+      console.log(`[${sessionId}] No reconnect within 10s — stopping FFmpeg`)
+      stopSession(session)
+      sessions.delete(sessionId)
+    }
+  }, 10000)
+})
+```
+
+---
+
+**=== STEP 4: FIX FFMPEG ARGS FOR MAXIMUM STABILITY (NO VIDEO FORMAT ERRORS) ===**
+
+Replace the FFmpeg spawn arguments with this hardened, stability-first configuration:
+
+```typescript
+const ffmpegArgs = [
+  // Input
+  '-fflags', '+genpts+igndts',  // generate timestamps, ignore broken DTS from browser
+  '-analyzeduration', '10000000', // 10 seconds — handles variable webm input
+  '-probesize', '10000000',
+  '-i', 'pipe:0',
+
+  // Video encoding — stability over quality
+  '-c:v', 'libx264',
+  '-preset', 'ultrafast',
+  '-tune', 'zerolatency',
+  '-profile:v', 'baseline',     // maximum compatibility with RTMP/TikTok
+  '-level', '3.1',
+  '-b:v', videoBitrate || '1500k',
+  '-maxrate', videoBitrate || '1500k',
+  '-bufsize', `${parseInt(videoBitrate || '1500') * 2}k`,
+  '-pix_fmt', 'yuv420p',
+  '-g', '48',                    // keyframe every 2s at 24fps
+  '-keyint_min', '24',
+  '-sc_threshold', '0',          // disable scene-change keyframes — prevents stutter
+  '-r', String(fps || 24),
+  '-vsync', 'cfr',               // constant frame rate — fixes format/timing errors
+
+  // Audio encoding
+  '-c:a', 'aac',
+  '-b:a', audioBitrate || '128k',
+  '-ar', '44100',
+  '-ac', '2',
+  '-af', 'aresample=async=1:first_pts=0', // fixes audio drift/desync over long streams
+
+  // Output
+  '-flvflags', 'no_duration_filesize',
+  '-f', 'flv',
+  '-reconnect', '1',
+  '-reconnect_at_eof', '1',
+  '-reconnect_streamed', '1',
+  '-reconnect_delay_max', '5',
+  rtmpUrl
+]
+```
+
+This configuration specifically fixes:
+- "Video format error" — caused by `vsync cfr` and proper `genpts`
+- Audio desync over long streams — caused by `aresample=async`
+- Stuttering/freezing — caused by `sc_threshold 0` and proper GOP settings
+- RTMP reconnection on network blips — caused by `-reconnect` flags
+
+---
+
+**=== STEP 5: FIX THE BROWSER-SIDE MEDIARECORDER FOR STABLE CHUNKS ===**
+
+In `BrowserStreamEngine.ts` update the MediaRecorder configuration:
+
+```typescript
+startMediaRecorder(stream: MediaStream, config: StreamConfig) {
+  // Use a LARGER chunk interval — smaller chunks (250ms) create more
+  // WebSocket overhead and can cause out-of-order delivery issues
+  const CHUNK_INTERVAL_MS = 1000 // 1 second chunks — more stable over WebSocket
+
+  const mimeTypes = [
+    'video/webm;codecs=h264,opus',  // h264 in webm is most FFmpeg-compatible
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ]
+
+  let selectedMime = ''
+  for (const mime of mimeTypes) {
+    if (MediaRecorder.isTypeSupported(mime)) {
+      selectedMime = mime
+      console.log(`[StreamEngine] Using codec: ${mime}`)
+      break
+    }
+  }
+
+  this.mediaRecorder = new MediaRecorder(stream, {
+    mimeType: selectedMime,
+    videoBitsPerSecond: parseInt(config.videoBitrate) * 1000,
+    audioBitsPerSecond: parseInt(config.audioBitrate) * 1000
+  })
+
+  // Buffer management — prevent WebSocket overload
+  let pendingChunks: ArrayBuffer[] = []
+  let isSending = false
+
+  const sendNextChunk = async () => {
+    if (isSending || pendingChunks.length === 0) return
+    if (this.ws?.readyState !== WebSocket.OPEN) return
+
+    isSending = true
+    const chunk = pendingChunks.shift()!
+
+    try {
+      this.ws.send(chunk)
+    } catch (e) {
+      console.error('[StreamEngine] Send failed, requeueing:', e)
+      pendingChunks.unshift(chunk) // put it back
+    }
+
+    isSending = false
+
+    // Process next chunk if any
+    if (pendingChunks.length > 0) {
+      setTimeout(sendNextChunk, 10)
+    }
+  }
+
+  this.mediaRecorder.ondataavailable = (event) => {
+    if (event.data && event.data.size > 0) {
+      event.data.arrayBuffer().then(buffer => {
+        // Drop old chunks if queue gets too large — prevents memory buildup
+        // that causes browser tab crashes during long streams
+        if (pendingChunks.length > 5) {
+          console.warn('[StreamEngine] Queue overflow — dropping oldest chunk')
+          pendingChunks.shift()
+        }
+        pendingChunks.push(buffer)
+        sendNextChunk()
+      })
+    }
+  }
+
+  this.mediaRecorder.onerror = (event: any) => {
+    console.error('[StreamEngine] MediaRecorder error:', event.error)
+    this.updateStats({ status: 'error', error: `Recording error: ${event.error?.message || 'unknown'}` })
+  }
+
+  this.mediaRecorder.start(CHUNK_INTERVAL_MS)
+  console.log(`[StreamEngine] ✅ Recording started — ${CHUNK_INTERVAL_MS}ms chunks, codec: ${selectedMime}`)
+}
+```
+
+---
+
+**=== STEP 6: FIX WEBSOCKET URL CONSTRUCTION (THE ACTUAL CONNECTION FAILURE) ===**
+
+The exact error shows the WebSocket URL was:
+```
+wss://f0e26bd3-4ffa-4ac2-8080-e6c12ac026ef-00-1a78wxni368nu.picard.replit.dev/api/stream/ws
+```
+
+The problem is likely that either: the path `/api/stream/ws` is not registered on the WebSocket server, or the server is not running/reachable on the deployed instance. Fix the connection logic with detailed diagnostics:
+
+```typescript
+async connectToRelay(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host // includes port if present
+    const wsUrl = `${protocol}//${host}/api/stream/ws`
+
+    console.log(`[StreamEngine] Connecting to: ${wsUrl}`)
+
+    // First verify the HTTP server is reachable at all
+    fetch(`${window.location.protocol}//${host}/api/stream/health`)
+      .then(res => res.json())
+      .then(data => {
+        console.log('[StreamEngine] Health check passed:', data)
+        if (!data.ffmpegAvailable) {
+          reject(new Error('FFmpeg not available on server — cannot stream'))
+          return
+        }
+        attemptWebSocket()
+      })
+      .catch(err => {
+        reject(new Error(`Server unreachable: ${err.message}. The deployment may be down or sleeping.`))
+      })
+
+    function attemptWebSocket() {
+      const ws = new WebSocket(wsUrl)
+      let resolved = false
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          ws.close()
+          reject(new Error(`WebSocket connection timeout after 10s to ${wsUrl}. Check that the WebSocket server is attached to the same HTTP server and path matches exactly.`))
+        }
+      }, 10000)
+
+      ws.onopen = () => {
+        console.log(`[StreamEngine] ✅ WebSocket connected: ${wsUrl}`)
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+          if (msg.type === 'connected' && !resolved) {
+            resolved = true
+            clearTimeout(timeout)
+            this.sessionId = msg.sessionId
+            this.ws = ws
+            this.setupWebSocketHandlers()
+            resolve()
+          }
+          this.handleRelayMessage(msg)
+        } catch {}
+      }
+
+      ws.onerror = (e) => {
+        console.error('[StreamEngine] WebSocket error event:', e)
+        if (!resolved) {
+          clearTimeout(timeout)
+          reject(new Error(`WebSocket failed to connect to ${wsUrl}. This usually means: 1) the server is not running, 2) the deployment is Autoscale and sleeping, or 3) the WebSocket path is not registered on the server.`))
+        }
+      }
+
+      ws.onclose = (e) => {
+        console.log(`[StreamEngine] WebSocket closed: code=${e.code} reason=${e.reason}`)
+        if (this.stats.status === 'live') {
+          this.attemptReconnect(wsUrl)
+        }
+      }
+    }
+  })
+}
+
+// Auto-reconnect on unexpected disconnect during live stream
+private reconnectAttempts = 0
+private attemptReconnect(wsUrl: string) {
+  if (this.reconnectAttempts >= 5) {
+    this.updateStats({ status: 'error', error: 'Connection lost — max reconnect attempts reached' })
+    return
+  }
+  this.reconnectAttempts++
+  console.log(`[StreamEngine] Reconnect attempt ${this.reconnectAttempts}/5...`)
+
+  setTimeout(() => {
+    const ws = new WebSocket(wsUrl)
+    ws.onopen = () => {
+      console.log('[StreamEngine] ✅ Reconnected')
+      this.reconnectAttempts = 0
+      this.ws = ws
+      this.setupWebSocketHandlers()
+      // Re-send init config to resume FFmpeg with same RTMP target
+      if (this.config) this.sendStreamConfig(this.config)
+    }
+    ws.onerror = () => this.attemptReconnect(wsUrl)
+  }, 2000 * this.reconnectAttempts) // exponential backoff
+}
+```
+
+---
+
+**=== STEP 7: VERIFY THE WEBSOCKET PATH IS ACTUALLY REGISTERED ===**
+
+A common cause of this exact error is the WebSocket server being created on a DIFFERENT http server instance than the one Express listens on. Check the server file for this exact pattern and fix if needed:
+
+```typescript
+// WRONG — creates two separate servers, WebSocket never receives traffic:
+const app = express()
+app.listen(PORT)  // Express creates its OWN internal server
+const wss = new WebSocketServer({ port: 3001 })  // separate server on different port
+
+// CORRECT — one server, both HTTP and WebSocket:
+const app = express()
+const httpServer = createServer(app)
+const wss = new WebSocketServer({ server: httpServer, path: '/api/stream/ws' })
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server with WebSocket running on port ${PORT}`)
+})
+```
+
+If the current code uses `app.listen()` directly instead of `createServer(app)` + `httpServer.listen()`, this is the bug — fix it exactly as shown above.
+
+---
+
+**=== STEP 8: REBUILD, TEST LOCALLY, THEN REDEPLOY ===**
+
+```bash
+npm run build
+NODE_ENV=production node SERVER_FILE_PATH &
+sleep 3
+
+# Test 1: HTTP health
+curl http://localhost:5000/api/stream/health
+
+# Test 2: WebSocket upgrade test (install wscat if needed: npm install -g wscat)
+wscat -c ws://localhost:5000/api/stream/ws
+# Should receive: {"type":"connected","sessionId":"..."}
+```
+
+If wscat connects and receives the connected message, the server is correct. If it fails locally too, the bug is in Step 7 — the WebSocket is not attached to the right server.
+
+---
+
+**=== STEP 9: REDEPLOY AS RESERVED VM ===**
+
+```
+1. In Replit deployment settings change type from Autoscale to Reserved VM
+2. Redeploy
+3. Open published URL
+4. Open browser console
+5. Go to streaming page
+6. Click Go Live
+7. Confirm WebSocket connects: wss://[app].replit.app/api/stream/ws
+8. Confirm health check shows ffmpegAvailable: true
+9. Confirm FFmpeg spawns and stream goes live
+10. Let it run for 5 minutes — confirm no disconnection, no format errors, no audio desync
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Run diagnostic commands from Step 1, report results
+2.  Change deployment target to Reserved VM in .replit
+3.  Add WebSocket heartbeat (ping/pong every 25s)
+4.  Add reconnection-safe session handling (10s grace period)
+5.  Replace FFmpeg args with hardened stability configuration
+6.  Update MediaRecorder to 1-second chunks with queue management
+7.  Fix connectToRelay() with health check + detailed error messages
+8.  Add attemptReconnect() with exponential backoff
+9.  Verify WebSocket is attached to same HTTP server (fix if using separate ports)
+10. npm run build — zero TypeScript errors
+11. Test locally with wscat — confirm WebSocket responds
+12. Redeploy as Reserved VM
+13. Test Go Live on published URL for 5 full minutes
+14. Report: deployment type used, wscat test result, ffmpegAvailable value,
+    stream duration achieved without disconnect, any remaining errors
+```
+
+---
+
+**Report back with:**
+- Whether deployment was changed to Reserved VM successfully
+- wscat test result (connected message received or not)
+- ffmpegAvailable value from health check on published URL
+- How long Go Live stayed connected without disconnecting
+- Any remaining console errors

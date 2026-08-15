@@ -1,0 +1,1669 @@
+This is a brilliant idea. Here is your complete prompt:
+
+---
+
+**JJ NEXUS PRO v9.0 — FULL BROWSER STREAMING ENGINE: STREAM THE ENTIRE WEBAPP TO RESTREAM.IO → TIKTOK/YOUTUBE/ALL PLATFORMS**
+
+This is the most important upgrade to JJ NEXUS PRO. Build a complete professional broadcasting system that captures the ENTIRE webapp browser window and streams it live to Restream.io using WebRTC and MediaRecorder. The user gives their Restream RTMP URL and stream key — JJ NEXUS PRO captures the full browser screen and pushes it directly to Restream which distributes to TikTok, YouTube, Instagram and all other platforms simultaneously. This must work like Streamlabs but built directly into the webapp. No OBS needed. No downloads. Works on Chromebook.
+
+**GROQ API KEY:** paste gsk key here
+**ANTHROPIC API KEY:** paste sk-ant key here
+
+```bash
+npm install
+npm run dev
+```
+
+Confirm app runs before any changes.
+
+---
+
+**=== THE CORE ARCHITECTURE — READ THIS FIRST ===**
+
+Here is exactly how the streaming pipeline works:
+
+```
+JJ NEXUS PRO webapp (full browser)
+        ↓
+getDisplayMedia() captures entire browser tab
+        ↓
+getUserMedia() captures microphone audio
+        ↓
+MediaRecorder encodes to webm chunks (real-time)
+        ↓
+WebSocket connection to a lightweight Node.js relay server
+        ↓
+Relay server converts webm chunks to RTMP using FFmpeg
+        ↓
+RTMP stream pushed to rtmp://live.restream.io/live/[KEY]
+        ↓
+Restream.io distributes to TikTok + YouTube + Instagram + all platforms
+```
+
+This is the exact same architecture used by browser-based streaming tools. It is fully achievable with free tools.
+
+---
+
+**=== PART 1: BUILD THE STREAMING RELAY SERVER ===**
+
+Create a Node.js relay server that runs alongside the React app on Replit. This server receives video chunks from the browser via WebSocket and pipes them to FFmpeg which outputs RTMP.
+
+Create `server/streamRelay.js`:
+
+```javascript
+// server/streamRelay.js
+// Lightweight RTMP relay server
+// Receives WebM chunks from browser → converts to RTMP via FFmpeg → pushes to Restream
+
+const WebSocket = require('ws')
+const { spawn } = require('child_process')
+const http = require('http')
+const path = require('path')
+
+const HTTP_PORT = 3001 // WebSocket server port
+const CORS_ORIGIN = '*' // Allow from any origin for Replit
+
+// Active streaming sessions
+const sessions = new Map()
+
+// Create HTTP server for WebSocket upgrade
+const server = http.createServer((req, res) => {
+  // Health check endpoint
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      status: 'running',
+      activeSessions: sessions.size,
+      timestamp: new Date().toISOString()
+    }))
+    return
+  }
+
+  // Stream status endpoint
+  if (req.url === '/status') {
+    const sessionList = Array.from(sessions.entries()).map(([id, session]) => ({
+      id,
+      rtmpUrl: session.rtmpUrl.replace(/\/[^/]+$/, '/***'), // hide key
+      startTime: session.startTime,
+      bytesReceived: session.bytesReceived,
+      isLive: session.ffmpeg !== null
+    }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ sessions: sessionList }))
+    return
+  }
+
+  res.writeHead(404)
+  res.end()
+})
+
+// WebSocket server
+const wss = new WebSocket.Server({ server })
+
+wss.on('connection', (ws, req) => {
+  const sessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  console.log(`[${sessionId}] New connection from ${req.socket.remoteAddress}`)
+
+  const session = {
+    id: sessionId,
+    ws,
+    ffmpeg: null,
+    rtmpUrl: null,
+    startTime: new Date(),
+    bytesReceived: 0,
+    chunksReceived: 0,
+    isInitialized: false
+  }
+
+  sessions.set(sessionId, session)
+
+  // Send session ID back to client
+  ws.send(JSON.stringify({
+    type: 'connected',
+    sessionId,
+    message: 'Stream relay ready'
+  }))
+
+  ws.on('message', (data) => {
+    try {
+      // First message is always JSON config
+      if (!session.isInitialized) {
+        const config = JSON.parse(data.toString())
+
+        if (config.type === 'init') {
+          console.log(`[${sessionId}] Initializing stream to: ${config.rtmpUrl.replace(/\/[^/]+$/, '/***')}`)
+          session.rtmpUrl = config.rtmpUrl
+          initializeFFmpeg(session, config)
+        }
+        return
+      }
+
+      // Subsequent messages are binary video chunks
+      if (Buffer.isBuffer(data) || data instanceof ArrayBuffer) {
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data)
+        session.bytesReceived += chunk.length
+        session.chunksReceived++
+
+        if (session.ffmpeg && session.ffmpeg.stdin && !session.ffmpeg.stdin.destroyed) {
+          const written = session.ffmpeg.stdin.write(chunk)
+          if (!written) {
+            // Backpressure — pause and wait for drain
+            session.ffmpeg.stdin.once('drain', () => {})
+          }
+        }
+
+        // Send stats back every 30 chunks
+        if (session.chunksReceived % 30 === 0) {
+          ws.send(JSON.stringify({
+            type: 'stats',
+            bytesReceived: session.bytesReceived,
+            chunksReceived: session.chunksReceived,
+            mbReceived: (session.bytesReceived / 1024 / 1024).toFixed(2),
+            uptime: Math.floor((Date.now() - session.startTime.getTime()) / 1000)
+          }))
+        }
+      }
+    } catch (e) {
+      console.error(`[${sessionId}] Message error:`, e.message)
+    }
+  })
+
+  ws.on('close', (code, reason) => {
+    console.log(`[${sessionId}] Connection closed: ${code} ${reason}`)
+    stopSession(session)
+    sessions.delete(sessionId)
+  })
+
+  ws.on('error', (err) => {
+    console.error(`[${sessionId}] WebSocket error:`, err.message)
+    stopSession(session)
+    sessions.delete(sessionId)
+  })
+})
+
+function initializeFFmpeg(session, config) {
+  const {
+    rtmpUrl,
+    videoBitrate = '2500k',
+    audioBitrate = '128k',
+    fps = 30,
+    resolution = '1280x720'
+  } = config
+
+  // FFmpeg command to convert WebM input to RTMP output
+  // Input: WebM video from stdin (browser MediaRecorder output)
+  // Output: RTMP stream to Restream/TikTok/YouTube
+  const ffmpegArgs = [
+    // Input configuration
+    '-re',                          // Read at native frame rate
+    '-i', 'pipe:0',                 // Read from stdin (WebSocket data)
+
+    // Video encoding
+    '-c:v', 'libx264',             // H.264 video codec (required for RTMP)
+    '-preset', 'ultrafast',        // Fastest encoding (lowest CPU)
+    '-tune', 'zerolatency',        // Minimize latency
+    '-b:v', videoBitrate,          // Video bitrate
+    '-maxrate', videoBitrate,      // Max bitrate
+    '-bufsize', '2000k',           // Buffer size
+    '-pix_fmt', 'yuv420p',        // Pixel format for compatibility
+    '-g', String(fps * 2),         // Keyframe interval (2 seconds)
+    '-r', String(fps),             // Output framerate
+
+    // Audio encoding
+    '-c:a', 'aac',                 // AAC audio codec (required for RTMP)
+    '-b:a', audioBitrate,          // Audio bitrate
+    '-ar', '44100',                // Audio sample rate
+    '-ac', '2',                    // Stereo audio
+
+    // Output
+    '-f', 'flv',                   // FLV container (required for RTMP)
+    rtmpUrl                        // RTMP destination URL
+  ]
+
+  console.log(`[${session.id}] Starting FFmpeg: ffmpeg ${ffmpegArgs.slice(-1)}`)
+
+  session.ffmpeg = spawn('ffmpeg', ffmpegArgs, {
+    stdio: ['pipe', 'pipe', 'pipe']
+  })
+
+  session.isInitialized = true
+
+  session.ffmpeg.stdout.on('data', (data) => {
+    // FFmpeg stdout (usually empty for RTMP output)
+  })
+
+  session.ffmpeg.stderr.on('data', (data) => {
+    const log = data.toString()
+
+    // Parse FFmpeg progress and send to client
+    if (log.includes('fps=') || log.includes('bitrate=') || log.includes('speed=')) {
+      const fpsMatch = log.match(/fps=\s*([\d.]+)/)
+      const bitrateMatch = log.match(/bitrate=\s*([\d.]+kbits/)
+      const speedMatch = log.match(/speed=\s*([\d.]+x)/)
+
+      if (session.ws.readyState === 1) { // WebSocket.OPEN
+        session.ws.send(JSON.stringify({
+          type: 'ffmpeg_progress',
+          fps: fpsMatch?.[1] || '0',
+          bitrate: bitrateMatch?.[1] || '0kbits/s',
+          speed: speedMatch?.[1] || '0x'
+        }))
+      }
+    }
+
+    // Log errors
+    if (log.toLowerCase().includes('error') || log.toLowerCase().includes('failed')) {
+      console.error(`[${session.id}] FFmpeg error:`, log.trim())
+
+      if (session.ws.readyState === 1) {
+        session.ws.send(JSON.stringify({
+          type: 'error',
+          message: `Stream error: ${log.trim().slice(0, 200)}`
+        }))
+      }
+    }
+  })
+
+  session.ffmpeg.on('close', (code) => {
+    console.log(`[${session.id}] FFmpeg exited with code ${code}`)
+
+    if (session.ws.readyState === 1) {
+      session.ws.send(JSON.stringify({
+        type: 'stream_ended',
+        code,
+        message: code === 0 ? 'Stream ended cleanly' : `Stream ended with error code ${code}`
+      }))
+    }
+
+    session.ffmpeg = null
+  })
+
+  session.ffmpeg.on('error', (err) => {
+    console.error(`[${session.id}] FFmpeg spawn error:`, err.message)
+
+    if (err.code === 'ENOENT') {
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: 'FFmpeg not installed on server. Run: apt-get install ffmpeg'
+      }))
+    }
+  })
+
+  // Notify client that stream is starting
+  session.ws.send(JSON.stringify({
+    type: 'stream_starting',
+    message: 'FFmpeg initialized, stream starting...',
+    rtmpDestination: rtmpUrl.replace(/\/[^/]+$/, '/***')
+  }))
+
+  console.log(`[${session.id}] ✅ FFmpeg started, streaming to RTMP`)
+}
+
+function stopSession(session) {
+  if (session.ffmpeg) {
+    try {
+      session.ffmpeg.stdin.end()
+      setTimeout(() => {
+        if (session.ffmpeg) {
+          session.ffmpeg.kill('SIGTERM')
+        }
+      }, 2000)
+    } catch (e) {}
+    session.ffmpeg = null
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('Shutting down relay server...')
+  sessions.forEach(session => stopSession(session))
+  server.close(() => process.exit(0))
+})
+
+server.listen(HTTP_PORT, '0.0.0.0', () => {
+  console.log(`✅ JJ NEXUS PRO Stream Relay Server running on port ${HTTP_PORT}`)
+  console.log(`📡 WebSocket endpoint: ws://localhost:${HTTP_PORT}`)
+  console.log(`🔍 Health check: http://localhost:${HTTP_PORT}/health`)
+})
+
+module.exports = { server, wss }
+```
+
+Update `package.json` to install server dependencies and run both servers:
+
+```json
+{
+  "name": "jj-nexus-pro",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"vite\"",
+    "server": "node server/streamRelay.js",
+    "build": "vite build",
+    "install:server": "npm install ws express concurrently"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "concurrently": "^8.2.2"
+  }
+}
+```
+
+Add FFmpeg to Replit environment. Create `.replit` file or add to existing:
+
+```
+[nix]
+channel = "stable-23_11"
+
+[nix.packages]
+ffmpeg = "*"
+nodejs = "*"
+```
+
+Or add to `replit.nix`:
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20_x
+    pkgs.ffmpeg
+    pkgs.nodePackages.npm
+  ];
+}
+```
+
+Run installation:
+
+```bash
+npm install ws concurrently
+npm run install:server
+```
+
+---
+
+**=== PART 2: BROWSER STREAMING ENGINE ===**
+
+Create `src/services/BrowserStreamEngine.ts` — the core client-side streaming service:
+
+```typescript
+// src/services/BrowserStreamEngine.ts
+// Captures the full browser screen and streams to the relay server
+
+export interface StreamConfig {
+  rtmpUrl: string
+  streamKey: string
+  resolution: '1280x720' | '1920x1080' | '854x480'
+  fps: 30 | 60 | 24
+  videoBitrate: '1500k' | '2500k' | '4000k' | '6000k'
+  audioBitrate: '128k' | '192k'
+  captureMode: 'full_tab' | 'full_screen' | 'window'
+  includeMicrophone: boolean
+  includeSystemAudio: boolean
+}
+
+export interface StreamStats {
+  status: 'idle' | 'connecting' | 'live' | 'error' | 'stopped'
+  duration: number // seconds
+  fps: number
+  bitrate: string
+  bytesSent: number
+  mbSent: number
+  chunksSeent: number
+  viewers: number
+  error: string | null
+  startTime: Date | null
+  ffmpegFps: string
+  ffmpegBitrate: string
+  ffmpegSpeed: string
+}
+
+type StatsCallback = (stats: StreamStats) => void
+
+export class BrowserStreamEngine {
+  private ws: WebSocket | null = null
+  private mediaRecorder: MediaRecorder | null = null
+  private displayStream: MediaStream | null = null
+  private micStream: MediaStream | null = null
+  private combinedStream: MediaStream | null = null
+  private sessionId: string | null = null
+  private statsTimer: NodeJS.Timeout | null = null
+  private durationTimer: NodeJS.Timeout | null = null
+  private onStatsUpdate: StatsCallback | null = null
+  private config: StreamConfig | null = null
+
+  private stats: StreamStats = {
+    status: 'idle',
+    duration: 0,
+    fps: 0,
+    bitrate: '0 kbps',
+    bytesSent: 0,
+    mbSent: 0,
+    chunksSent: 0,
+    viewers: 0,
+    error: null,
+    startTime: null,
+    ffmpegFps: '0',
+    ffmpegBitrate: '0',
+    ffmpegSpeed: '0x'
+  }
+
+  onStats(callback: StatsCallback) {
+    this.onStatsUpdate = callback
+  }
+
+  private updateStats(partial: Partial<StreamStats>) {
+    this.stats = { ...this.stats, ...partial }
+    this.onStatsUpdate?.(this.stats)
+  }
+
+  // Get relay server WebSocket URL
+  private getRelayUrl(): string {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.hostname
+    // In Replit, the relay server runs on port 3001
+    return `${protocol}//${host}:3001`
+  }
+
+  // Step 1: Capture the full browser tab or screen
+  async captureScreen(config: StreamConfig): Promise<MediaStream> {
+    const [width, height] = config.resolution.split('x').map(Number)
+
+    let displayStream: MediaStream
+
+    if (config.captureMode === 'full_tab') {
+      // Capture entire browser tab — shows the full JJ NEXUS PRO webapp
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: width, max: 1920 },
+          height: { ideal: height, max: 1080 },
+          frameRate: { ideal: config.fps, max: 60 },
+          cursor: 'always', // show cursor
+          displaySurface: 'browser' // prefer browser tab
+        } as any,
+        audio: config.includeSystemAudio ? {
+          echoCancellation: false,
+          noiseSuppression: false,
+          sampleRate: 44100
+        } : false,
+        preferCurrentTab: true // Chrome 94+ — prefer the current tab
+      } as any)
+    } else if (config.captureMode === 'full_screen') {
+      // Capture entire monitor
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: width },
+          height: { ideal: height },
+          frameRate: { ideal: config.fps },
+          displaySurface: 'monitor'
+        } as any,
+        audio: config.includeSystemAudio
+      })
+    } else {
+      // Capture specific window
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: width },
+          height: { ideal: height },
+          frameRate: { ideal: config.fps },
+          displaySurface: 'window'
+        } as any,
+        audio: config.includeSystemAudio
+      })
+    }
+
+    this.displayStream = displayStream
+
+    // Handle screen share stop (user clicks "Stop sharing" browser button)
+    displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+      console.log('Screen share stopped by user')
+      this.stopStream()
+    })
+
+    return displayStream
+  }
+
+  // Step 2: Capture microphone audio
+  async captureMicrophone(): Promise<MediaStream | null> {
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 2
+        },
+        video: false
+      })
+      this.micStream = micStream
+      return micStream
+    } catch (e) {
+      console.warn('Microphone not available:', e)
+      return null
+    }
+  }
+
+  // Step 3: Combine video + audio tracks into one stream
+  combineStreams(displayStream: MediaStream, micStream: MediaStream | null): MediaStream {
+    const tracks: MediaStreamTrack[] = []
+
+    // Add video track from screen capture
+    displayStream.getVideoTracks().forEach(track => tracks.push(track))
+
+    if (micStream && displayStream.getAudioTracks().length > 0) {
+      // Mix system audio + microphone using AudioContext
+      const audioCtx = new AudioContext()
+      const dest = audioCtx.createMediaStreamDestination()
+
+      // System audio source
+      const sysSource = audioCtx.createMediaStreamSource(
+        new MediaStream(displayStream.getAudioTracks())
+      )
+      const sysGain = audioCtx.createGain()
+      sysGain.gain.value = 1.0
+      sysSource.connect(sysGain)
+      sysGain.connect(dest)
+
+      // Microphone source
+      const micSource = audioCtx.createMediaStreamSource(micStream)
+      const micGain = audioCtx.createGain()
+      micGain.value = 1.0
+      micSource.connect(micGain)
+      micGain.connect(dest)
+
+      // Add mixed audio track
+      dest.stream.getAudioTracks().forEach(track => tracks.push(track))
+    } else if (micStream) {
+      // Only microphone audio
+      micStream.getAudioTracks().forEach(track => tracks.push(track))
+    } else if (displayStream.getAudioTracks().length > 0) {
+      // Only system audio
+      displayStream.getAudioTracks().forEach(track => tracks.push(track))
+    }
+
+    const combined = new MediaStream(tracks)
+    this.combinedStream = combined
+    return combined
+  }
+
+  // Step 4: Connect to relay server via WebSocket
+  async connectToRelay(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const url = this.getRelayUrl()
+      console.log('Connecting to relay server:', url)
+      this.updateStats({ status: 'connecting' })
+
+      this.ws = new WebSocket(url)
+
+      this.ws.onopen = () => {
+        console.log('✅ Connected to relay server')
+      }
+
+      this.ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data)
+
+          switch (msg.type) {
+            case 'connected':
+              this.sessionId = msg.sessionId
+              console.log('Session ID:', this.sessionId)
+              resolve()
+              break
+
+            case 'stream_starting':
+              console.log('Stream starting:', msg.message)
+              this.updateStats({ status: 'live', startTime: new Date() })
+              this.startDurationTimer()
+              break
+
+            case 'ffmpeg_progress':
+              this.updateStats({
+                ffmpegFps: msg.fps,
+                ffmpegBitrate: msg.bitrate,
+                ffmpegSpeed: msg.speed
+              })
+              break
+
+            case 'stats':
+              this.updateStats({
+                bytesSent: msg.bytesReceived,
+                mbSent: parseFloat(msg.mbReceived)
+              })
+              break
+
+            case 'error':
+              console.error('Relay error:', msg.message)
+              this.updateStats({ status: 'error', error: msg.message })
+              break
+
+            case 'stream_ended':
+              this.updateStats({ status: 'stopped' })
+              break
+          }
+        } catch (e) {}
+      }
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        this.updateStats({
+          status: 'error',
+          error: 'Cannot connect to stream relay server. Make sure the server is running.'
+        })
+        reject(new Error('WebSocket connection failed'))
+      }
+
+      this.ws.onclose = (event) => {
+        console.log('WebSocket closed:', event.code, event.reason)
+        if (this.stats.status === 'live') {
+          this.updateStats({ status: 'stopped' })
+        }
+      }
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (this.stats.status === 'connecting') {
+          reject(new Error('Connection timeout — relay server not responding'))
+        }
+      }, 10000)
+    })
+  }
+
+  // Step 5: Send stream config to relay server
+  sendStreamConfig(config: StreamConfig) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
+
+    const fullRtmpUrl = `${config.rtmpUrl}/${config.streamKey}`
+
+    this.ws.send(JSON.stringify({
+      type: 'init',
+      rtmpUrl: fullRtmpUrl,
+      videoBitrate: config.videoBitrate,
+      audioBitrate: config.audioBitrate,
+      fps: config.fps,
+      resolution: config.resolution
+    }))
+
+    console.log('Stream config sent to relay')
+  }
+
+  // Step 6: Start MediaRecorder and pipe chunks to WebSocket
+  startMediaRecorder(stream: MediaStream, config: StreamConfig) {
+    // Select best supported MIME type
+    const mimeTypes = [
+      'video/webm;codecs=h264,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ]
+
+    let selectedMime = ''
+    for (const mime of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mime)) {
+        selectedMime = mime
+        break
+      }
+    }
+
+    if (!selectedMime) {
+      throw new Error('No supported video codec found in this browser')
+    }
+
+    console.log('Using MIME type:', selectedMime)
+
+    const bitrateNum = parseInt(config.videoBitrate) * 1000
+
+    this.mediaRecorder = new MediaRecorder(stream, {
+      mimeType: selectedMime,
+      videoBitsPerSecond: bitrateNum,
+      audioBitsPerSecond: parseInt(config.audioBitrate) * 1000
+    })
+
+    let chunkCount = 0
+    let totalBytes = 0
+    let lastBitrateCalc = Date.now()
+    let bytesSinceLastCalc = 0
+
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0 && this.ws?.readyState === WebSocket.OPEN) {
+        event.data.arrayBuffer().then(buffer => {
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(buffer)
+            chunkCount++
+            totalBytes += buffer.byteLength
+            bytesSinceLastCalc += buffer.byteLength
+
+            // Calculate real-time bitrate
+            const now = Date.now()
+            if (now - lastBitrateCalc >= 1000) {
+              const bps = (bytesSinceLastCalc * 8) / ((now - lastBitrateCalc) / 1000)
+              const kbps = Math.round(bps / 1000)
+              this.updateStats({
+                bitrate: `${kbps} kbps`,
+                bytesSent: totalBytes,
+                mbSent: parseFloat((totalBytes / 1024 / 1024).toFixed(2)),
+                chunksSent: chunkCount
+              })
+              bytesSinceLastCalc = 0
+              lastBitrateCalc = now
+            }
+          }
+        })
+      }
+    }
+
+    this.mediaRecorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event)
+      this.updateStats({ status: 'error', error: 'Recording error occurred' })
+    }
+
+    // Collect chunks every 250ms for low latency
+    this.mediaRecorder.start(250)
+    console.log('✅ MediaRecorder started')
+  }
+
+  // Duration timer
+  startDurationTimer() {
+    this.durationTimer = setInterval(() => {
+      this.updateStats({ duration: this.stats.duration + 1 })
+    }, 1000)
+  }
+
+  // MAIN: Start the full streaming pipeline
+  async startStream(config: StreamConfig): Promise<void> {
+    this.config = config
+    this.updateStats({ status: 'connecting', error: null })
+
+    try {
+      // Step 1: Capture screen
+      console.log('Step 1: Capturing screen...')
+      this.updateStats({ status: 'connecting' })
+      const displayStream = await this.captureScreen(config)
+
+      // Step 2: Capture microphone (optional)
+      let micStream: MediaStream | null = null
+      if (config.includeMicrophone) {
+        console.log('Step 2: Capturing microphone...')
+        micStream = await this.captureMicrophone()
+      }
+
+      // Step 3: Combine streams
+      console.log('Step 3: Combining streams...')
+      const combinedStream = this.combineStreams(displayStream, micStream)
+
+      // Step 4: Connect to relay server
+      console.log('Step 4: Connecting to relay server...')
+      await this.connectToRelay()
+
+      // Step 5: Send config to relay
+      console.log('Step 5: Sending stream config...')
+      this.sendStreamConfig(config)
+
+      // Step 6: Start recording and piping to WebSocket
+      console.log('Step 6: Starting MediaRecorder...')
+      await new Promise(resolve => setTimeout(resolve, 500)) // small delay
+      this.startMediaRecorder(combinedStream, config)
+
+      console.log('✅ Full streaming pipeline started')
+
+    } catch (error: any) {
+      console.error('Stream start failed:', error)
+      this.updateStats({
+        status: 'error',
+        error: error.message || 'Failed to start stream'
+      })
+      this.cleanup()
+      throw error
+    }
+  }
+
+  // Stop everything cleanly
+  stopStream() {
+    console.log('Stopping stream...')
+
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop()
+    }
+
+    if (this.displayStream) {
+      this.displayStream.getTracks().forEach(t => t.stop())
+    }
+
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(t => t.stop())
+    }
+
+    if (this.ws) {
+      this.ws.close(1000, 'Stream stopped by user')
+    }
+
+    if (this.durationTimer) clearInterval(this.durationTimer)
+    if (this.statsTimer) clearInterval(this.statsTimer)
+
+    this.cleanup()
+    this.updateStats({ status: 'stopped' })
+    console.log('✅ Stream stopped')
+  }
+
+  private cleanup() {
+    this.mediaRecorder = null
+    this.displayStream = null
+    this.micStream = null
+    this.combinedStream = null
+    this.ws = null
+    this.sessionId = null
+  }
+
+  // Format duration as HH:MM:SS
+  static formatDuration(seconds: number): string {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = seconds % 60
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':')
+  }
+}
+
+export const streamEngine = new BrowserStreamEngine()
+```
+
+---
+
+**=== PART 3: STREAMING COMMAND CENTER PAGE ===**
+
+Create `src/pages/StreamingCommandCenter.tsx` — the most cinematic page in the entire app:
+
+```typescript
+// src/pages/StreamingCommandCenter.tsx
+// Route: /stream
+// The full browser streaming studio
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { streamEngine, StreamConfig, StreamStats } from '../services/BrowserStreamEngine'
+import { useLivePrices } from '../utils/priceEngine'
+import { callAlchemistAI } from '../utils/freeAI'
+
+// Restream.io RTMP endpoints by region
+const RESTREAM_SERVERS = [
+  { label: 'Restream Global (Recommended)', url: 'rtmp://live.restream.io/live' },
+  { label: 'Restream EU', url: 'rtmp://eu.restream.io/live' },
+  { label: 'Restream US East', url: 'rtmp://us-east.restream.io/live' },
+  { label: 'Restream US West', url: 'rtmp://us-west.restream.io/live' },
+  { label: 'Restream Asia', url: 'rtmp://ap.restream.io/live' },
+  { label: 'YouTube Live', url: 'rtmp://a.rtmp.youtube.com/live2' },
+  { label: 'Facebook Live', url: 'rtmps://live-api-s.facebook.com:443/rtmp' },
+  { label: 'Custom RTMP', url: 'custom' },
+]
+
+export default function StreamingCommandCenter() {
+  const { prices } = useLivePrices()
+  const [stats, setStats] = useState<StreamStats>({
+    status: 'idle', duration: 0, fps: 0, bitrate: '0 kbps',
+    bytesSent: 0, mbSent: 0, chunksSent: 0, viewers: 0,
+    error: null, startTime: null, ffmpegFps: '0',
+    ffmpegBitrate: '0', ffmpegSpeed: '0x'
+  })
+
+  const [config, setConfig] = useState<StreamConfig>({
+    rtmpUrl: 'rtmp://live.restream.io/live',
+    streamKey: '',
+    resolution: '1280x720',
+    fps: 30,
+    videoBitrate: '2500k',
+    audioBitrate: '128k',
+    captureMode: 'full_tab',
+    includeMicrophone: true,
+    includeSystemAudio: true
+  })
+
+  const [customRtmpUrl, setCustomRtmpUrl] = useState('')
+  const [showKey, setShowKey] = useState(false)
+  const [streamTitle, setStreamTitle] = useState('🔥 Live Forex Analysis — JJ NEXUS PRO')
+  const [aiScript, setAiScript] = useState('')
+  const [loadingScript, setLoadingScript] = useState(false)
+  const [overlayEnabled, setOverlayEnabled] = useState(true)
+  const [selectedPair, setSelectedPair] = useState('XAUUSD')
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+
+  // Check relay server status
+  useEffect(() => {
+    const checkServer = async () => {
+      try {
+        const res = await fetch('/api/stream/health', { signal: AbortSignal.timeout(3000) })
+        if (res.ok) {
+          setServerStatus('online')
+        } else {
+          setServerStatus('offline')
+        }
+      } catch {
+        setServerStatus('offline')
+      }
+    }
+    checkServer()
+    const interval = setInterval(checkServer, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Subscribe to stream stats
+  useEffect(() => {
+    streamEngine.onStats(setStats)
+  }, [])
+
+  const handleStartStream = async () => {
+    if (!config.streamKey.trim()) {
+      alert('Please enter your Restream stream key first')
+      return
+    }
+
+    const finalConfig = {
+      ...config,
+      rtmpUrl: config.rtmpUrl === 'custom' ? customRtmpUrl : config.rtmpUrl
+    }
+
+    try {
+      await streamEngine.startStream(finalConfig)
+    } catch (error: any) {
+      console.error('Failed to start stream:', error)
+    }
+  }
+
+  const handleStopStream = () => {
+    streamEngine.stopStream()
+  }
+
+  const generateAIScript = async () => {
+    setLoadingScript(true)
+    const price = prices[selectedPair] || 0
+    try {
+      const script = await callAlchemistAI(
+        `Generate a 3-minute live stream intro script for a forex trader going live on TikTok/YouTube.
+        They are trading ${selectedPair} at current price ${price}.
+        Stream title: ${streamTitle}
+        Make it energetic, professional, educational.
+        Include: greeting, what they will cover today, current market overview for ${selectedPair}, 
+        what viewers should watch for, call to action to follow.
+        Format as a teleprompter script with [PAUSE] markers.`,
+        price, selectedPair
+      )
+      setAiScript(script)
+    } catch (e) {
+      setAiScript('Could not generate script. Check your AI API key in settings.')
+    }
+    setLoadingScript(false)
+  }
+
+  const isLive = stats.status === 'live'
+  const isConnecting = stats.status === 'connecting'
+  const hasError = stats.status === 'error'
+
+  const statusColor = isLive ? '#16a34a' : isConnecting ? '#eab308' : hasError ? '#dc2626' : '#666'
+  const statusText = isLive ? '🔴 LIVE' : isConnecting ? '⏳ CONNECTING...' : hasError ? '❌ ERROR' : '⚪ OFFLINE'
+
+  return (
+    <div style={{ padding: '24px', maxWidth: '100%', color: 'var(--color-text-primary)' }}>
+
+      {/* CINEMATIC HEADER */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(212,175,55,0.1) 0%, rgba(0,0,0,0) 100%)',
+        border: '1px solid rgba(212,175,55,0.3)',
+        borderRadius: 16, padding: '24px 32px', marginBottom: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 700, color: '#D4AF37', margin: 0 }}>
+            📡 JJ NEXUS PRO — LIVE BROADCAST
+          </h1>
+          <p style={{ color: '#888', margin: '4px 0 0', fontSize: 14 }}>
+            Stream the entire webapp to Restream.io → TikTok, YouTube, Instagram & all platforms
+          </p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{
+            fontSize: 20, fontWeight: 800,
+            color: statusColor,
+            padding: '8px 20px',
+            border: `2px solid ${statusColor}`,
+            borderRadius: 8,
+            animation: isLive ? 'pulse 1s infinite' : 'none'
+          }}>
+            {statusText}
+          </div>
+          {isLive && (
+            <div style={{ color: '#888', fontSize: 13, marginTop: 6 }}>
+              {StreamEngine.formatDuration(stats.duration)} | {stats.ffmpegFps} fps | {stats.ffmpegBitrate}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SERVER STATUS */}
+      <div style={{
+        padding: '10px 16px', borderRadius: 8, marginBottom: 20,
+        background: serverStatus === 'online' ? 'rgba(22,163,74,0.1)' :
+                    serverStatus === 'offline' ? 'rgba(220,38,38,0.1)' :
+                    'rgba(255,255,255,0.05)',
+        border: `1px solid ${serverStatus === 'online' ? '#16a34a' : serverStatus === 'offline' ? '#dc2626' : '#333'}`,
+        display: 'flex', alignItems: 'center', gap: 10, fontSize: 13
+      }}>
+        <span style={{ fontSize: 16 }}>
+          {serverStatus === 'online' ? '✅' : serverStatus === 'offline' ? '❌' : '⏳'}
+        </span>
+        <span style={{
+          color: serverStatus === 'online' ? '#16a34a' : serverStatus === 'offline' ? '#dc2626' : '#888'
+        }}>
+          Relay Server: {serverStatus === 'online' ? 'Online and ready to stream' :
+                        serverStatus === 'offline' ? 'Offline — make sure the Node.js server is running (npm run server)' :
+                        'Checking...'}
+        </span>
+      </div>
+
+      {/* ERROR DISPLAY */}
+      {hasError && stats.error && (
+        <div style={{
+          padding: '16px 20px', borderRadius: 8, marginBottom: 20,
+          background: 'rgba(220,38,38,0.1)', border: '1px solid #dc2626'
+        }}>
+          <div style={{ color: '#dc2626', fontWeight: 600, marginBottom: 4 }}>Stream Error</div>
+          <div style={{ color: '#fca5a5', fontSize: 13 }}>{stats.error}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+        {/* LEFT COLUMN — STREAM CONFIGURATION */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* RTMP CONFIGURATION */}
+          <div style={{
+            background: 'var(--color-background-secondary)',
+            border: '1px solid var(--color-border-tertiary)',
+            borderRadius: 12, padding: 20
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#D4AF37' }}>
+              🔗 Stream Destination
+            </h3>
+
+            {/* Server selector */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                STREAMING SERVER
+              </label>
+              <select
+                value={config.rtmpUrl}
+                onChange={e => setConfig(c => ({ ...c, rtmpUrl: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px',
+                  background: 'var(--color-background-primary)',
+                  border: '1px solid var(--color-border-secondary)',
+                  borderRadius: 8, color: 'var(--color-text-primary)',
+                  fontSize: 13
+                }}
+              >
+                {RESTREAM_SERVERS.map(s => (
+                  <option key={s.url} value={s.url}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Custom URL */}
+            {config.rtmpUrl === 'custom' && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                  CUSTOM RTMP URL
+                </label>
+                <input
+                  type="text"
+                  value={customRtmpUrl}
+                  onChange={e => setCustomRtmpUrl(e.target.value)}
+                  placeholder="rtmp://your-server.com/live"
+                  style={{
+                    width: '100%', padding: '10px 12px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 8, color: 'var(--color-text-primary)',
+                    fontSize: 13, boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Stream Key */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                STREAM KEY (from Restream.io dashboard)
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={config.streamKey}
+                  onChange={e => setConfig(c => ({ ...c, streamKey: e.target.value }))}
+                  placeholder="Paste your Restream stream key here..."
+                  style={{
+                    width: '100%', padding: '10px 44px 10px 12px',
+                    background: 'var(--color-background-primary)',
+                    border: `1px solid ${config.streamKey ? '#D4AF37' : 'var(--color-border-secondary)'}`,
+                    borderRadius: 8, color: 'var(--color-text-primary)',
+                    fontSize: 13, boxSizing: 'border-box'
+                  }}
+                />
+                <button
+                  onClick={() => setShowKey(!showKey)}
+                  style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 16
+                  }}
+                >
+                  {showKey ? '🙈' : '👁️'}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: '#666', marginTop: 6 }}>
+                Get your key from{' '}
+                <a href="https://restream.io" target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#D4AF37' }}>
+                  restream.io
+                </a>
+                {' '}→ Channel → Stream Setup → Copy Stream Key
+              </div>
+            </div>
+
+            {/* Stream title */}
+            <div>
+              <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                STREAM TITLE
+              </label>
+              <input
+                type="text"
+                value={streamTitle}
+                onChange={e => setStreamTitle(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px',
+                  background: 'var(--color-background-primary)',
+                  border: '1px solid var(--color-border-secondary)',
+                  borderRadius: 8, color: 'var(--color-text-primary)',
+                  fontSize: 13, boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* STREAM QUALITY */}
+          <div style={{
+            background: 'var(--color-background-secondary)',
+            border: '1px solid var(--color-border-tertiary)',
+            borderRadius: 12, padding: 20
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#D4AF37' }}>
+              ⚙️ Stream Quality
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                  RESOLUTION
+                </label>
+                <select
+                  value={config.resolution}
+                  onChange={e => setConfig(c => ({ ...c, resolution: e.target.value as any }))}
+                  style={{
+                    width: '100%', padding: '8px 10px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 12
+                  }}
+                >
+                  <option value="854x480">480p (854×480) — Save bandwidth</option>
+                  <option value="1280x720">720p (1280×720) — Recommended</option>
+                  <option value="1920x1080">1080p (1920×1080) — Best quality</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                  FRAME RATE
+                </label>
+                <select
+                  value={config.fps}
+                  onChange={e => setConfig(c => ({ ...c, fps: parseInt(e.target.value) as any }))}
+                  style={{
+                    width: '100%', padding: '8px 10px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 12
+                  }}
+                >
+                  <option value="24">24 fps</option>
+                  <option value="30">30 fps (Recommended)</option>
+                  <option value="60">60 fps (High end)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                  VIDEO BITRATE
+                </label>
+                <select
+                  value={config.videoBitrate}
+                  onChange={e => setConfig(c => ({ ...c, videoBitrate: e.target.value as any }))}
+                  style={{
+                    width: '100%', padding: '8px 10px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 12
+                  }}
+                >
+                  <option value="1500k">1500 kbps — Low bandwidth</option>
+                  <option value="2500k">2500 kbps — Recommended</option>
+                  <option value="4000k">4000 kbps — High quality</option>
+                  <option value="6000k">6000 kbps — Maximum</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: '#888', display: 'block', marginBottom: 6 }}>
+                  CAPTURE MODE
+                </label>
+                <select
+                  value={config.captureMode}
+                  onChange={e => setConfig(c => ({ ...c, captureMode: e.target.value as any }))}
+                  style={{
+                    width: '100%', padding: '8px 10px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 12
+                  }}
+                >
+                  <option value="full_tab">Current Browser Tab (Full App)</option>
+                  <option value="full_screen">Entire Screen</option>
+                  <option value="window">Specific Window</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Audio toggles */}
+            <div style={{ marginTop: 14, display: 'flex', gap: 20 }}>
+              {[
+                { key: 'includeMicrophone', label: '🎤 Microphone' },
+                { key: 'includeSystemAudio', label: '🔊 System Audio' },
+              ].map(({ key, label }) => (
+                <label key={key} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  cursor: 'pointer', fontSize: 13, color: '#aaa'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={config[key as keyof StreamConfig] as boolean}
+                    onChange={e => setConfig(c => ({ ...c, [key]: e.target.checked }))}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* GO LIVE BUTTON */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {!isLive && !isConnecting ? (
+              <button
+                onClick={handleStartStream}
+                disabled={!config.streamKey || serverStatus !== 'online'}
+                style={{
+                  flex: 1, padding: '16px',
+                  background: config.streamKey && serverStatus === 'online'
+                    ? '#dc2626' : '#333',
+                  border: 'none', borderRadius: 10,
+                  color: '#fff', fontWeight: 800, fontSize: 18,
+                  cursor: config.streamKey && serverStatus === 'online' ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s',
+                  letterSpacing: 1
+                }}
+              >
+                🔴 GO LIVE
+              </button>
+            ) : isConnecting ? (
+              <button disabled style={{
+                flex: 1, padding: '16px',
+                background: '#854d0e', border: 'none', borderRadius: 10,
+                color: '#fff', fontWeight: 800, fontSize: 18
+              }}>
+                ⏳ CONNECTING TO RESTREAM...
+              </button>
+            ) : (
+              <button
+                onClick={handleStopStream}
+                style={{
+                  flex: 1, padding: '16px',
+                  background: '#dc2626', border: 'none', borderRadius: 10,
+                  color: '#fff', fontWeight: 800, fontSize: 18, cursor: 'pointer',
+                  animation: 'pulse 1s infinite'
+                }}
+              >
+                ⏹ END STREAM ({StreamEngine.formatDuration(stats.duration)})
+              </button>
+            )}
+          </div>
+
+          {/* HOW TO GET RESTREAM KEY */}
+          <div style={{
+            background: 'rgba(212,175,55,0.05)',
+            border: '1px solid rgba(212,175,55,0.2)',
+            borderRadius: 10, padding: 16
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#D4AF37', marginBottom: 10 }}>
+              📋 How to get your Restream key (2 minutes)
+            </div>
+            {[
+              '1. Go to restream.io and sign up free',
+              '2. Go to Channel → Add Channel → TikTok (connect your account)',
+              '3. Also add YouTube, Instagram etc.',
+              '4. Go to Stream Setup → Copy Stream Key',
+              '5. Paste the key above and click GO LIVE',
+              '6. JJ NEXUS PRO streams the full app to ALL platforms at once',
+            ].map(step => (
+              <div key={step} style={{ fontSize: 12, color: '#aaa', padding: '3px 0' }}>
+                {step}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN — LIVE STATS + AI TOOLS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* LIVE STREAM STATS */}
+          <div style={{
+            background: 'var(--color-background-secondary)',
+            border: `1px solid ${isLive ? '#dc2626' : 'var(--color-border-tertiary)'}`,
+            borderRadius: 12, padding: 20
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, color: isLive ? '#dc2626' : '#D4AF37' }}>
+              {isLive ? '🔴 LIVE STATS' : '📊 Stream Stats'}
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { label: 'Status', value: statusText },
+                { label: 'Duration', value: StreamEngine.formatDuration(stats.duration) },
+                { label: 'Video FPS', value: `${stats.ffmpegFps} fps` },
+                { label: 'Bitrate', value: stats.ffmpegBitrate || stats.bitrate },
+                { label: 'Encode Speed', value: stats.ffmpegSpeed },
+                { label: 'Data Sent', value: `${stats.mbSent.toFixed(1)} MB` },
+                { label: 'Chunks Sent', value: stats.chunksSent.toLocaleString() },
+                { label: 'Destination', value: 'Restream.io' },
+              ].map(({ label, value }) => (
+                <div key={label} style={{
+                  background: 'var(--color-background-primary)',
+                  borderRadius: 8, padding: '10px 14px'
+                }}>
+                  <div style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: isLive ? '#16a34a' : '#aaa' }}>
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* LIVE PRICES OVERLAY (shows on stream) */}
+          <div style={{
+            background: 'var(--color-background-secondary)',
+            border: '1px solid var(--color-border-tertiary)',
+            borderRadius: 12, padding: 20
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#D4AF37' }}>
+              💰 Live Price Ticker (visible on stream)
+            </h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {['XAUUSD', 'EURUSD', 'GBPUSD', 'BTCUSD', 'US30'].map(pair => (
+                <div key={pair} style={{
+                  background: 'rgba(212,175,55,0.1)',
+                  border: '1px solid rgba(212,175,55,0.3)',
+                  borderRadius: 6, padding: '6px 12px'
+                }}>
+                  <span style={{ fontSize: 11, color: '#D4AF37', fontWeight: 700 }}>{pair}</span>
+                  <span style={{ fontSize: 11, color: '#fff', marginLeft: 8 }}>
+                    {prices[pair]
+                      ? pair === 'XAUUSD' || pair.includes('JPY') || pair === 'BTCUSD' || pair === 'US30'
+                        ? `$${prices[pair].toFixed(2)}`
+                        : prices[pair].toFixed(5)
+                      : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* AI STREAM SCRIPT */}
+          <div style={{
+            background: 'var(--color-background-secondary)',
+            border: '1px solid var(--color-border-tertiary)',
+            borderRadius: 12, padding: 20
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 15, color: '#D4AF37' }}>
+                📜 AI Stream Script
+              </h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select
+                  value={selectedPair}
+                  onChange={e => setSelectedPair(e.target.value)}
+                  style={{
+                    padding: '6px 10px',
+                    background: 'var(--color-background-primary)',
+                    border: '1px solid var(--color-border-secondary)',
+                    borderRadius: 6, color: 'var(--color-text-primary)', fontSize: 12
+                  }}
+                >
+                  {['XAUUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'US30', 'BTCUSD'].map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={generateAIScript}
+                  disabled={loadingScript}
+                  style={{
+                    padding: '6px 14px',
+                    background: 'rgba(212,175,55,0.2)',
+                    border: '1px solid #D4AF37',
+                    borderRadius: 6, color: '#D4AF37',
+                    cursor: 'pointer', fontSize: 12, fontWeight: 600
+                  }}
+                >
+                  {loadingScript ? '⏳ Generating...' : '⚡ Generate Script'}
+                </button>
+              </div>
+            </div>
+
+            {aiScript ? (
+              <div style={{
+                background: 'var(--color-background-primary)',
+                borderRadius: 8, padding: 14,
+                maxHeight: 200, overflowY: 'auto',
+                fontSize: 12, color: '#ccc', lineHeight: 1.7,
+                whiteSpace: 'pre-wrap'
+              }}>
+                {aiScript}
+              </div>
+            ) : (
+              <div style={{
+                padding: 20, textAlign: 'center',
+                color: '#555', fontSize: 13
+              }}>
+                Generate an AI script for your stream intro
+              </div>
+            )}
+          </div>
+
+          {/* WHAT VIEWERS SEE */}
+          <div style={{
+            background: 'rgba(22,163,74,0.05)',
+            border: '1px solid rgba(22,163,74,0.2)',
+            borderRadius: 10, padding: 16
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#16a34a', marginBottom: 10 }}>
+              📺 What your viewers will see
+            </div>
+            <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.8 }}>
+              {config.captureMode === 'full_tab'
+                ? '✅ The ENTIRE JJ NEXUS PRO webapp — all pages, charts, AI analysis, everything you navigate to during the stream'
+                : config.captureMode === 'full_screen'
+                ? '✅ Your entire monitor including JJ NEXUS PRO and anything else on screen'
+                : '✅ The specific window you select when prompted'}
+              <br />
+              ✅ Any page you navigate to in JJ NEXUS PRO will be visible on stream
+              <br />
+              ✅ Live prices updating in real time on stream
+              <br />
+              ✅ Alchemist AI analysis visible to viewers as you run it
+              <br />
+              ✅ Stream goes to Restream → TikTok + YouTube + Instagram simultaneously
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CSS animations */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+      `}</style>
+    </div>
+  )
+}
+```
+
+---
+
+**=== PART 4: WIRE THE SERVER INTO REPLIT ===**
+
+Update the Replit configuration to run both the React app and the Node.js relay server simultaneously.
+
+Update `.replit`:
+
+```toml
+run = "npm run dev"
+
+[nix]
+channel = "stable-23_11"
+
+[[ports]]
+localPort = 5173
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+```
+
+Update `replit.nix` to include FFmpeg:
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20_x
+    pkgs.ffmpeg-full
+    pkgs.nodePackages.npm
+  ];
+}
+```
+
+Update `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "dev": "concurrently -n RELAY,VITE -c yellow,cyan \"node server/streamRelay.js\" \"vite --host 0.0.0.0\"",
+    "build": "vite build",
+    "start": "node server/streamRelay.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "concurrently": "^8.2.2"
+  }
+}
+```
+
+Add proxy in `vite.config.ts` so the React app can reach the relay server:
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    proxy: {
+      '/api/stream': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/stream/, ''),
+        ws: true // proxy WebSockets too
+      }
+    }
+  }
+})
+```
+
+---
+
+**=== PART 5: ADD TO NAVIGATION ===**
+
+Add the streaming page to the sidebar:
+
+```typescript
+// In sidebar navigation add:
+{
+  label: '📡 Live Broadcast',
+  path: '/stream',
+  icon: 'ti-broadcast',
+  highlight: true, // gold highlighted item
+  badge: 'NEW'
+}
+```
+
+Add route in router:
+
+```typescript
+<Route path="/stream" element={<StreamingCommandCenter />} />
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Create server/ directory
+2.  Create server/streamRelay.js with full WebSocket + FFmpeg relay
+3.  npm install ws concurrently
+4.  Update replit.nix to include ffmpeg-full package
+5.  Update .replit to expose port 3001
+6.  Update package.json scripts to run both servers with concurrently
+7.  Update vite.config.ts with proxy for /api/stream and ws:true
+8.  Create src/services/BrowserStreamEngine.ts
+9.  Create src/pages/StreamingCommandCenter.tsx
+10. Add route /stream to router
+11. Add Live Broadcast to sidebar navigation
+12. Restart Replit — confirm both servers start
+13. Check http://localhost:3001/health returns JSON
+14. Test screen capture works in browser
+15. Test WebSocket connection to relay
+16. Confirm FFmpeg is available: run ffmpeg -version in shell
+17. npm run build — fix all TypeScript errors
+18. Report: relay server running on port 3001, FFmpeg version, health check response
+```
+
+---
+
+**FINAL VERIFICATION:**
+
+After completion confirm all of these:
+- Relay server starts on port 3001 alongside Vite
+- Health check at `/api/stream/health` returns online status
+- FFmpeg is installed and accessible
+- Browser screen capture permission dialog appears when clicking GO LIVE
+- WebSocket connects from browser to relay server
+- Stream key field accepts Restream key
+- GO LIVE button activates and shows CONNECTING state
+- Stats update in real time when streaming

@@ -1,0 +1,11 @@
+- [WebSocket production URL fix](ws-production-fix.md) — use `startsWith` not `===` for Replit proxy WebSocket upgrade matching
+- [Replit dev WebSocket 502 fix](replit-dev-ws-502.md) — never use -8080- hostname directly for WS; always use same-origin (Vite proxy) as primary URL
+- [formatPriceForSymbol arg order](price-format-order.md) — signature is `(symbol: string, price: number)` — symbol FIRST, price second
+- [Replit artifact-mode WebSocket fix](replit-artifact-ws-fix.md) — frontend must build into api-server/dist/public + api-server listens on port 5000 to reach external port 80.
+- [Phone mic via WebRTC](phone-mic-webrtc.md) — AirPods work on phone not Chromebook; phoneStream has audio tracks; setExternalMicStream() routes them to FFmpeg stream.
+- [FFmpeg nix store resolver](ffmpeg-nix-resolver.md) — use `ls /nix/store | grep ffmpeg` NOT `find /nix/store` — find times out (30s+); ls is O(1). Prefer ffmpeg-full paths (have libx264 for H.264/RTMP).
+- [FFmpeg in Replit autoscale production](ffmpeg-production-autoscale.md) — Nix PATH not available in deployment containers; ffmpeg-static npm package is the only reliable fix. Must add to pnpm.onlyBuiltDependencies or binary won't download.
+- [Journal /entries alias route](journal-entries-alias.md) — FundedAccountPage fetches /api/journal/entries; DB only has /trades; fix = add /entries alias that maps createdAt→date and pips→pnl.
+- [Stream relay architecture](stream-relay-architecture.md) — stdin pipe → header corruption; file-based segment relay (1s blobs → .webm files → FFmpeg concat demuxer) is the stable pattern. esbuild must be in pnpm.onlyBuiltDependencies.
+- [ws npm binary vs text frame bug](ws-binary-text-bug.md) — ws library ALWAYS passes data as Buffer; use ONLY `isBinary` param to distinguish text from binary frames. Buffer.isBuffer() always true, causing JSON to be treated as blobs.
+- [GitHub push authentication](github-push-auth.md) — verify `gh auth status` before pushing; a cloned HTTPS origin does not imply publish credentials are available.

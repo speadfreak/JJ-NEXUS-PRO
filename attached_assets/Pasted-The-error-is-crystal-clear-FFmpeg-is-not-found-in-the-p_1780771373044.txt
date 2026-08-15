@@ -1,0 +1,324 @@
+The error is crystal clear. FFmpeg is not found in the production container. Here is your exact fix prompt:
+
+---
+
+**CRITICAL FIX: FFmpeg not found in production — streaming broken after publishing**
+
+The browser console shows this exact error after publishing:
+
+```
+[BrowserStreamEngine] Relay error: FFmpeg not installed
+```
+
+This means FFmpeg is not available in the production deployment container. Fix everything below completely before republishing.
+
+---
+
+**Step 1 — Read current state first:**
+
+```bash
+cat replit.nix
+which ffmpeg
+ffmpeg -version 2>&1 | head -3
+find /nix/store -name "ffmpeg" -type f 2>/dev/null | head -5
+find /usr -name "ffmpeg" -type f 2>/dev/null | head -3
+echo $PATH
+```
+
+Report exactly what these commands return before touching any file.
+
+---
+
+**Step 2 — Fix replit.nix completely:**
+
+Replace the entire replit.nix with this exact content:
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20_x
+    pkgs.ffmpeg-full
+    pkgs.nodePackages.npm
+  ];
+
+  env = {
+    FFMPEG_PATH = "${pkgs.ffmpeg-full}/bin/ffmpeg";
+  };
+}
+```
+
+After saving replit.nix kill the shell completely and reopen a fresh shell. Then verify:
+
+```bash
+echo $FFMPEG_PATH
+$FFMPEG_PATH -version | head -3
+which ffmpeg
+ffmpeg -version | head -3
+```
+
+At least one of these must return a valid FFmpeg version. The FFMPEG_PATH environment variable must point to a real binary.
+
+---
+
+**Step 3 — Find the server file and fix FFmpeg path resolution:**
+
+```bash
+find . -name "streamRelay*" -not -path "*/node_modules/*"
+find . -name "app.ts" -path "*/api*" -not -path "*/node_modules/*"
+find . -name "index.ts" -path "*/api*" -not -path "*/node_modules/*"
+find . -name "index.mjs" -not -path "*/node_modules/*"
+```
+
+Read whichever server file handles the FFmpeg spawn. Then replace the FFmpeg binary resolution at the very top of that file with this hardened version:
+
+```javascript
+const { execSync } = require('child_process')
+
+// Resolve FFmpeg binary — tries multiple methods in order
+function resolveFFmpegBinary() {
+  const candidates = [
+    // Environment variable set by replit.nix
+    process.env.FFMPEG_PATH,
+    // Common Nix store locations
+    '/run/current-system/sw/bin/ffmpeg',
+    '/nix/var/nix/profiles/default/bin/ffmpeg',
+    // Try which command
+    (() => { try { return execSync('which ffmpeg', { encoding: 'utf8' }).trim() } catch { return null } })(),
+    // Try find in nix store
+    (() => { try { return execSync('find /nix/store -name "ffmpeg" -type f 2>/dev/null | grep "bin/ffmpeg$" | head -1', { encoding: 'utf8' }).trim() } catch { return null } })(),
+    // Fallback names
+    'ffmpeg',
+    '/usr/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      execSync(`${candidate} -version`, { encoding: 'utf8', timeout: 5000 })
+      console.log(`[StreamRelay] ✅ FFmpeg resolved: ${candidate}`)
+      return candidate
+    } catch {}
+  }
+
+  console.error('[StreamRelay] ❌ FFmpeg not found — streaming will not work')
+  return null
+}
+
+const FFMPEG_BIN = resolveFFmpegBinary()
+```
+
+If the server file is TypeScript replace require with import style:
+
+```typescript
+import { execSync } from 'child_process'
+
+function resolveFFmpegBinary(): string | null {
+  const candidates: (string | null)[] = [
+    process.env.FFMPEG_PATH || null,
+    '/run/current-system/sw/bin/ffmpeg',
+    '/nix/var/nix/profiles/default/bin/ffmpeg',
+    (() => { try { return execSync('which ffmpeg', { encoding: 'utf8' }).trim() } catch { return null } })(),
+    (() => { try { return execSync('find /nix/store -name "ffmpeg" -type f 2>/dev/null | grep "bin/ffmpeg$" | head -1', { encoding: 'utf8' }).trim() } catch { return null } })(),
+    'ffmpeg',
+    '/usr/bin/ffmpeg',
+    '/usr/local/bin/ffmpeg',
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      execSync(`${candidate} -version`, { encoding: 'utf8', timeout: 5000 })
+      console.log(`[StreamRelay] ✅ FFmpeg resolved: ${candidate}`)
+      return candidate
+    } catch {}
+  }
+
+  console.error('[StreamRelay] ❌ FFmpeg not found in production container')
+  return null
+}
+
+const FFMPEG_BIN = resolveFFmpegBinary()
+```
+
+---
+
+**Step 4 — Replace the FFmpeg spawn call:**
+
+Find every place in the server file that calls `spawn('ffmpeg', ...)` and replace with:
+
+```javascript
+// Before:
+session.ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+
+// After:
+if (!FFMPEG_BIN) {
+  console.error(`[${sessionId}] Cannot start stream — FFmpeg not found`)
+  ws.send(JSON.stringify({
+    type: 'error',
+    message: 'FFmpeg is not installed on this server. Contact support.'
+  }))
+  return
+}
+
+session.ffmpeg = spawn(FFMPEG_BIN, ffmpegArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+console.log(`[${sessionId}] Spawning FFmpeg: ${FFMPEG_BIN}`)
+```
+
+---
+
+**Step 5 — Fix the health endpoint to report ffmpegAvailable correctly:**
+
+```javascript
+// Replace health endpoint with this:
+app.get('/health', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.json({
+    status: 'running',
+    ffmpegAvailable: FFMPEG_BIN !== null,
+    ffmpegBin: FFMPEG_BIN,
+    environment: process.env.NODE_ENV || 'development',
+    port: PORT,
+    activeSessions: sessions.size,
+    timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime())
+  })
+})
+```
+
+---
+
+**Step 6 — Fix the stream ended handler so error state does not reset:**
+
+Find the FFmpeg close handler and fix it:
+
+```javascript
+// Find this pattern:
+session.ffmpeg.on('close', (code) => {
+  session.ws.send(JSON.stringify({ type: 'stream_ended', code }))
+  session.ffmpeg = null
+})
+
+// Replace with this:
+session.ffmpeg.on('close', (code) => {
+  console.log(`[${sessionId}] FFmpeg exited with code ${code}`)
+  try {
+    if (code === 0) {
+      session.ws.send(JSON.stringify({ type: 'stream_ended', message: 'Stream ended cleanly' }))
+    } else if (code === null || code === -2) {
+      // code -2 is ENOENT — FFmpeg not found
+      // code null means killed
+      // Do NOT send stream_ended which would silently reset the UI
+      // The error was already sent by the error handler
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: code === -2
+          ? 'FFmpeg not found on server — republish the app after fixing replit.nix'
+          : `Stream stopped unexpectedly (code ${code})`
+      }))
+    } else {
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: `FFmpeg exited with error code ${code} — check your RTMP URL and stream key`
+      }))
+    }
+  } catch {}
+  session.ffmpeg = null
+})
+```
+
+---
+
+**Step 7 — Fix frontend error state so it never silently resets:**
+
+Find `BrowserStreamEngine.ts` and the WebSocket message handler. Fix the stream_ended case:
+
+```typescript
+case 'stream_ended':
+  // Only update to stopped if we were actually live
+  // Never overwrite an error state
+  if (this.stats.status === 'live') {
+    this.updateStats({ status: 'stopped' })
+    this.stopDurationTimer()
+  }
+  // If status is 'error' — leave it showing the error
+  break
+
+case 'error':
+  console.error('[BrowserStreamEngine] Relay error:', msg.message)
+  this.updateStats({ status: 'error', error: msg.message })
+  this.stopDurationTimer()
+  break
+```
+
+---
+
+**Step 8 — Fix deployment config:**
+
+Update `.replit` deployment section. First find the correct server file path from Step 3, then:
+
+```toml
+[deployment]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm run build 2>&1"]
+run = ["sh", "-c", "NODE_ENV=production node PATH_TO_YOUR_SERVER_FILE"]
+```
+
+Replace `PATH_TO_YOUR_SERVER_FILE` with the actual path found in Step 3. Common paths are:
+
+```
+server/streamRelay.js
+artifacts/api-server/dist/index.mjs
+dist-server/index.js
+```
+
+---
+
+**Step 9 — Build and verify locally before publishing:**
+
+```bash
+npm run build
+ls dist/index.html
+NODE_ENV=production node PATH_TO_SERVER_FILE &
+sleep 3
+curl http://localhost:5000/health
+```
+
+The health check must return:
+
+```json
+{
+  "ffmpegAvailable": true,
+  "ffmpegBin": "/nix/store/.../ffmpeg"
+}
+```
+
+If ffmpegAvailable is false do not publish. Fix Step 2 first.
+
+---
+
+**Step 10 — Publish and verify:**
+
+After publishing open:
+
+```
+https://yourapp.replit.app/api/stream/health
+```
+
+or
+
+```
+https://yourapp.replit.app/health
+```
+
+Must show `ffmpegAvailable: true`. Then test Go Live. Stream must start.
+
+---
+
+**Report back with exactly:**
+
+- Output of `which ffmpeg` in the shell
+- Output of `echo $FFMPEG_PATH`
+- The ffmpegBin value from the health endpoint after publishing
+- Whether Go Live works on the published URL
+- The full console error if it still fails

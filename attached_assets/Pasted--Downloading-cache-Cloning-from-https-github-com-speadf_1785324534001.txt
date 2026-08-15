@@ -1,0 +1,185 @@
+==> Downloading cache...
+==> Cloning from https://github.com/speadfreak/JJ-NEXUS-PRO
+==> Checking out commit d5a3be20e5375d34b914a2f65edda4d961f3eb44 in branch main
+==> Downloaded 303MB in 8s. Extraction took 6s.
+==> Using Node.js version 24.14.1 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'bash render-build.sh'...
+▶ Installing pnpm...
+added 1 package in 826ms
+1 package is looking for funding
+  run `npm fund` for details
+✅ pnpm 10.34.5
+▶ Installing workspace dependencies...
+▶ Building API server...
+> @workspace/api-server@0.0.0 build /opt/render/project/src/artifacts/api-server
+> node ./build.mjs
+  dist/index.mjs                       2.5mb ⚠️
+  dist/pino-worker.mjs               153.4kb
+  dist/pino-file.mjs                 142.1kb
+  dist/pino-pretty.mjs               114.6kb
+  dist/thread-stream-worker.mjs        7.3kb
+  dist/index.mjs.map                   4.7mb
+  dist/pino-worker.mjs.map           256.9kb
+  dist/pino-file.mjs.map             229.0kb
+  dist/pino-pretty.mjs.map           203.9kb
+  dist/thread-stream-worker.mjs.map   12.0kb
+⚡ Done in 495ms
+▶ Building frontend...
+> @workspace/ethiostream-pro@0.0.0 build /opt/render/project/src/artifacts/ethiostream-pro
+> vite build --config vite.config.ts
+vite v7.3.2 building client environment for production...
+transforming...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 3320 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/public/index.html                                               1.44 kB │ gzip:   0.56 kB
+dist/public/assets/inter-vietnamese-400-normal-DMkecbls.woff2        4.97 kB
+dist/public/assets/inter-vietnamese-300-normal-Bdr24Bqb.woff2        5.06 kB
+dist/public/assets/inter-vietnamese-600-normal-Cc8MFFhd.woff2        5.10 kB
+dist/public/assets/inter-vietnamese-700-normal-DlLaEgI2.woff2        5.10 kB
+dist/public/assets/inter-vietnamese-500-normal-DOriooB6.woff2        5.11 kB
+dist/public/assets/inter-greek-ext-400-normal-DGGRlc-M.woff2         5.26 kB
+dist/public/assets/inter-greek-ext-300-normal-l2DDyC6M.woff2         5.35 kB
+dist/public/assets/inter-greek-ext-500-normal-C4iEst2y.woff2         5.43 kB
+dist/public/assets/inter-greek-ext-600-normal-DRtmH8MT.woff2         5.43 kB
+dist/public/assets/inter-greek-ext-700-normal-qfdV9bQt.woff2         5.44 kB
+dist/public/assets/inter-vietnamese-400-normal-Bbgyi5SW.woff         6.50 kB
+dist/public/assets/inter-vietnamese-300-normal-DDGmYYdT.woff         6.59 kB
+dist/public/assets/inter-vietnamese-500-normal-mJboJaSs.woff         6.60 kB
+dist/public/assets/inter-vietnamese-700-normal-BZaoP0fm.woff         6.63 kB
+dist/public/assets/inter-vietnamese-600-normal-BuLX-rYi.woff         6.64 kB
+dist/public/assets/inter-greek-ext-400-normal-KugGGMne.woff          7.06 kB
+dist/public/assets/inter-greek-ext-300-normal-DLbbeei1.woff          7.13 kB
+dist/public/assets/inter-greek-ext-500-normal-2j5mBUwD.woff          7.19 kB
+dist/public/assets/inter-greek-ext-600-normal-B8X0CLgF.woff          7.21 kB
+dist/public/assets/inter-greek-ext-700-normal-BoQ6DsYi.woff          7.22 kB
+dist/public/assets/inter-cyrillic-400-normal-obahsSVq.woff2          7.71 kB
+dist/public/assets/inter-greek-400-normal-B4URO6DV.woff2             7.78 kB
+dist/public/assets/inter-cyrillic-300-normal-BnqRxXuy.woff2          7.81 kB
+dist/public/assets/cinzel-latin-ext-400-normal-XQK_CSAr.woff2        7.86 kB
+dist/public/assets/inter-cyrillic-500-normal-BasfLYem.woff2          7.90 kB
+dist/public/assets/inter-cyrillic-700-normal-CjBOestx.woff2          7.90 kB
+dist/public/assets/inter-greek-500-normal-BIZE56-Y.woff2             7.92 kB
+dist/public/assets/inter-greek-700-normal-C3JjAnD8.woff2             7.92 kB
+dist/public/assets/inter-greek-600-normal-plRanbMR.woff2             7.94 kB
+dist/public/assets/inter-cyrillic-600-normal-CWCymEST.woff2          7.97 kB
+dist/public/assets/inter-greek-300-normal-DmGD3g_f.woff2             8.00 kB
+dist/public/assets/cinzel-latin-ext-900-normal-CWXxiu5r.woff2        8.06 kB
+dist/public/assets/cinzel-latin-ext-700-normal-C24KFjuG.woff2        8.26 kB
+dist/public/assets/cinzel-latin-ext-600-normal-BEFdM_VE.woff2        8.35 kB
+dist/public/assets/cinzel-latin-ext-400-normal-DJ0Lq8y-.woff         9.29 kB
+dist/public/assets/cinzel-latin-ext-900-normal-BlZZvP7K.woff         9.54 kB
+dist/public/assets/cinzel-latin-ext-600-normal-BY9Mq9iK.woff         9.78 kB
+dist/public/assets/inter-cyrillic-400-normal-HOLc17fK.woff           9.78 kB
+dist/public/assets/cinzel-latin-ext-700-normal-CORa-yIv.woff         9.81 kB
+dist/public/assets/inter-cyrillic-300-normal-LR1W_oT8.woff           9.82 kB
+dist/public/assets/inter-cyrillic-700-normal-DrXBdSj3.woff           9.91 kB
+dist/public/assets/inter-greek-400-normal-q2sYcFCs.woff              9.92 kB
+dist/public/assets/inter-cyrillic-600-normal-4D_pXhcN.woff           9.94 kB
+dist/public/assets/inter-cyrillic-500-normal-CxZf_p3X.woff           9.94 kB
+dist/public/assets/inter-greek-500-normal-Xzm54t5V.woff              9.98 kB
+dist/public/assets/inter-greek-700-normal-BUv2fZ6O.woff              9.98 kB
+dist/public/assets/inter-greek-300-normal-BrhSP0vQ.woff             10.00 kB
+dist/public/assets/inter-greek-600-normal-BZpKdvQh.woff             10.03 kB
+dist/public/assets/inter-cyrillic-ext-400-normal-BQZuk6qB.woff2     10.23 kB
+dist/public/assets/inter-cyrillic-ext-300-normal-CgCALhwJ.woff2     10.36 kB
+dist/public/assets/inter-cyrillic-ext-500-normal-B0yAr1jD.woff2     10.43 kB
+dist/public/assets/inter-cyrillic-ext-600-normal-Dfes3d0z.woff2     10.48 kB
+dist/public/assets/inter-cyrillic-ext-700-normal-BjwYoWNd.woff2     10.50 kB
+dist/public/assets/inter-cyrillic-ext-400-normal-DQukG94-.woff      13.34 kB
+dist/public/assets/inter-cyrillic-ext-300-normal-RId2JxDB.woff      13.40 kB
+dist/public/assets/inter-cyrillic-ext-700-normal-LO58E6JB.woff      13.41 kB
+dist/public/assets/inter-cyrillic-ext-500-normal-BmqWE9Dz.woff      13.45 kB
+dist/public/assets/inter-cyrillic-ext-600-normal-Bcila6Z-.woff      13.46 kB
+dist/public/assets/cinzel-latin-400-normal-DnUIPmzd.woff2           14.13 kB
+dist/public/assets/cinzel-latin-900-normal-BI3z7Tow.woff2           14.80 kB
+dist/public/assets/cinzel-latin-700-normal-Dkw14w9r.woff2           15.18 kB
+dist/public/assets/cinzel-latin-600-normal-Dd5YO2UX.woff2           15.20 kB
+dist/public/assets/cinzel-latin-400-normal-C8jUSQqm.woff            16.62 kB
+dist/public/assets/cinzel-latin-900-normal-t_fSDEbn.woff            17.06 kB
+dist/public/assets/cinzel-latin-600-normal-CH_LB4su.woff            17.50 kB
+dist/public/assets/cinzel-latin-700-normal-C-gK7hA8.woff            17.52 kB
+dist/public/assets/inter-latin-400-normal-C38fXH4l.woff2            23.66 kB
+dist/public/assets/inter-latin-300-normal-BVlfKGgI.woff2            23.92 kB
+dist/public/assets/inter-latin-500-normal-Cerq10X2.woff2            24.27 kB
+dist/public/assets/inter-latin-700-normal-Yt3aPRUw.woff2            24.36 kB
+dist/public/assets/inter-latin-600-normal-LgqL8muc.woff2            24.45 kB
+dist/public/assets/inter-latin-400-normal-CyCys3Eg.woff             30.70 kB
+dist/public/assets/inter-latin-300-normal-i8F0SvXL.woff             31.01 kB
+dist/public/assets/inter-latin-600-normal-CiBQ2DWP.woff             31.26 kB
+dist/public/assets/inter-latin-500-normal-BL9OpVg8.woff             31.28 kB
+dist/public/assets/inter-latin-700-normal-BLAVimhd.woff             31.32 kB
+dist/public/assets/inter-latin-ext-400-normal-C1nco2VV.woff2        35.00 kB
+dist/public/assets/inter-latin-ext-300-normal-CPgO9Ksf.woff2        35.88 kB
+dist/public/assets/inter-latin-ext-500-normal-CV4jyFjo.woff2        36.02 kB
+dist/public/assets/inter-latin-ext-700-normal-Ca8adRJv.woff2        36.24 kB
+dist/public/assets/inter-latin-ext-600-normal-D2bJ5OIk.woff2        36.26 kB
+dist/public/assets/inter-latin-ext-400-normal-77YHD8bZ.woff         47.56 kB
+dist/public/assets/inter-latin-ext-500-normal-BxGbmqWO.woff         48.49 kB
+dist/public/assets/inter-latin-ext-300-normal-Dp1L8vcn.woff         48.61 kB
+dist/public/assets/inter-latin-ext-700-normal-TidjK2hL.woff         48.63 kB
+dist/public/assets/inter-latin-ext-600-normal-CIVaiw4L.woff         48.67 kB
+dist/public/assets/index-Bs8qzIi4.css                              204.64 kB │ gzip:  29.39 kB
+dist/public/assets/purify.es-DfZ_cBTv.js                            24.11 kB │ gzip:   9.06 kB
+dist/public/assets/browser-D3PwCh4x.js                              25.78 kB │ gzip:  10.13 kB
+dist/public/assets/index.es-DJ1l7oGP.js                            158.83 kB │ gzip:  53.04 kB
+dist/public/assets/html2canvas.esm-DXEQVQnt.js                     201.04 kB │ gzip:  47.43 kB
+dist/public/assets/jspdf.es.min-DI_jyZUE.js                        385.99 kB │ gzip: 126.32 kB
+dist/public/assets/index-B8KT0iXO.js                             2,300.39 kB │ gzip: 667.65 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.34s
+✅ Build complete
+==> Uploading build...
+==> Uploaded in 4.8s. Compression took 2.1s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'NODE_ENV=production BASE_PATH=/ node --enable-source-maps ./artifacts/api-server/dist/index.mjs'
+[StreamRelay] ✅ ffmpeg-static: /opt/render/project/src/node_modules/.pnpm/ffmpeg-static@5.3.0/node_modules/ffmpeg-static/ffmpeg
+{"level":30,"time":1785324240072,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","frontendDist":"/opt/render/project/src/artifacts/ethiostream-pro/dist/public","msg":"Serving frontend static files"}
+{"level":30,"time":1785324240075,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","keepWarmUrl":"http://localhost:10000/api/healthz","msg":"Keep-warm ping enabled — polling every 4 min to prevent cold-sleep"}
+{"level":30,"time":1785324240076,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","port":10000,"msg":"Server listening — backend + frontend + WebSocket relay on one port"}
+{"level":30,"time":1785324240076,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","port":10000,"msg":"Stream relay: /api/stream/ws | Health: /api/healthz"}
+{"level":30,"time":1785324240217,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":1,"method":"HEAD","url":"/"},"res":{"statusCode":200},"responseTime":6,"msg":"request completed"}
+==> Your service is live 🎉
+{"level":30,"time":1785324245882,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":2,"method":"GET","url":"/"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://jj-nexus-pro.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
+{"level":30,"time":1785324297269,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":4,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":200},"responseTime":303,"msg":"request completed"}
+{"level":30,"time":1785324297366,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":3,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":200},"responseTime":456,"msg":"request completed"}
+{"level":30,"time":1785324297367,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":5,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":200},"responseTime":399,"msg":"request completed"}
+{"level":30,"time":1785324297764,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":6,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":28,"msg":"request completed"}
+{"level":30,"time":1785324297770,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":10,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":12,"msg":"request completed"}
+{"level":30,"time":1785324297775,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":7,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":38,"msg":"request completed"}
+{"level":30,"time":1785324297778,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":8,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":36,"msg":"request completed"}
+{"level":30,"time":1785324297869,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":9,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":115,"msg":"request completed"}
+{"level":30,"time":1785324297967,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":11,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":103,"msg":"request completed"}
+{"level":30,"time":1785324297968,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":13,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":101,"msg":"request completed"}
+{"level":30,"time":1785324297969,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":12,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":104,"msg":"request completed"}
+{"level":30,"time":1785324298361,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":15,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":34,"msg":"request completed"}
+{"level":30,"time":1785324298363,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":14,"method":"GET","url":"/api/proxy/yahoo-price"},"res":{"statusCode":304},"responseTime":40,"msg":"request completed"}
+{"level":30,"time":1785324300974,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":16,"method":"GET","url":"/api/anthropic/conversations"},"res":{"statusCode":500},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)\n    at ServerResponse.onResponseComplete (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)\n    at ServerResponse.emit (node:events:520:35)\n    at onFinish (node:_http_outgoing:1026:10)\n    at callback (node:internal/streams/writable:764:21)\n    at afterWrite (node:internal/streams/writable:708:5)\n    at afterWriteTick (node:internal/streams/writable:694:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":83,"msg":"request errored"}
+Error: Failed query: select "id", "title", "created_at" from "conversations" order by "conversations"."created_at" desc
+params: 
+    at NodePgPreparedQuery.queryWithCache (/opt/render/project/src/node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (/opt/render/project/src/node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/opt/render/project/src/artifacts/api-server/src/routes/anthropic/index.ts:219:15)
+{"level":30,"time":1785324302768,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":19,"method":"POST","url":"/api/anthropic/conversations"},"res":{"statusCode":500},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)\n    at ServerResponse.onResponseComplete (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)\n    at ServerResponse.emit (node:events:520:35)\n    at onFinish (node:_http_outgoing:1026:10)\n    at callback (node:internal/streams/writable:764:21)\n    at afterWrite (node:internal/streams/writable:708:5)\n    at afterWriteTick (node:internal/streams/writable:694:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":299,"msg":"request errored"}
+Error: Failed query: insert into "conversations" ("id", "title", "created_at") values (default, $1, default) returning "id", "title", "created_at"
+params: Alchemist — XAUUSD — 29/07/2026
+    at NodePgPreparedQuery.queryWithCache (/opt/render/project/src/node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (/opt/render/project/src/node_modules/.pnpm/drizzle-orm@0.45.2_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/opt/render/project/src/artifacts/api-server/src/routes/anthropic/index.ts:225:21)
+{"level":30,"time":1785324302864,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":18,"method":"POST","url":"/api/analysis/confluence"},"res":{"statusCode":500},"err":{"type":"Error","message":"failed with status code 500","stack":"Error: failed with status code 500\n    at onResFinished (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:115:39)\n    at ServerResponse.onResponseComplete (/opt/render/project/src/node_modules/.pnpm/pino-http@10.5.0/node_modules/pino-http/logger.js:178:14)\n    at ServerResponse.emit (node:events:520:35)\n    at onFinish (node:_http_outgoing:1026:10)\n    at callback (node:internal/streams/writable:764:21)\n    at afterWrite (node:internal/streams/writable:708:5)\n    at afterWriteTick (node:internal/streams/writable:694:10)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"},"responseTime":1895,"msg":"request errored"}
+{"level":30,"time":1785324302866,"pid":70,"hostname":"srv-d9kt6nnqj5pc73e181fg-hibernate-66b44d8bc7-5xjsh","req":{"id":17,"method":"POST","url":"/api/analysis/forex"},"res":{"statusCode":200},"responseTime":1956,"msg":"request completed"}

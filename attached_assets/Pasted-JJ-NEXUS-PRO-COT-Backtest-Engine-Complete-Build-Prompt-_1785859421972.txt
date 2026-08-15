@@ -1,0 +1,250 @@
+JJ NEXUS PRO: COT Backtest Engine — Complete Build Prompt for Replit
+
+1. PROJECT CONTEXT AND EXISTING ARCHITECTURE
+
+You are adding a new page to an existing Next.js web application called JJ NEXUS PRO. This application is a live CFTC Commitments of Traders (COT) data dashboard that currently displays real-time COT reports, calculates sentiment indices based on the Dreesmann academic methodology, and grades signals from A+ to C. The application is deployed and running. Your job is to build a Backtest Engine page that takes the existing signal logic and runs it against 20+ years of historical data to produce institutional-grade performance statistics.
+
+The existing application already has: a live COT data pipeline that pulls weekly CFTC reports via API; a signal calculation engine implementing the Dreesmann 5-condition methodology for Gold (XAUUSD), EURUSD, and GBPUSD; a grading system (A+, A, B+, B, C) that classifies signal strength; and a dashboard UI built with Tailwind CSS and shadcn/ui components. The backtest engine you build must integrate seamlessly with this existing codebase, reuse the existing signal calculation logic, and present results within the same design language.
+
+
+
+The fundamental purpose: This backtest engine exists to convert belief into evidence. Right now, when the system generates a COT signal, the user has confidence based on academic research (Dreesmann and Zhang/Laws papers). After this backtest engine is built, that confidence will be replaced by verified, quantified, statistically significant performance data that is specific to the exact signal parameters, exact instruments, and exact time horizons used in JJ NEXUS PRO.
+
+2. CFTC COT DATA: COMPLETE TECHNICAL REFERENCE
+
+The CFTC publishes the Commitments of Traders report every Friday at 15:30 Eastern Time (20:30 UTC). The report reflects positions held as of the preceding Tuesday. There is a Tuesday-to-Friday publication lag. Use the Legacy report format exclusively (Commercial, Non-Commercial, Non-Reportable categories) as the Dreesmann methodology was developed on Legacy data.
+
+Critical data fields you MUST ingest (not optional — every single one is required for signal calculations):
+
+Non-Commercial Long/Short: Total long/short futures positions held by speculators, hedge funds, CTAs. Primary signal driver.
+Commercial Long/Short: Total long/short futures positions held by producers, merchants, processors, users. Inverse signal to speculators.
+Non-Reportable Long/Short: Positions of traders below reporting threshold (small speculators). Dumb money contrarian signal.
+Total Open Interest: Sum of all long positions. Denominator in all index calculations.
+Change in Non-Commercial Long/Short: Week-over-week change. Momentum indicator.
+Change in Commercial Long/Short: Week-over-week change. Hedging momentum.
+Change in Total OI: Week-over-week change. Market engagement indicator.
+Data Source API: CFTC endpoint for historical Legacy futures-and-options combined data. CFTC market codes: 088691 (Gold), 099741 (EUR), 096742 (GBP). Pull from January 2000 to present (~1,250 weeks per instrument). Fallback: Quandl/Nasdaq Data Link CFTC datasets (CFTC/TFF_GOLD_ALL, CFTC/TFF_EUR_ALL, CFTC/TFF_GBP_ALL).
+
+Data normalization rules: Convert all positions to contracts (not notional value). Detect and handle contract roll weeks where OI drops >15%. Note CFTC reporting threshold changes (2014, 2020) and test whether they materially affect signal calculations.
+
+3. THE DREESMANN 5-CONDITION SIGNAL: EXACT SPECIFICATION
+
+Five independent conditions. Signal grade determined by how many are simultaneously satisfied.
+
+Condition 1 — Commercial Sentiment Index (CSI):
+CSI = (Net Commercial Position - Min Net Commercial over lookback) / (Max Net Commercial over lookback - Min Net Commercial over lookback)
+Where Net Commercial = Commercial Long - Commercial Short. Default lookback: 156 weeks (~3 years), must be configurable.
+CSI > 0.70 = extreme commercial long (bullish signal for Gold)
+CSI < 0.30 = extreme commercial short (bearish signal for Gold)
+
+Condition 2 — Non-Commercial Positioning Percentage:
+NC Long % = Non-Commercial Long / Total Open Interest
+
+40% = extreme speculative long (bearish signal)
+< 15% = extreme speculative short (bullish signal)
+Thresholds configurable for sensitivity analysis.
+
+Condition 3 — Non-Reportable Sentiment Index (NRSI):
+NRSI = (Net Non-Reportable - Min over lookback) / (Max over lookback - Min over lookback)
+NRSI < 0.30 = small traders extremely net short (contrarian bullish)
+NRSI > 0.70 = small traders extremely net long (contrarian bearish)
+Lookback matches CSI (default 156 weeks).
+
+Condition 4 — Open Interest Trend Confirmation:
+For bullish signal (CSI > 0.70): total OI must be increasing WoW OR 4-week MA of OI rising.
+For bearish signal (CSI < 0.30): same OI condition.
+Falling OI = condition NOT satisfied.
+
+Condition 5 — Week-over-Week Change Confirmation:
+Bullish: WoW change in Commercial Long positive AND WoW change in Non-Commercial Short positive.
+Bearish: WoW change in Commercial Short positive AND WoW change in Non-Commercial Long positive.
+
+Signal Grading Matrix:
+
+Grade
+Conditions
+Trading Implication
+A+	5/5	Full position, max risk
+A	4/5	Full position, standard risk
+B+	3/5	Reduced position
+B	2/5	Half position, tight risk
+C	0-1	No trade
+
+CRITICAL: Store which specific conditions fired as boolean array [c1,c2,c3,c4,c5] for every signal at every point in time. Essential for regime analysis.
+
+4. BACKTEST ENGINE: CORE ARCHITECTURE
+
+Data Pipeline (3 stages):
+Stage 1 — Data Ingestion: Pull historical COT data for Gold, EUR, GBP from Jan 2000 to now. Cache locally (JSON or SQLite).
+Stage 2 — Price Data Alignment: Pull historical weekly closes for XAUUSD, EURUSD, GBPUSD. Align to TUESDAY COT report date (not Friday publication). Sources: Yahoo Finance, Alpha Vantage.
+Stage 3 — Signal Calculation: Run 5-condition engine on every historical week.
+
+Signal-to-Price Mapping:
+Signal date = COT Tuesday report date.
+Entry price = weekly close of the week AFTER signal generation (simulates execution after Friday publication lag).
+Forward return windows: exactly 1W, 4W, 8W, 12W, 26W after entry.
+For each window record: % return, win/loss, MFE (max favorable excursion), MAE (max adverse excursion).
+
+Caching: Cache COT data aggressively (only refetch most recent 4 weeks). Signal results cached by parameter set. Price data cached indefinitely. Display "Last Updated" timestamp.
+
+Computation: ~3,750 data points × 5 conditions × 156-week lookback = ~2.9M operations. Use Web Workers or chunked processing. Show progress bar during calculation.
+
+5. PHASE 1: HISTORICAL CORRELATION STUDY
+
+Calculate these metrics broken down by signal grade × instrument × holding period (3-dimensional matrix):
+
+Metric
+Definition
+Win Rate	% of signals with positive return in window
+Average Return	Mean % return
+Median Return	50th percentile (robust to outliers)
+Standard Deviation	Return dispersion
+Sharpe Ratio	(Mean Return - Rf) / StdDev × Sqrt(52/weeks), annualized
+Max Drawdown	Largest peak-to-trough equity decline
+Profit Factor	Sum of positive returns /
+Expectancy (R-Multiple)	(Win% × Avg Win) - (Loss% × Avg Loss) / Avg Loss
+Average MFE	Mean max favorable excursion
+Average MAE	Mean max adverse excursion
+Total Signals	Count
+t-Statistic	Mean return / (StdDev / Sqrt(N))
+p-Value	Two-tailed test vs null of zero mean
+
+Benchmarks:
+
+Buy & Hold: buy at each signal date, hold same period, no filtering.
+Random Entry Monte Carlo: 1,000 random entry dates per actual signal. Compare actual Sharpe against distribution. If actual exceeds 95th percentile of random = significant alpha at 5% level. This is what Dreesmann did.
+Equity Curve: Cumulative return line (strategy vs buy-and-hold), shaded drawdown regions, vertical markers at signal entries color-coded by grade. Use Recharts LineChart/AreaChart.
+
+Signal Distribution: Stacked bar chart (count by year × grade), heatmap (month-of-year frequency), pie (bullish vs bearish), table (avg days between signals).
+
+6. PERFORMANCE METRICS AND STATISTICAL FRAMEWORK
+
+Statistical Significance:
+
+Two-tailed t-test (mean return vs zero). Report t-stat, p-value, confidence interval.
+For <30 observations: Wilcoxon signed-rank test as robustness check.
+Durbin-Watson statistic for autocorrelation in returns.
+Bootstrapped Sharpe CI: 10,000 bootstrap resamples.
+Rolling 4-year window significance test (is edge stable or concentrated?).
+Risk-Adjusted Measures:
+
+Sharpe Ratio (Rf = Fed Funds rate or 2% proxy)
+Sortino Ratio (downside deviation only)
+Calmar Ratio (return / max drawdown)
+Omega Ratio (weighted gains above threshold / weighted losses below)
+Regime-Conditional Performance (3 regime classifiers):
+
+DXY Regime: above/below 50-week SMA, or within 2% (ranging)
+VIX Regime: above 20 (high vol/crisis) vs below 20 (normal)
+Trend Regime: price vs 10-week and 40-week SMA (bullish/bearish/ranging)
+Fed Regime: last decision was hike/cut/no change
+User must be able to select any regime filter and see filtered performance instantly. This is the "think like an institution" dimension.
+
+7. PHASE 2: REGIME-BASED PERFORMANCE ANALYSIS
+
+Regime Detection Engine: Pull weekly DXY (DX-Y.NYB), weekly VIX (^VIX), Fed Funds rate (FRED FREDFUNDS). Classify each week: { dxy, vix, trend, fed }. Store alongside signal data. Multi-select filter panel in UI.
+
+Regime Performance Table: For each regime dimension, show Win Rate / Avg Return / Sharpe / Total Signals / p-Value for each state side by side.
+
+Regime Interaction Heatmap: One axis = regime dimension 1, other axis = regime dimension 2, cell color = Sharpe ratio. Reveals the specific environments where the trader should be most aggressive. This is the most powerful analytical tool in the entire backtest.
+
+Time-Decay Analysis: Plot Sharpe and win rate as function of holding period (1W through 26W). Reveals optimal holding period per signal grade. Use Recharts LineChart.
+
+8. PHASE 3: LIVE SIGNAL TRACKING AND FORWARD DATABASE
+
+Auto-Logging: Every time a signal fires on the live dashboard, automatically log: date, instrument, grade, conditions fired [c1-c5], entry price, current price, elapsed time. Zero manual intervention.
+
+Outcome Tracking: At each forward window milestone (1W, 4W, 8W, 12W, 26W), auto-record the actual return. Display in "Live Signals" table: signal date, instrument, grade, entry price, current price, current return %, days elapsed, status (Open / 1W Complete / 4W Complete...). Green/red color coding.
+
+Forward vs Backtest Comparison: After 30+ completed signals, produce paired comparison: backtest metrics vs live metrics. Overlapping return distribution histograms. If live performance is within confidence intervals of backtest = system validated in real-time.
+
+9. UI/UX DESIGN SPECIFICATIONS
+
+New top-level page "Backtest" or "Quant Lab" in navigation.
+
+Parameter Configuration Panel (top):
+
+Instrument: Gold/EURUSD/GBPUSD/All (default: All)
+Date range: Jan 2000 – present
+CSI Lookback: 156 weeks (range 52-312)
+NRSI Lookback: 156 weeks (range 52-312)
+NC Long Threshold: 40% (range 25-55%)
+NC Short Threshold: 15% (range 5-25%)
+"Run Backtest" button with progress indicator
+Results Dashboard (summary cards):
+Row 1: Total Signals, Win Rate (4W), Avg Return (4W), Sharpe (4W), Max Drawdown
+Row 2: Profit Factor, Expectancy, t-Stat, p-Value, Benchmark Outperformance
+Traffic-light coloring: green = beats benchmark, amber = within 10%, red = underperforms.
+
+Detailed Results Table:
+Columns: Signal Date, Instrument, Direction, Grade, Conditions Fired, Entry Price, 1W/4W/8W/12W/26W Returns, 4W Win/Loss, 4W MFE, 4W MAE
+Sortable, filterable, CSV export, pagination/virtual scrolling.
+
+Charts (all Recharts):
+
+Equity Curve (strategy vs benchmark, shaded drawdowns)
+Return Distribution histogram (mean line, ±1 std dev markers)
+Signal Heatmap (frequency by month × year)
+Regime Performance bar chart
+Time-Decay line chart
+Grade Distribution pie chart
+Gold accent for primary data, muted gray for benchmarks. All charts: tooltips, legends, axis labels.
+
+10. DATA PIPELINE AND API INTEGRATION
+
+API Route 1: /api/backtest/cot-data
+Params: instrument, start_date, end_date. Check local cache (<7 days = serve cache). Fetch from CFTC API or fallback Quandl. Normalize to consistent JSON schema. Handle errors with clear messages and retry.
+
+API Route 2: /api/backtest/price-data
+Weekly closes for XAUUSD (GC=F), EURUSD (EURUSD=X), GBPUSD (GBPUSD=X). Source: Yahoo Finance via server proxy. Align to COT Tuesday dates. Cache aggressively. Flag missing/holiday dates.
+
+API Route 3: /api/backtest/regime-data
+Weekly DXY (DX-Y.NYB), VIX (^VIX), Fed Funds (FRED FREDFUNDS). Regime classification as pure testable functions. Cache locally.
+
+Data Integrity Checks (before any calculation):
+
+COT and price date ranges match (flag gaps)
+No NaN/null in critical fields
+Total OI consistent (Long + Short ≈ 2 × OI)
+No duplicate dates
+FAIL = clear warning, do NOT proceed.
+11. ACADEMIC STANDARDS AND COMPARISON METHODOLOGY
+
+Dreesmann (2012) Replication: Calculate same metrics Dreesmann reported (cumulative return, annualized return/vol, Sharpe, max drawdown, win %). Display your numbers side-by-side with his published figures. Investigate and explain any significant differences.
+
+Zhang & Laws (2020) Verification: Calculate Pearson correlation between CSI and contemporaneous Gold returns. Report: correlation coefficient, regression beta, standard error, t-statistic, p-value. Their finding: beta = -0.016, t-stat = -5.696, p < 0.01. Verify this holds in your dataset. This is the "verify with research" requirement.
+
+Out-of-Sample Protocol: Split 20-year data: 70% in-sample (2000-2014) for development, 30% out-of-sample (2015-2025) for validation only. Report metrics separately. Out-of-sample Sharpe must be ≥50% of in-sample Sharpe for robustness.
+
+12. TECHNICAL CONSTRAINTS AND EDGE CASES
+
+Contract Roll Handling: Detect rolls (OI drops >15% WoW). Use combined futures-and-options data (smooths roll artifacts). Flag roll weeks.
+
+CFTC Threshold Changes: Note 2014 and 2020 threshold change dates. Implement Chow test for structural breaks. If break detected, split into sub-periods and report separately.
+
+Look-Ahead Bias Prevention: First 156 weeks don't have full lookback history. Either exclude them or use expanding window (start 52 weeks, expand to 156). NEVER use 156-week lookback from week 1.
+
+Multiple Testing Correction: With 5 grades × 3 instruments × 5 holding periods = 75 tests. Apply Bonferroni correction (significance level = 0.05/75 = 0.00067) or Benjamini-Hochberg FDR. Report both corrected and uncorrected p-values.
+
+Performance Degradation Monitor: Rolling 3-year Sharpe windows. If recent 3-year Sharpe < 50% of long-term average, display warning: "Signal performance may be degrading."
+
+13. DELIVERABLES AND ACCEPTANCE CRITERIA
+
+"Done" means ALL of these are functional:
+
+Backtest page accessible from main nav, loads without errors
+Historical COT data for all 3 instruments (2000-present) fetched, cached, with freshness indicators
+5-condition signal engine runs on 20 years of history with grades
+Performance metrics calculated for every grade × instrument × holding period combination
+Equity curves with benchmark comparison
+Regime analysis filters produce filtered metrics
+Live signal logging is automatic, forward database populating
+All data exportable to CSV
+Academic verification section (Dreesmann replication + Zhang/Laws correlation)
+UI responsive, professional, consistent with existing JJ NEXUS PRO design
+Code Quality: TypeScript throughout. Proper types for all data structures. No silent failures, no unhandled rejections, no console.log in prod. Unit tests for signal calculation and regime classification. Extract signal logic into pure testable module. JSDoc comments on public functions.
+
+Performance: Full backtest (3 instruments, 20 years) < 30 seconds. Page load < 3 seconds with cache. Charts render < 2 seconds. UI responsive during calculation. Bundle size increase < 100KB gzipped. API routes < 5s cached, < 15s fresh.
+
+What the mentor wants to see: Statistically significant correlations with proper t-stats and p-values. Regime-based analysis showing context-dependent performance. Every assumption backed by data, not guesswork. When he sees "A+ signals on Gold: 71% win rate over 4 weeks, t-stat 3.2, p-value 0.001" — that's when he knows you've graduated from retail to quant.
+

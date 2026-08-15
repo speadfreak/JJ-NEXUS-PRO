@@ -1,0 +1,229 @@
+The codec is the smoking gun: **vp8** is being used, but your FFmpeg args from earlier force `-c:v libx264` expecting H264 input. FFmpeg chokes on vp8 input with those args and dies → "interrupted" → retry → same codec chosen again → loop. Also "Screen share stopped by user" appearing on its own (not user-initiated) on retry #2 suggests the retry logic re-requests getDisplayMedia without a fresh user gesture, which Chrome silently kills.
+
+Here's your fix prompt:
+
+---
+
+**CRITICAL FIX: Codec mismatch causing instant FFmpeg crash loop + remove Reserved VM dependency**
+
+Console shows MediaRecorder selects `video/webm;codecs=vp8,opus` but FFmpeg is configured expecting H264 input. This causes FFmpeg to fail immediately on every attempt, triggering the 3x auto-restart loop which then fails entirely because retries can't get a fresh screen-share permission (no user gesture).
+
+---
+
+**=== FIX 1: MAKE FFMPEG INPUT CODEC-AGNOSTIC ===**
+
+The `-i pipe:0` input must auto-detect VP8/VP9/H264 — don't assume. Update FFmpeg args:
+
+```javascript
+const ffmpegArgs = [
+  '-fflags', '+genpts+igndts+discardcorrupt',
+  '-analyzeduration', '20000000',
+  '-probesize', '20000000',
+  '-f', 'webm',           // explicitly tell FFmpeg input container is webm
+  '-i', 'pipe:0',
+
+  // Decode whatever codec is inside (vp8/vp9/h264) then re-encode to h264
+  '-c:v', 'libx264',
+  '-preset', 'ultrafast',
+  '-tune', 'zerolatency',
+  '-profile:v', 'baseline',
+  '-level', '3.1',
+  '-pix_fmt', 'yuv420p',
+  '-b:v', videoBitrate || '1500k',
+  '-maxrate', videoBitrate || '1500k',
+  '-bufsize', `${parseInt(videoBitrate || '1500') * 2}k`,
+  '-g', '48',
+  '-keyint_min', '24',
+  '-sc_threshold', '0',
+  '-r', String(fps || 24),
+  '-vsync', 'cfr',
+
+  '-c:a', 'aac',
+  '-b:a', audioBitrate || '128k',
+  '-ar', '44100',
+  '-ac', '2',
+  '-af', 'aresample=async=1:first_pts=0',
+
+  '-flvflags', 'no_duration_filesize',
+  '-f', 'flv',
+  '-reconnect', '1',
+  '-reconnect_at_eof', '1',
+  '-reconnect_streamed', '1',
+  '-reconnect_delay_max', '5',
+  rtmpUrl
+]
+```
+
+Key change: `-f webm` before `-i pipe:0` forces FFmpeg to demux as WebM regardless of which video codec (vp8/vp9/h264) is inside — it will decode correctly either way.
+
+**Log the actual FFmpeg stderr output** so we can see the real failure reason instead of guessing:
+
+```javascript
+session.ffmpeg.stderr?.on('data', (data) => {
+  const log = data.toString()
+  // Log EVERYTHING during first 5 seconds to diagnose startup failures
+  if (Date.now() - session.startTime.getTime() < 5000) {
+    console.log(`[${sessionId}] FFmpeg startup:`, log.trim())
+  }
+  // ... existing progress parsing
+})
+```
+
+---
+
+**=== FIX 2: STOP THE BROKEN AUTO-RESTART LOOP ===**
+
+Find the "Stream recovering... auto-restarting" logic in `BrowserStreamEngine.ts`. The current implementation re-runs the ENTIRE pipeline including `getDisplayMedia()` which requires a fresh user click — it cannot succeed programmatically. Fix it:
+
+```typescript
+// Find the recovery/restart method and replace with this:
+private async attemptStreamRecovery(attempt: number) {
+  if (attempt > 3) {
+    this.updateStats({
+      status: 'error',
+      error: 'Stream failed after 3 attempts. Click Go Live to retry — screen sharing requires a fresh click.'
+    })
+    this.cleanup()
+    return
+  }
+
+  console.log(`[StreamEngine] Recovery attempt ${attempt}/3`)
+  this.updateStats({ status: 'connecting', error: `Reconnecting (${attempt}/3)...` })
+
+  // DO NOT call captureScreen() again — getDisplayMedia requires user gesture
+  // Only the connection to relay can be retried, NOT screen capture
+  if (!this.displayStream || this.displayStream.getVideoTracks()[0]?.readyState === 'ended') {
+    // Screen share was lost — this CANNOT be recovered automatically
+    this.updateStats({
+      status: 'error',
+      error: 'Screen share was lost. Click Go Live again to restart (browser requires a fresh permission for screen sharing).'
+    })
+    this.cleanup()
+    return
+  }
+
+  // Only retry the WebSocket + FFmpeg part, reusing existing media streams
+  try {
+    await this.connectToRelay()
+    this.sendStreamConfig(this.config!)
+    await new Promise(r => setTimeout(r, 800))
+    if (this.combinedStream) {
+      this.startMediaRecorder(this.combinedStream, this.config!)
+    }
+  } catch (e) {
+    setTimeout(() => this.attemptStreamRecovery(attempt + 1), 2000 * attempt)
+  }
+}
+```
+
+And fix where recovery is triggered — only trigger it for relay/FFmpeg errors, NOT for "Screen share stopped":
+
+```typescript
+case 'error':
+  console.error('[BrowserStreamEngine] Relay error:', msg.message)
+
+  // If FFmpeg crashed but screen share is still active, try to recover
+  if (this.displayStream?.getVideoTracks()[0]?.readyState === 'live') {
+    this.attemptStreamRecovery(1)
+  } else {
+    this.updateStats({ status: 'error', error: msg.message })
+    this.cleanup()
+  }
+  break
+```
+
+---
+
+**=== FIX 3: FREE ALTERNATIVE TO RESERVED VM — USE "ALWAYS ON" + UPTIME PING ===**
+
+You do NOT need Reserved VM. Here's the free approach:
+
+**Step A — Keep Autoscale but add a self-ping mechanism** that keeps the deployment warm:
+
+```javascript
+// Add to the server file — pings itself every 4 minutes to prevent cold sleep
+if (process.env.NODE_ENV === 'production') {
+  const SELF_URL = process.env.REPLIT_DEV_DOMAIN
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}/health`
+    : null
+
+  if (SELF_URL) {
+    setInterval(() => {
+      fetch(SELF_URL).catch(() => {})
+    }, 4 * 60 * 1000)
+  }
+}
+```
+
+**Step B — Use an external free uptime monitor** to ping your app every 5 minutes, which is the actual industry-standard free trick:
+
+```
+Tell the user to:
+1. Go to UptimeRobot.com (free, no credit card)
+2. Add a new HTTP monitor
+3. URL: https://[your-app].replit.app/health
+4. Interval: every 5 minutes
+5. This keeps the Autoscale instance warm so WebSocket connections
+   don't get dropped due to cold starts mid-stream
+```
+
+**Step C — Reduce WebSocket idle timeout sensitivity** — make sure the heartbeat from the previous fix (ping every 25s) is active so Replit's edge proxy never sees the connection as idle.
+
+This combination — heartbeat + external ping — keeps a free Autoscale deployment effectively "always on" for streaming sessions without needing Reserved VM.
+
+---
+
+**=== FIX 4: ADD A PRE-FLIGHT CODEC TEST BEFORE GO LIVE ===**
+
+Add this to the pre-stream checklist so codec issues are caught before going live:
+
+```typescript
+// Add to checklist
+const testFFmpegCodec = async (): Promise<{pass: boolean, detail: string}> => {
+  const mimeTypes = [
+    'video/webm;codecs=h264,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+  ]
+  const supported = mimeTypes.find(m => MediaRecorder.isTypeSupported(m))
+
+  if (!supported) {
+    return { pass: false, detail: 'Browser does not support any compatible video codec' }
+  }
+
+  return {
+    pass: true,
+    detail: `Will use ${supported} — FFmpeg configured to accept this via -f webm input demuxing`
+  }
+}
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Update FFmpeg args — add '-f', 'webm' before '-i pipe:0' so any codec
+    (vp8/vp9/h264) is correctly demuxed
+2.  Add full FFmpeg stderr logging for first 5 seconds of each session
+3.  Rewrite attemptStreamRecovery() — never re-call getDisplayMedia(),
+    only retry WebSocket/FFmpeg, cap at 3 attempts with clear error after
+4.  Fix error handler — only trigger recovery if displayStream track is
+    still 'live', otherwise show clear "click Go Live again" message
+5.  Add self-ping interval using REPLIT_DEV_DOMAIN for production
+6.  Add codec pre-flight check to checklist
+7.  npm run build — zero errors
+8.  Redeploy on Autoscale (no Reserved VM needed)
+9.  Set up UptimeRobot.com free monitor pinging /health every 5 min
+10. Test Go Live — check console for FFmpeg startup logs specifically
+11. Let stream run 5 minutes — confirm no interruption loop
+12. Report: FFmpeg startup log output, codec used, stream duration achieved
+```
+
+---
+
+**Report back with:**
+- The FFmpeg startup stderr log (first 5 seconds) — this tells us the real error
+- Whether `-f webm` fix resolved the immediate crash
+- Stream duration achieved without interruption
+- Confirmation UptimeRobot monitor was set up

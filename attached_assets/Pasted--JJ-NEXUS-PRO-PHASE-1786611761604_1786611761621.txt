@@ -1,0 +1,547 @@
+================================================================================
+JJ NEXUS PRO: PHASE 2 CONTINUATION PROMPT
+Complete Build Specification for Replit
+================================================================================
+
+Use your FULL potential, maximum coding skill, and highest-quality engineering to build everything described below. This is a CONTINUATION build.
+
+A previous Replit agent attempted to build the Health Report Verification Page and Alchemist AI pipeline but ran out of daily free quota after approximately 7 minutes of work. The agent created file shells, basic route structures, and skeletal implementations, but NOTHING is production-quality. The user has confirmed: the HR page is partially working but NOT fully functional, and the AI training pipeline is NOT good quality.
+
+Your job is to INSPECT every file the previous agent created, identify what is shallow/incomplete/broken, then REBUILD or COMPLETE every component to the full specification described below. This is not a from-scratch build — you have a head start — but you must treat every existing file as SUSPECT until you verify it meets the full spec.
+
+The repository is speadfreak/JJ-NEXUS-PRO on GitHub. It is a React + Vite + Express monorepo (NOT Next.js — the original prompt incorrectly said Next.js). The previous agent confirmed this and worked within the existing architecture.
+
+================================================================================
+PART 0: CURRENT STATE AUDIT
+================================================================================
+
+0.1 FILES YOU SHOULD FIND (CREATED BY PREVIOUS AGENT)
+
+Before writing ANY new code, you must perform a complete audit of the existing codebase. Look for these files:
+
+  - Health Report page component (likely in artifacts/ethiostream-pro/src/pages/HealthReport.tsx or similar)
+  - Statistical engine utility (likely in artifacts/ethiostream-pro/src/utils/ — something like statsEngine.ts or monteCarlo.ts)
+  - Health Report route registration (added to the router/routes file)
+  - Health Report sidebar navigation entry (added to Layout.tsx)
+  - Alchemist API routes (in api-server/src/routes/ — something like alchemist/index.ts)
+  - Dataset generation script (artifacts/ethiostream-pro/src/utils/generateTrainingDataset.ts)
+  - Colab notebook (notebooks/alchemist_ai_training.ipynb)
+  - Hugging Face deployment files (deployment/hf_spaces/ directory)
+  - Alchemist model selector and prebuilt analysis prompts in the existing Alchemist UI page
+  - Integration buttons on COT and Quant Lab pages ("Ask Alchemist" buttons)
+
+0.2 WHAT THE PREVIOUS AGENT LIKELY GOT RIGHT (SURFACE LEVEL)
+
+  - Route registration and navigation links — the HR page probably loads at its URL and the sidebar entry exists
+  - Basic file structure — the files exist and have the right imports/exports to compile
+  - API route stubs — /api/alchemist/chat, /api/alchemist/status, /api/alchemist/dataset/generate likely exist with basic POST/GET handlers
+  - Colab notebook skeleton — the .ipynb file likely has the right cell structure but may lack depth
+
+0.3 WHAT IS ALMOST CERTAINLY INCOMPLETE OR BROKEN
+
+  - Health Report Monte Carlo engine — may have the loop structure but missing: proper random date selection from price history, 4W forward return calculation, histogram rendering, percentile computation, proper p-value display
+  - MCMC Bayesian inference — Metropolis-Hastings implementation may be a stub or oversimplified. Needs: proper prior/likelihood setup, convergence diagnostics (Gelman-Rubin R-hat), chain visualization, posterior summary statistics
+  - Bootstrap Sharpe CI — may exist but needs verification: resampling logic, CI calculation, chart with marked CI bounds
+  - Overfitting detection — IS/OOS ratio logic needs actual in-sample/out-of-sample data splitting from the backtest engine
+  - Multiple testing correction — Bonferroni and Benjamini-Hochberg implementations may be missing or incorrect
+  - Risk projection engine — Monte Carlo equity curve simulation, VaR/CVaR calculations, drawdown projection
+  - Data integrity checks — CFTC freshness, price feed accuracy, signal consistency verification
+  - Report export — may generate a file but the content may be sparse/template-only
+  - Dataset generation — the 2,500-example requirement is massive; the script likely has template logic but produces shallow, repetitive examples instead of the required 200-500 word responses with specific price levels and institutional logic
+  - Colab notebook — may have correct cell structure but missing: error handling, training monitoring, loss curve visualization, evaluation metrics, quantization details
+  - Hugging Face deployment — app.py may be a basic Gradio stub, missing: rate limiting, concurrent request handling, proper model loading, error recovery
+  - Alchemist API integration — fallback logic (Alchemist → Claude) may not be robust; timeout handling, retry logic, latency tracking may be incomplete
+  - Deep integration buttons — "Ask Alchemist" buttons on COT and Quant Lab pages may send generic prompts instead of prefilling with actual signal/backtest data
+
+================================================================================
+PART 1: HEALTH REPORT VERIFICATION PAGE — FULL SPECIFICATION
+================================================================================
+
+This is the core deliverable. Every subsection below must be FULLY implemented, not skeletonized. If the previous agent's code for any section is shallow, REWRITE it completely.
+
+1.1 PAGE ARCHITECTURE AND LAYOUT
+
+The Health Report page must have these visual sections, each in its own collapsible card/panel using the existing design system (Tailwind CSS + shadcn/ui):
+
+  Section 1: System Health Score (0-100) — large circular gauge or progress bar at the top
+  Section 2: COT Signal Monte Carlo Verification
+  Section 3: MCMC Bayesian Posterior Distributions
+  Section 4: Backtest Result Verification (Bootstrap, Overfitting, Multiple Testing)
+  Section 5: Academic Correlation Verification (Zhang & Laws, Dreesmann)
+  Section 6: Risk Engine Verification (Drawdown, VaR, CVaR, Position Sizing)
+  Section 7: Data Integrity Report
+  Section 8: Report Export
+
+Each section must have: a clear title, a description of what it verifies, the actual statistical computation results, and at least one Recharts visualization (BarChart, LineChart, or AreaChart). The page should feel like a Bloomberg terminal health dashboard.
+
+1.2 SECTION 1: SYSTEM HEALTH SCORE (0-100)
+
+This is the FIRST thing the user sees. It is a composite score calculated from ALL other verification sections.
+
+Scoring Components and Weights:
+
+  - Monte Carlo p-value score (25%): Average p-value significance across all grade/instrument combos. If all p < 0.01, score = 100. If p > 0.10, score = 0. Linear interpolation between.
+  - MCMC posterior confidence (20%): Width of 95% credible interval for win rate. Narrower interval = more confidence = higher score. If 95% CI excludes 50%, score = 100. If includes 50%, score drops proportionally.
+  - Bootstrap Sharpe CI (15%): Does bootstrap 95% CI for Sharpe exclude 0? If entirely above 0, score = 100. If includes 0, score = 0.
+  - Overfitting ratio (15%): OOS Sharpe / IS Sharpe. If >= 0.70, score = 100. If < 0.50, score = 0. Linear between.
+  - Data integrity (15%): Fraction of data integrity checks that pass. 6 checks total, each worth equal points.
+  - Risk metrics (10%): VaR and CVaR within acceptable bounds. If CVaR < 5%, score = 100. If > 15%, score = 0.
+
+Display:
+  - Large circular progress gauge (use a CSS-based donut chart or SVG circle) showing the composite score 0-100
+  - Color coding: 80-100 = green ("SYSTEM HEALTHY"), 60-79 = amber ("MODERATE CONCERNS"), 40-59 = orange ("SIGNIFICANT ISSUES"), 0-39 = red ("CRITICAL — DO NOT TRADE")
+  - Below the gauge: a breakdown table showing each component's individual score and weight
+  - The score must RECALCULATE every time the page loads (not cached across sessions)
+
+1.3 SECTION 2: COT SIGNAL MONTE CARLO VERIFICATION
+
+This is the MOST IMPORTANT statistical test in the entire Health Report. It answers: "Could these signal results have occurred by chance?"
+
+Data Source:
+  Use the existing COT backtest data from the QuantLab page. The app already has a backtestEngine.ts that generates signals with 4W returns. If no backtest has been run, display: "Run a COT Backtest first to enable signal verification." and disable this section.
+
+Monte Carlo Engine (Pure TypeScript, Runs in Browser):
+
+For each signal grade (A, B+, B) AND each instrument (XAUUSD, EURUSD, GBPUSD) AND each direction (LONG, SHORT):
+
+  Step 1: Extract the actual 4W returns for all signals matching this grade/instrument/direction combination
+  Step 2: Calculate actual win rate, mean return, and annualized Sharpe ratio from these returns
+  Step 3: Run 10,000 Monte Carlo simulations. For EACH simulation:
+    - Randomly select N dates from the instrument's price history (N = number of actual signals in this group)
+    - For each random date, calculate the 4-week forward return using the price data
+    - Calculate the win rate, mean return, and Sharpe for this random simulation
+  Step 4: After 10,000 simulations, build the empirical distribution of random Sharpe ratios
+  Step 5: Calculate what percentile the ACTUAL Sharpe falls in within this random distribution
+  Step 6: Calculate the p-value: proportion of the 10,000 random simulations that produced a Sharpe EQUAL TO OR BETTER THAN the actual Sharpe
+
+Display for Each Grade/Instrument/Direction Combination:
+  - Actual win rate vs. random mean win rate (with difference highlighted green if positive, red if negative)
+  - Actual Sharpe vs. 95th percentile of random Sharpe distribution
+  - p-value with significance stars: *** p<0.01, ** p<0.05, * p<0.1, ns p>=0.1
+  - A Recharts BarChart histogram showing the distribution of 10,000 random Sharpe ratios, with a vertical ReferenceLine at the actual Sharpe
+  - A summary sentence: "The actual Sharpe of X.XX is at the Yth percentile of random chance (p = Z.ZZZ). [SIGNIFICANT / NOT SIGNIFICANT]"
+
+Critical Implementation Details:
+  - The price history data must come from the same API endpoints the backtest engine uses
+  - Use a seeded pseudo-random number generator (mulberry32 or similar) for reproducibility — display the seed used
+  - The 10,000 simulations must complete in under 15 seconds in the browser. Use Web Workers if needed to prevent UI freezing
+  - Handle edge cases: if a grade/instrument/direction combo has fewer than 5 signals, show "Insufficient sample size (N=X)" instead of running Monte Carlo
+
+1.4 SECTION 3: MCMC BAYESIAN POSTERIOR DISTRIBUTIONS
+
+This section uses Markov Chain Monte Carlo (Metropolis-Hastings algorithm) to estimate the TRUE underlying win rate and mean return, accounting for sampling uncertainty.
+
+MCMC Implementation (Pure TypeScript, Runs in Browser):
+Implement a Metropolis-Hastings sampler from scratch. Do NOT use any external MCMC library.
+
+Target Parameter 1: TRUE WIN RATE
+  - Prior: Beta(alpha=2, beta=2) — weakly informative, centered at 50%
+  - Likelihood: Binomial(N_wins, N_total, theta) where theta is the true win rate
+  - Proposal distribution: Normal(current_theta, 0.02) truncated to [0, 1]
+  - Run 5 chains, each with 10,000 iterations (burn-in: 2,000, thin: 5)
+  - Calculate: posterior mean, 95% credible interval, standard deviation, effective sample size (ESS)
+  - Convergence diagnostic: Gelman-Rubin R-hat statistic (must be < 1.1 for convergence)
+  - Display: posterior density as a smooth curve (Recharts AreaChart with 100 bins), vertical ReferenceLines at 95% CI bounds, vertical ReferenceLine at 50% (null hypothesis)
+  - Text: "With 95% posterior probability, the true win rate is between X% and Y%"
+
+Target Parameter 2: TRUE MEAN RETURN
+  - Prior: Normal(0, 0.02) — we believe true mean return is near zero (weak prior)
+  - Likelihood: Normal(actual_returns_mean, observed_std / sqrt(N))
+  - Same MCMC machinery, adapted for continuous parameter
+  - Display: posterior density, 95% CI
+  - Text: "With 95% posterior probability, the true mean return per signal is between X% and Y%"
+
+Run MCMC for:
+  - XAUUSD LONG A-grade signals (primary — this is where the edge is)
+  - XAUUSD LONG B+ grade signals
+  - XAUUSD LONG B grade signals
+  - Overall XAUUSD LONG (all grades combined)
+
+1.5 SECTION 4: BACKTEST RESULT VERIFICATION
+
+4a. Bootstrap Sharpe Ratio Confidence Interval:
+  - Take the actual 4W returns array from XAUUSD LONG signals
+  - Resample with replacement 10,000 times (each resample = same size as original array)
+  - Calculate Sharpe for each bootstrap sample
+  - Report: Actual Sharpe, Bootstrap 95% CI [lower, upper], Bootstrap mean Sharpe
+  - Display: Recharts BarChart histogram of bootstrap Sharpe distribution with vertical ReferenceLines at CI bounds and actual Sharpe
+
+4b. Overfitting Detection:
+  - Split the backtest data into In-Sample (2000-2014, 70%) and Out-of-Sample (2015-2025, 30%)
+  - Calculate Sharpe for each period separately
+  - Ratio = OOS Sharpe / IS Sharpe
+  - If ratio >= 0.70: "NO SIGNIFICANT OVERFITTING" (green badge)
+  - If ratio 0.50-0.69: "MODERATE OVERFITTING RISK" (amber badge)
+  - If ratio < 0.50: "SEVERE OVERFITTING DETECTED" (red badge)
+  - Display: side-by-side bar chart comparing IS Sharpe vs OOS Sharpe
+
+4c. Multiple Testing Correction:
+  - The backtest tests multiple grades, instruments, directions, and horizons simultaneously
+  - Count total number of hypothesis tests performed (each grade/instrument/direction/horizon combo = 1 test)
+  - Apply Bonferroni correction: adjusted_alpha = 0.05 / num_tests. Report which results survive.
+  - Apply Benjamini-Hochberg (BH) procedure: rank p-values, find largest k where p_k <= k/m * 0.05
+  - Display: table showing raw p-value, Bonferroni-adjusted p-value, BH-adjusted p-value, and significance status for each test
+
+4d. Walk-Forward Validation Score:
+  - Implement a simple walk-forward test: train on 2 years, test on 1 year, step forward 1 year
+  - Report the average OOS Sharpe across all walk-forward windows
+  - Display: line chart showing IS Sharpe and OOS Sharpe for each window
+
+1.6 SECTION 5: ACADEMIC CORRELATION VERIFICATION
+
+  - Zhang & Laws (2020): COT commercial positioning predicts Gold returns. Display: correlation coefficient between commercial net positioning and subsequent 4W returns, with t-statistic and p-value.
+  - Dreesmann 5-Condition Methodology: Each condition (CSI, NC%, NRSI, OI Trend, WoW Change) should individually have predictive power. Display: individual contribution of each condition to signal accuracy (condition hit rate, condition-specific Sharpe).
+  - Display: comparison table showing app results vs. published academic benchmarks
+
+1.7 SECTION 6: RISK ENGINE VERIFICATION
+
+6a. Monte Carlo Equity Curve Projection:
+  - Starting equity: $10,000 (configurable)
+  - Risk per trade: 1% of equity
+  - Use the actual distribution of signal returns (mean and std from backtest data)
+  - Simulate 1,000 equity curves over 100 trades each
+  - Display: LineChart showing all 1,000 curves (semi-transparent), median curve highlighted, 5th and 95th percentile curves as dashed lines
+  - Display: histogram of terminal equity distribution
+  - Text: "With 95% confidence, after 100 trades equity will be between $X and $Y"
+
+6b. Value at Risk (VaR):
+  - Parametric VaR: mean - 1.645 * std (95% one-tailed)
+  - Historical VaR: 5th percentile of actual returns
+  - Conditional VaR (CVaR / Expected Shortfall): mean of returns below 5th percentile
+  - Display all three in a comparison bar chart
+
+6c. Maximum Drawdown Projection:
+  - Monte Carlo: simulate 1,000 paths of 50 trades, calculate max drawdown for each
+  - Display: histogram of max drawdown distribution
+  - Text: "With 95% confidence, maximum drawdown will not exceed X%"
+
+1.8 SECTION 7: DATA INTEGRITY REPORT
+
+Automated checks that run on every page load. Display as a table with columns: Check Name | Status (Pass/Fail/Warning) | Details | Last Verified.
+
+  - CFTC Data Freshness: How old is the most recent COT data? Flag if older than 7 days.
+  - Price Data Completeness: Check date range, number of data points, any gaps > 5 trading days.
+  - Signal Engine Consistency: Run the 5-condition calculation on the most recent COT data and compare with the live dashboard. If mismatch, flag as CRITICAL.
+  - Regime Data Coverage: What percentage of signals have DXY, VIX, and Trend regime classifications? Flag if < 90%.
+  - Statistical Coherence: Do the reported win rates and Sharpe ratios match what can be independently calculated from the raw returns? Flag discrepancies.
+  - API Endpoint Health: Check status of all API endpoints used by the app. Display green/red for each.
+
+1.9 SECTION 8: REPORT EXPORT
+
+A "Download Full Report" button that generates a comprehensive text summary of ALL verification results and downloads it as a .txt file. Must include:
+  - Timestamp, app version, and system health score with full breakdown
+  - All Monte Carlo results with p-values for every grade/instrument/direction combo
+  - All MCMC posterior distributions with credible intervals and convergence diagnostics
+  - All bootstrap confidence intervals and overfitting metrics
+  - Multiple testing correction results (Bonferroni and BH tables)
+  - Academic verification results with correlation coefficients and t-statistics
+  - Risk metrics: VaR, CVaR, drawdown projections, equity curve statistics
+  - Data integrity status for all 6 checks
+  - A plain-text summary suitable for sharing with a mentor
+
+================================================================================
+PART 2: ALCHEMIST AI — FULL BUILD SPECIFICATION
+================================================================================
+
+The previous agent likely created shallow versions of all components below. You must verify each one and REBUILD anything that does not meet the FULL specification. The AI training pipeline is the #1 area the user identified as "not good."
+
+2.1 COMPONENT A: DATASET GENERATION SCRIPT
+
+File: artifacts/ethiostream-pro/src/utils/generateTrainingDataset.ts
+
+This script must generate 2,500+ training examples in JSONL format (Hugging Face chat template). The previous version likely generates shallow, repetitive examples. The new version must produce DEEP, REALISTIC examples that would actually teach a model to think like an institutional trader.
+
+System Prompt (used in EVERY example):
+"You are Alchemist AI, the proprietary trading intelligence system of JJ NEXUS PRO. You are an expert in three integrated methodologies: 1. Smart Money Concepts (SMC): Order Blocks, Fair Value Gaps (FVGs), Liquidity Sweeps, Change of Character (CHoCH), Break of Structure (BOS), Premium/Discount zones. 2. CFTC COT: Dreesmann 5-condition methodology using CSI, NC%, NRSI, OI trends, WoW changes. 3. Market Structure and MSNR: institutional levels, premium/discount zones, market structure shifts. Always provide specific price levels, explain institutional reasoning, assess confluence, state risk/reward and confidence. Never give financial advice."
+
+Category 1: SMC Analysis (1,000 examples)
+  User prompts must cover diverse scenarios:
+  - All SMC concepts: OB, FVG, liquidity sweep, CHoCH, BOS, premium/discount, displacement
+  - All instruments: XAUUSD, EURUSD, GBPUSD
+  - All timeframes: M15, H1, H4, D1
+  - Bullish AND bearish scenarios
+  - Different market conditions: trending, ranging, volatile, low liquidity
+  - Confluence scenarios: SMC + COT alignment, SMC + S/R levels, multiple OBs at same level
+  - Conflict scenarios: SMC says long but COT says short, no clear setup, choppy price action
+
+  CRITICAL: Every assistant response MUST be 200-500 words and include:
+  - Specific price levels (e.g., "Entry at 2,342.50, stop loss at 2,328.00, take profit at 2,378.00")
+  - Institutional logic explanation ("Commercials are net long 42,000 contracts, indicating hedgers are protecting against upside...")
+  - Confluence assessment ("3/5 confluence factors align: bullish OB, COT CSI above 0.70, CHoCH confirmed")
+  - Risk/reward ratio and confidence level
+
+  Use template-based generation with randomized parameters. Create at least 15 different prompt templates and randomly combine them with randomized instrument, timeframe, price level, and market condition parameters. Each template must produce a DIFFERENT style of analysis, not just swapped numbers.
+
+Category 2: COT Data Interpretation (500 examples)
+  User provides specific COT values (CSI, NC%, NRSI, OI trend, WoW change) and asks for interpretation. Assistant must:
+  - Interpret each value in the context of institutional positioning
+  - Explain what commercials are doing and why
+  - Derive the signal direction and grade
+  - Provide the trade implication with specific levels
+
+Category 3: Combined SMC + COT Analysis (500 examples)
+  User provides BOTH SMC chart context AND COT data. Assistant must INTEGRATE them, not analyze separately:
+  - "SMC confirms the COT signal because..."
+  - "However, the COT data adds conviction because..."
+  - "The combined signal grade is A (4/5 conditions met) because..."
+
+Category 4: MSNR Concepts (300 examples)
+  Market Structure, Nasdaq/Range analysis, premium/discount zones, institutional levels, and how they relate to SMC entries.
+
+Category 5: Risk Management (200 examples)
+  Kelly criterion, R-multiple calculations, drawdown management, portfolio heat, correlation between positions, position sizing with the edge metrics from the backtest engine.
+
+Output: /data/alchemist_training_data.jsonl
+The script should have a function that can be called from the API route to generate the dataset asynchronously.
+
+2.2 COMPONENT B: TRAINING PIPELINE (GOOGLE COLAB NOTEBOOK)
+
+File: notebooks/alchemist_ai_training.ipynb
+
+This MUST be a complete, production-ready notebook that the user can upload to Google Colab and run end-to-end. The previous version likely has the right cell structure but may lack critical details. REBUILD every cell to the following specification:
+
+Cell 1: Environment Setup
+  pip install transformers datasets accelerate peft trl bitsandbytes scipy matplotlib
+  import torch; print(f'GPU: {torch.cuda.get_device_name(0)}'); print(f'VRAM: {torch.cuda.get_device_properties(0).total_mem / 1e9:.1f} GB')
+  Add a check: if no GPU detected, print a clear error message telling the user to enable GPU in Colab (Runtime > Change runtime type > T4).
+
+Cell 2: Load Base Model with 4-bit Quantization
+  - Load meta-llama/Meta-Llama-3.1-8B-Instruct using BitsAndBytesConfig:
+    - load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.float16
+  - Set pad_token = eos_token
+  - Print model summary: total parameters, trainable parameters, VRAM usage
+  - Add error handling for authentication (Hugging Face token required for Llama 3.1)
+
+Cell 3: Load and Prepare Training Dataset
+  - Load the JSONL file (uploaded to Colab or from Hugging Face Hub)
+  - Parse each line as {messages: [{role, content}, ...]}
+  - Apply the Llama 3.1 chat template to format each example
+  - Split: 90% train, 10% test
+  - Print: total examples, train size, test size, average tokens per example
+  - Show 3 random training examples (truncated to 500 chars)
+
+Cell 4: Configure LoRA Fine-Tuning
+  - Use PEFT with LoRA:
+    - Target modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    - r=16, lora_alpha=32, lora_dropout=0.05, bias="none"
+  - Print: number of trainable parameters vs. total (should be ~0.1%)
+
+Cell 5: Training Arguments and Trainer Setup
+  - Use trl.SFTTrainer with:
+    - per_device_train_batch_size=2, gradient_accumulation_steps=4 (effective batch=8)
+    - learning_rate=2e-4, warmup_ratio=0.03, lr_scheduler_type="cosine"
+    - num_train_epochs=3, fp16=True
+    - max_seq_length=2048
+    - logging_steps=10, save_strategy="epoch", evaluation_strategy="epoch"
+    - output_dir="./alchemist-ai-checkpoint"
+  - Expected training time: 4-8 hours on Colab T4. Print this estimate.
+
+Cell 6: Run Training
+  - trainer.train()
+  - After training completes:
+    - Plot training loss curve (epochs vs. loss) using matplotlib
+    - Plot evaluation loss curve if available
+    - Print final training loss
+
+Cell 7: Evaluate on Test Set
+  - Run inference on 5 test examples. For each:
+    - Print the user's question
+    - Print the model's response (full, not truncated)
+    - Print the expected/reference response
+    - Calculate and display a simple quality metric: does the response mention specific price levels? Does it explain institutional logic?
+
+Cell 8: Merge and Save
+  - Merge LoRA weights into base model:
+    - model = PeftModel.from_pretrained(base_model, checkpoint_path)
+    - merged_model = model.merge_and_unload()
+    - Save locally: merged_model.save_pretrained("./alchemist-ai-merged")
+    - Optional: push to Hugging Face Hub with model.push_to_hub("USERNAME/alchemist-ai-v1")
+
+Cell 9: Quantize for Deployment
+  - Convert to GGUF format for efficient serving:
+    - Provide instructions for using llama.cpp to convert
+    - Also show GPTQ quantization option for Hugging Face Spaces
+    - Print the final model size after quantization
+
+2.3 COMPONENT C: HUGGING FACE DEPLOYMENT
+
+Directory: deployment/hf_spaces/
+
+app.py (FastAPI):
+  - Load the fine-tuned model with 4-bit quantization
+  - Expose POST /generate endpoint accepting: messages array, temperature (default 0.7), max_tokens (default 1024)
+  - Apply the Llama 3.1 chat template before inference
+  - Handle concurrent requests with async (or semaphore for GPU queue)
+  - Rate limiting: 30 requests/minute for free tier
+  - Timeout: 60 seconds per request
+  - Error handling: return structured JSON errors, never crash
+  - Health check endpoint: GET /health returning {status, model_version, gpu_available, queue_depth}
+
+requirements.txt:
+  fastapi, uvicorn, transformers, accelerate, torch, bitsandbytes
+
+Dockerfile:
+  - Base: python:3.10-slim
+  - Install dependencies, copy app, expose port 7860
+  - CMD: uvicorn app:app --host 0.0.0.0 --port 7860
+
+README.md with step-by-step deployment instructions:
+  - Step 1: Create Hugging Face account and Space (Docker, Free CPU/GPU)
+  - Step 2: Upload the merged model to HF Hub
+  - Step 3: Clone this repo into the Space
+  - Step 4: Set environment variables (HF_TOKEN, MODEL_REPO)
+  - Step 5: Deploy and get the API URL
+
+2.4 COMPONENT D: API INTEGRATION IN JJ NEXUS PRO
+
+These API routes go in the Express api-server (NOT Next.js API routes — this is an Express backend):
+
+Route 1: POST /api/alchemist/chat
+  - Accepts: { messages: Array<{role, content}>, model: "alchemist" | "claude", temperature?: number, maxTokens?: number }
+  - If model="alchemist": forward to deployed Alchemist AI endpoint (configurable URL from env var ALCHEMIST_API_URL)
+  - If model="claude": forward to Anthropic API (existing functionality, if it exists)
+  - Fallback: if Alchemist API fails (timeout > 30s, 5xx error, connection refused), automatically fall back to Claude and log the failure
+  - Response: { response: string, model: string, latency_ms: number, fallback: boolean }
+  - Include request/response logging for monitoring
+
+Route 2: GET /api/alchemist/status
+  - Returns: { status: "online" | "offline" | "degraded", latency_ms: number, model_version: string, uptime: string, last_error?: string }
+  - Performs a lightweight health check (send a short test prompt, expect response within 5s)
+
+Route 3: POST /api/alchemist/dataset/generate
+  - Triggers the dataset generation script
+  - Returns: { status: "generating" | "complete" | "error", estimated_examples: number, progress?: number }
+  - The actual generation runs asynchronously (do NOT block the request)
+
+2.5 COMPONENT E: ALCHEMIST AI CHAT UI
+
+The existing Alchemist page in the app already has a chat interface. The previous agent added a model selector and prebuilt analysis buttons. Verify and complete:
+
+  - Model selector dropdown: "Alchemist AI (Custom)" / "Claude (Fallback)" — must actually switch the API endpoint
+  - Status indicator: green dot when Alchemist is online (checked via /api/alchemist/status), red when offline, with tooltip showing latency
+  - Pre-built analysis buttons must generate SPECIFIC prompts using REAL app data:
+    - "Analyze Current COT Data" — fetch latest signal from backtest engine, format into a detailed prompt with actual CSI/NC%/NRSI/OI values, send to Alchemist
+    - "SMC Analysis: XAUUSD" — pre-fill with current XAUUSD price and a structured SMC analysis template
+    - "Combined COT + SMC Analysis" — combine latest COT signal data with an SMC framework prompt
+    - "Explain Current Signal Grade" — send the actual signal details (which conditions passed, grade, direction) and ask Alchemist to explain the institutional logic
+  - Response time display: show latency in ms after each response
+  - Export conversation as text file
+
+2.6 COMPONENT F: DEEP INTEGRATION WITH COT AND QUANT LAB PAGES
+
+The previous agent added "Ask Alchemist" buttons. Verify they ACTUALLY work with real data:
+
+COT Dashboard page: "Ask Alchemist about this signal" button must:
+  - Read the CURRENT signal data from the page (CSI, NC%, NRSI, OI trend, WoW change, signal grade, direction)
+  - Format into a structured prompt: "The current COT signal for XAUUSD shows: CSI=0.82, NC%=42%, NRSI=0.15, OI=rising, WoW=commercials increasing longs. Signal Grade: A (4/5). Direction: LONG. Analyze this signal using SMC and COT methodology."
+  - Open the Alchemist chat page and auto-send this prompt
+
+Quant Lab page: "Ask Alchemist to interpret backtest" button must:
+  - Read the current backtest results (win rate, Sharpe, number of signals, IS/OOS performance)
+  - Format into a prompt asking for interpretation of the results
+  - Open Alchemist chat and auto-send
+
+================================================================================
+PART 3: CRITICAL FIXES AND KNOWN ISSUES FROM PHASE 1
+================================================================================
+
+3.1 SHORT SIGNAL DIRECTION BUG
+  SHORT signals are systematically losing across all grades (Sharpe ~-1.0, p<0.05). The CSI values for LONG vs SHORT are nearly identical (0.45 vs 0.40), suggesting the direction assignment logic is broken when NRSI and CSI point in opposite directions. The Health Report's Monte Carlo verification will expose this clearly. Do NOT fix the signal engine in this build — just ensure the Health Report accurately reports the SHORT signal failure.
+
+3.2 EURUSD/GBPUSD NO EDGE
+  No statistically significant positive returns on any grade/direction/horizon for EURUSD or GBPUSD. This is expected (academic literature confirms COT edge is Gold-specific). The Health Report should reflect this accurately in the Monte Carlo section.
+
+3.3 VIX CRISIS REGIME SIGNAL BREAKDOWN
+  During VIX CRISIS regime, the signal breaks down (48% win rate, negative return). The Health Report should flag this as a risk factor. Consider adding a warning: "Signal not reliable during VIX CRISIS regime."
+
+================================================================================
+PART 4: BUILD ORDER, QUALITY REQUIREMENTS, AND FINAL CHECKLIST
+================================================================================
+
+4.1 BUILD ORDER (FOLLOW EXACTLY)
+
+Build in this order. Each step must be COMPLETE before moving to the next. Do NOT skip ahead.
+
+  STEP 1: Read and audit ALL existing files created by the previous agent. Create a list of what exists, what is complete, what is broken.
+  STEP 2: Fix/Rebuild the Health Report page shell, navigation entry, and System Health Score calculation. Verify the page loads and the score displays.
+  STEP 3: Implement the COMPLETE Monte Carlo simulation engine. Test with actual backtest data. Verify 10,000 simulations complete in <15 seconds. Verify histogram renders correctly.
+  STEP 4: Implement the COMPLETE MCMC Bayesian inference engine. Test convergence (R-hat < 1.1). Verify posterior density charts render.
+  STEP 5: Implement Bootstrap Sharpe CI, Overfitting Detection, Multiple Testing Correction, Walk-Forward Validation.
+  STEP 6: Implement Risk Engine: Monte Carlo equity projection, VaR/CVaR, drawdown projection.
+  STEP 7: Implement Data Integrity checks and Academic Correlation Verification.
+  STEP 8: Implement Report Export (full .txt download).
+  STEP 9: REBUILD the dataset generation script to produce 2,500+ DEEP, HIGH-QUALITY examples.
+  STEP 10: REBUILD the Colab notebook to be complete, production-ready, with error handling and evaluation.
+  STEP 11: REBUILD the Hugging Face deployment package (app.py, Dockerfile, requirements.txt, README.md).
+  STEP 12: Verify/Rebuild the Alchemist API routes with proper fallback logic.
+  STEP 13: Verify/Rebuild the Alchemist chat UI with model selector, status indicator, and prebuilt prompts.
+  STEP 14: Verify/Rebuild the deep integration buttons on COT Dashboard and Quant Lab pages.
+  STEP 15: Final testing — verify all pages load, all computations produce results, all charts render, export works.
+  STEP 16: Push everything to GitHub (origin/main).
+
+4.2 QUALITY REQUIREMENTS
+
+  - All TypeScript, no "any" types unless absolutely necessary (and then with a comment explaining why)
+  - No console.log in production code (use a proper logger or remove)
+  - All UI components must use the existing design system (Tailwind CSS + shadcn/ui + Recharts)
+  - All statistical computations must be PURE TypeScript (no Python, no external APIs)
+  - All charts must use Recharts (BarChart, LineChart, AreaChart)
+  - The page must work in the browser without any server-side rendering of the statistical computations
+  - Handle loading states: show spinners/skeletons while computations run
+  - Handle error states: if data is missing or computations fail, show clear error messages (not blank screens)
+  - Responsive design: the Health Report must be readable on mobile (charts may need horizontal scroll)
+
+4.3 FINAL INTEGRATION CHECKLIST
+
+Every item below must be TRUE before you push to GitHub:
+
+  [ ] Health Report page loads at its route without errors
+  [ ] System Health Score calculates (0-100) and displays with color coding
+  [ ] Monte Carlo runs 10,000 iterations and produces histograms with p-values
+  [ ] MCMC produces posterior distributions with 95% CI and convergence diagnostics
+  [ ] Bootstrap Sharpe CI calculates and displays with histogram
+  [ ] Overfitting detection shows IS vs OOS Sharpe with ratio badge
+  [ ] Multiple testing correction (Bonferroni + BH) produces correct adjusted p-values
+  [ ] Walk-forward validation produces windowed Sharpe chart
+  [ ] Risk metrics (VaR, CVaR, drawdown projection, equity curves) all calculate and display
+  [ ] Data integrity checks run and show pass/fail for all 6 checks
+  [ ] Academic correlation verification shows t-statistics and p-values
+  [ ] Report export downloads a complete .txt file with all sections
+  [ ] Dataset generation script creates 2,500+ examples in JSONL format
+  [ ] Each training example has 200-500 word responses with specific price levels
+  [ ] Colab notebook is complete with all 9 cells, error handling, and evaluation
+  [ ] Hugging Face deployment has app.py, Dockerfile, requirements.txt, README.md
+  [ ] API route /api/alchemist/chat works with Alchemist + Claude fallback
+  [ ] API route /api/alchemist/status returns correct health status
+  [ ] Alchemist chat UI has working model selector and status indicator
+  [ ] Pre-built analysis buttons use REAL app data (not hardcoded prompts)
+  [ ] COT Dashboard "Ask Alchemist" button prefills with actual signal data
+  [ ] Quant Lab "Ask Alchemist" button prefills with actual backtest results
+  [ ] All new code compiles without TypeScript errors
+  [ ] No console.log statements in production code
+  [ ] UI is consistent with existing JJ NEXUS PRO design
+
+4.4 WHAT YOUR MENTOR WANTS TO SEE
+
+When the mentor opens the Health Report, he should see:
+  - A quantitative verification system that runs REAL statistical tests with REAL data
+  - Monte Carlo p-values PROVING the COT edge is not luck (p < 0.001 for XAUUSD LONG A-grade)
+  - Bayesian posterior distributions with 95% credible intervals showing true win rate range
+  - Bootstrap confidence intervals that give uncertainty bounds on every metric
+  - Multiple testing correction showing that results survive rigorous statistical scrutiny
+  - A composite health score (0-100) that summarizes system integrity at a glance
+  - Every claim backed by a statistical test with a p-value
+
+When he sees the Alchemist AI:
+  - A custom-trained model that speaks SMC and COT fluently, not a generic chatbot
+  - A training pipeline with 2,500+ high-quality examples, each with specific price levels and institutional reasoning
+  - A production-ready Colab notebook that can be run end-to-end
+  - A complete deployment package for Hugging Face Spaces
+  - Deep integration: the AI references actual app data, not generic analysis
+
+The combination of statistical verification + custom AI is what separates JJ NEXUS PRO from a hobby project. This is the build that makes it a quantitative trading platform.
+
+Use your FULL potential, maximum coding skill, and highest-quality engineering. Build everything to production quality. This is the continuation that completes the Phase 2 vision. Make it insane.
+================================================================================
+END OF PROMPT
+================================================================================

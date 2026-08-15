@@ -1,0 +1,672 @@
+Here is your complete fix prompt:
+
+---
+
+**JJ NEXUS PRO — PRODUCTION STREAMING FIX: WEBSOCKET + FFMPEG UNIFIED SERVER**
+
+The streaming works perfectly in development but crashes after publishing. This is a known production deployment problem. Read this entire prompt carefully before touching any code.
+
+---
+
+**=== THE ROOT CAUSE ===**
+
+In development Vite proxies the WebSocket from the frontend to the API server. In production there is no Vite and no proxy. The published app serves only static files. When the browser tries to connect to the WebSocket relay it hits a dead static file server and gets rejected. FFmpeg never starts. Stream never goes live.
+
+The fix is to make one single Express server that does everything on one port: serves the static frontend files, handles all API routes, and handles the WebSocket relay. Then the deployment runs only that one server and everything works.
+
+---
+
+**=== STEP 1: UNDERSTAND THE CURRENT PROJECT STRUCTURE ===**
+
+Before touching anything read these files:
+
+```bash
+cat package.json
+cat .replit
+ls artifacts/ 2>/dev/null || echo "no artifacts folder"
+ls server/ 2>/dev/null || echo "no server folder"
+find . -name "app.ts" -not -path "*/node_modules/*"
+find . -name "streamRelay.js" -not -path "*/node_modules/*"
+find . -name "*.mjs" -not -path "*/node_modules/*"
+cat vite.config.ts
+```
+
+After reading these files you will know exactly where the API server lives and what port it uses. Then proceed with the fix based on what you find.
+
+---
+
+**=== STEP 2: FIND THE PRODUCTION SERVER FILE ===**
+
+The API server is in one of these locations depending on the project structure. Find it:
+
+```bash
+# Check all possible locations
+find . -name "app.ts" -not -path "*/node_modules/*" -not -path "*/src/components/*"
+find . -name "index.ts" -path "*/api*" -not -path "*/node_modules/*"
+find . -name "server.ts" -not -path "*/node_modules/*"
+find . -name "streamRelay.js" -not -path "*/node_modules/*"
+```
+
+Read whichever file you find. That is the server to fix.
+
+---
+
+**=== STEP 3: FIND THE BUILT FRONTEND LOCATION ===**
+
+```bash
+# Check where vite builds to
+cat vite.config.ts | grep -E "outDir|build"
+
+# Check if a build exists
+ls dist/ 2>/dev/null
+ls ethiostream-pro/dist/ 2>/dev/null  
+ls public/ 2>/dev/null
+find . -name "index.html" -not -path "*/node_modules/*" -not -path "*/src/*"
+```
+
+Note the exact path where the frontend builds to. You will need this in Step 4.
+
+---
+
+**=== STEP 4: BUILD THE UNIFIED PRODUCTION SERVER ===**
+
+Based on what you found above, update the main API server file to serve everything from one port. This is the complete unified server that works in both development and production:
+
+If the server is written in TypeScript (app.ts or index.ts), update it with this pattern:
+
+```typescript
+import express from 'express'
+import { createServer } from 'http'
+import { WebSocketServer, WebSocket } from 'ws'
+import { spawn, ChildProcess } from 'child_process'
+import path from 'path'
+import { existsSync } from 'fs'
+import https from 'https'
+import http from 'http'
+
+const app = express()
+const PORT = parseInt(process.env.PORT || '5000', 10)
+const IS_PRODUCTION = process.env.NODE_ENV === 'production'
+
+app.use(express.json())
+
+// ═══════════════════════════════════════
+// CORS — allow everything
+// ═══════════════════════════════════════
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') { res.status(200).end(); return }
+  next()
+})
+
+// ═══════════════════════════════════════
+// PROXY HELPER — routes all external API calls through server
+// This fixes ALL CORS errors in the browser
+// ═══════════════════════════════════════
+function proxyRequest(targetUrl: string, res: express.Response) {
+  const url = new URL(targetUrl)
+  const protocol = url.protocol === 'https:' ? https : http
+
+  const options = {
+    hostname: url.hostname,
+    path: url.pathname + url.search,
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; JJNexusPro/1.0)',
+      'Accept': 'application/json',
+    },
+    timeout: 12000
+  }
+
+  const proxyReq = protocol.request(options, (proxyRes) => {
+    let data = ''
+    proxyRes.on('data', (chunk: Buffer) => data += chunk.toString())
+    proxyRes.on('end', () => {
+      res.setHeader('Content-Type', 'application/json')
+      res.setHeader('Access-Control-Allow-Origin', '*')
+      res.status(200).send(data)
+    })
+  })
+
+  proxyReq.on('error', (err: Error) => {
+    res.status(502).json({ error: err.message })
+  })
+
+  proxyReq.on('timeout', () => {
+    proxyReq.destroy()
+    res.status(504).json({ error: 'Upstream timeout' })
+  })
+
+  proxyReq.end()
+}
+
+// ═══════════════════════════════════════
+// PROXY ROUTES — ALL external APIs go through here
+// ═══════════════════════════════════════
+app.get('/api/stream/proxy/forex-rates', (req, res) => {
+  proxyRequest('https://api.frankfurter.app/latest?from=USD', res)
+})
+
+app.get('/api/stream/proxy/gold-price', (req, res) => {
+  proxyRequest('https://metals.live/api/spot', res)
+})
+
+app.get('/api/stream/proxy/gold-fallback', (req, res) => {
+  proxyRequest('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1', res)
+})
+
+app.get('/api/stream/proxy/crypto', (req, res) => {
+  proxyRequest(
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,binancecoin,dogecoin&vs_currencies=usd&include_24hr_change=true',
+    res
+  )
+})
+
+app.get('/api/stream/proxy/yahoo-price', (req, res) => {
+  const symbol = req.query.symbol as string
+  if (!symbol) { res.status(400).json({ error: 'No symbol' }); return }
+  proxyRequest(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`,
+    res
+  )
+})
+
+app.get('/api/stream/proxy/calendar-thisweek', (req, res) => {
+  proxyRequest('https://nfs.faireconomy.media/ff_calendar_thisweek.json', res)
+})
+
+app.get('/api/stream/proxy/calendar-nextweek', (req, res) => {
+  proxyRequest('https://nfs.faireconomy.media/ff_calendar_nextweek.json', res)
+})
+
+app.get('/api/stream/proxy/sentiment', (req, res) => {
+  const pair = (req.query.pair as string) || 'eurusd'
+  proxyRequest(`https://www.myfxbook.com/api/get-community-outlook.json?pair=${pair}`, res)
+})
+
+// ═══════════════════════════════════════
+// HEALTH CHECK
+// ═══════════════════════════════════════
+app.get('/api/stream/health', (req, res) => {
+  const { exec } = require('child_process')
+  exec('ffmpeg -version', (error: any, stdout: string) => {
+    res.json({
+      status: 'running',
+      ffmpegAvailable: !error,
+      ffmpegVersion: stdout ? stdout.split('\n')[0] : null,
+      environment: IS_PRODUCTION ? 'production' : 'development',
+      port: PORT,
+      timestamp: new Date().toISOString(),
+      uptime: Math.round(process.uptime())
+    })
+  })
+})
+
+// ═══════════════════════════════════════
+// WEBSOCKET RELAY — stream chunks to FFmpeg → RTMP
+// ═══════════════════════════════════════
+interface StreamSession {
+  ws: WebSocket
+  ffmpeg: ChildProcess | null
+  rtmpUrl: string
+  startTime: Date
+  bytesReceived: number
+  isInitialized: boolean
+}
+
+const sessions = new Map<string, StreamSession>()
+
+// ═══════════════════════════════════════
+// STATIC FRONTEND — production only
+// ═══════════════════════════════════════
+
+// Find the correct dist path
+const POSSIBLE_DIST_PATHS = [
+  path.join(process.cwd(), 'dist'),
+  path.join(process.cwd(), 'dist', 'public'),
+  path.join(process.cwd(), 'ethiostream-pro', 'dist'),
+  path.join(process.cwd(), 'ethiostream-pro', 'dist', 'public'),
+  path.join(process.cwd(), '..', 'dist'),
+  path.join(process.cwd(), 'public'),
+]
+
+let DIST_PATH = ''
+for (const p of POSSIBLE_DIST_PATHS) {
+  if (existsSync(path.join(p, 'index.html'))) {
+    DIST_PATH = p
+    console.log(`✅ Found frontend build at: ${p}`)
+    break
+  }
+}
+
+if (IS_PRODUCTION) {
+  if (DIST_PATH) {
+    // Serve static assets
+    app.use(express.static(DIST_PATH))
+    // SPA fallback — all non-API routes return index.html
+    app.get('/{*splat}', (req, res) => {
+      if (req.path.startsWith('/api/')) {
+        res.status(404).json({ error: 'API route not found' })
+        return
+      }
+      res.sendFile(path.join(DIST_PATH, 'index.html'))
+    })
+    console.log(`✅ Serving static frontend from: ${DIST_PATH}`)
+  } else {
+    console.error('❌ Frontend build not found. Run: npm run build')
+    // Still serve API even without frontend
+    app.get('/', (req, res) => {
+      res.json({ message: 'JJ NEXUS PRO API running. Frontend not built.' })
+    })
+  }
+}
+
+// ═══════════════════════════════════════
+// CREATE HTTP SERVER
+// ═══════════════════════════════════════
+const httpServer = createServer(app)
+
+// ═══════════════════════════════════════
+// WEBSOCKET SERVER — attached to HTTP server
+// ═══════════════════════════════════════
+const wss = new WebSocketServer({
+  server: httpServer,
+  path: '/api/stream/ws'
+})
+
+wss.on('connection', (ws: WebSocket) => {
+  const sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  console.log(`[${sessionId}] New WebSocket connection`)
+
+  const session: StreamSession = {
+    ws,
+    ffmpeg: null,
+    rtmpUrl: '',
+    startTime: new Date(),
+    bytesReceived: 0,
+    isInitialized: false
+  }
+
+  sessions.set(sessionId, session)
+
+  ws.send(JSON.stringify({
+    type: 'connected',
+    sessionId,
+    message: 'JJ NEXUS PRO Stream Relay ready'
+  }))
+
+  ws.on('message', (data: Buffer | string) => {
+    try {
+      if (!session.isInitialized) {
+        const config = JSON.parse(data.toString())
+        if (config.type === 'init') {
+          console.log(`[${sessionId}] Init stream to RTMP`)
+          session.rtmpUrl = config.rtmpUrl
+          startFFmpeg(session, sessionId, config)
+        }
+        return
+      }
+
+      if (Buffer.isBuffer(data) || data instanceof Buffer) {
+        session.bytesReceived += data.length
+        if (session.ffmpeg?.stdin && !session.ffmpeg.stdin.destroyed) {
+          session.ffmpeg.stdin.write(data)
+        }
+
+        if (Math.floor(session.bytesReceived / (1024 * 256)) > Math.floor((session.bytesReceived - data.length) / (1024 * 256))) {
+          ws.send(JSON.stringify({
+            type: 'stats',
+            bytesReceived: session.bytesReceived,
+            mbReceived: (session.bytesReceived / 1024 / 1024).toFixed(2),
+            uptime: Math.floor((Date.now() - session.startTime.getTime()) / 1000)
+          }))
+        }
+      }
+    } catch (e) {
+      console.error(`[${sessionId}] Message error:`, e)
+    }
+  })
+
+  ws.on('close', () => {
+    console.log(`[${sessionId}] Connection closed`)
+    stopSession(session)
+    sessions.delete(sessionId)
+  })
+
+  ws.on('error', (err) => {
+    console.error(`[${sessionId}] WebSocket error:`, err.message)
+    stopSession(session)
+    sessions.delete(sessionId)
+  })
+})
+
+function startFFmpeg(session: StreamSession, sessionId: string, config: any) {
+  const {
+    rtmpUrl,
+    videoBitrate = '2500k',
+    audioBitrate = '128k',
+    fps = 30
+  } = config
+
+  const ffmpegArgs = [
+    '-re',
+    '-i', 'pipe:0',
+    '-c:v', 'libx264',
+    '-preset', 'ultrafast',
+    '-tune', 'zerolatency',
+    '-b:v', videoBitrate,
+    '-maxrate', videoBitrate,
+    '-bufsize', '2000k',
+    '-pix_fmt', 'yuv420p',
+    '-g', String(fps * 2),
+    '-r', String(fps),
+    '-c:a', 'aac',
+    '-b:a', audioBitrate,
+    '-ar', '44100',
+    '-ac', '2',
+    '-f', 'flv',
+    rtmpUrl
+  ]
+
+  console.log(`[${sessionId}] Starting FFmpeg → ${rtmpUrl.replace(/\/[^/]+$/, '/***')}`)
+
+  session.ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+  session.isInitialized = true
+
+  session.ffmpeg.stderr?.on('data', (data: Buffer) => {
+    const log = data.toString()
+    const fpsMatch = log.match(/fps=\s*([\d.]+)/)
+    const bitrateMatch = log.match(/bitrate=\s*([\d.]+kbits\/s)/)
+    const speedMatch = log.match(/speed=\s*([\d.]+x)/)
+
+    if (fpsMatch || bitrateMatch) {
+      try {
+        session.ws.send(JSON.stringify({
+          type: 'ffmpeg_progress',
+          fps: fpsMatch?.[1] || '0',
+          bitrate: bitrateMatch?.[1] || '0kbits/s',
+          speed: speedMatch?.[1] || '0x'
+        }))
+      } catch {}
+    }
+
+    if (log.toLowerCase().includes('error') && !log.includes('frame=')) {
+      console.error(`[${sessionId}] FFmpeg:`, log.trim().slice(0, 200))
+    }
+  })
+
+  session.ffmpeg.on('close', (code: number) => {
+    console.log(`[${sessionId}] FFmpeg exited: ${code}`)
+    try {
+      session.ws.send(JSON.stringify({
+        type: code === 0 ? 'stream_ended' : 'error',
+        message: code === 0 ? 'Stream ended' : `FFmpeg exited with code ${code}`
+      }))
+    } catch {}
+    session.ffmpeg = null
+  })
+
+  session.ffmpeg.on('error', (err: Error) => {
+    console.error(`[${sessionId}] FFmpeg error:`, err.message)
+    try {
+      session.ws.send(JSON.stringify({
+        type: 'error',
+        message: err.message.includes('ENOENT')
+          ? 'FFmpeg not found. Make sure ffmpeg-full is in replit.nix'
+          : err.message
+      }))
+    } catch {}
+  })
+
+  session.ws.send(JSON.stringify({
+    type: 'stream_starting',
+    message: 'FFmpeg started — stream is live'
+  }))
+}
+
+function stopSession(session: StreamSession) {
+  if (session.ffmpeg) {
+    try {
+      session.ffmpeg.stdin?.end()
+      setTimeout(() => { session.ffmpeg?.kill('SIGTERM') }, 2000)
+    } catch {}
+    session.ffmpeg = null
+  }
+}
+
+// ═══════════════════════════════════════
+// START SERVER
+// ═══════════════════════════════════════
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ JJ NEXUS PRO unified server running on port ${PORT}`)
+  console.log(`📡 WebSocket relay: ws://localhost:${PORT}/api/stream/ws`)
+  console.log(`🔍 Health: http://localhost:${PORT}/api/stream/health`)
+  console.log(`🌍 Environment: ${IS_PRODUCTION ? 'PRODUCTION' : 'development'}`)
+  if (DIST_PATH) console.log(`📁 Frontend: ${DIST_PATH}`)
+})
+
+process.on('SIGTERM', () => {
+  console.log('Shutting down...')
+  sessions.forEach(stopSession)
+  httpServer.close(() => process.exit(0))
+})
+
+export default app
+```
+
+If the server is plain JavaScript `streamRelay.js`, rewrite it using the same logic above but in CommonJS format replacing `import` with `require` and `export default` with `module.exports`.
+
+---
+
+**=== STEP 5: FIX THE WEBSOCKET URL IN THE BROWSER ===**
+
+Update `src/services/BrowserStreamEngine.ts` — the `getRelayUrl()` method must work in both development and production:
+
+```typescript
+private getRelayUrl(): string {
+  const host = window.location.hostname
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+
+  // In production the WebSocket is on the SAME host and port as the app
+  // No proxy needed — Express handles it directly
+  if (window.location.port && window.location.port !== '443' && window.location.port !== '80') {
+    // Development: specific port
+    return `${protocol}//${host}:${window.location.port}/api/stream/ws`
+  }
+
+  // Production: same host, default port, correct path
+  return `${protocol}//${host}/api/stream/ws`
+}
+```
+
+Also update the checklist health check in `StreamingCommandCenter.tsx`:
+
+```typescript
+// Replace the health check fetch with this:
+const checkServerHealth = async () => {
+  try {
+    const res = await fetch('/api/stream/health', {
+      signal: AbortSignal.timeout(5000)
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return {
+      ok: true,
+      ffmpegAvailable: data.ffmpegAvailable,
+      environment: data.environment,
+      message: `Server running (${data.environment}) — FFmpeg: ${data.ffmpegAvailable ? '✅' : '❌'}`
+    }
+  } catch (e: any) {
+    return { ok: false, ffmpegAvailable: false, message: e.message }
+  }
+}
+```
+
+---
+
+**=== STEP 6: FIX THE BUILD COMMAND ===**
+
+Update `.replit` to build the frontend first then run the unified server:
+
+```toml
+run = "npm run dev"
+
+[deployment]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm run build"]
+run = ["sh", "-c", "NODE_ENV=production node dist-server/index.js 2>/dev/null || NODE_ENV=production node server/streamRelay.js 2>/dev/null || NODE_ENV=production node artifacts/api-server/dist/index.mjs"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+```
+
+If the server is TypeScript, add a build script for the server in `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "concurrently \"node server/streamRelay.js\" \"vite --host 0.0.0.0\"",
+    "build": "vite build && tsc --project tsconfig.server.json 2>/dev/null || vite build",
+    "start": "NODE_ENV=production node server/streamRelay.js",
+    "preview": "vite preview"
+  }
+}
+```
+
+---
+
+**=== STEP 7: FIX VITE CONFIG FOR PRODUCTION ===**
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    hmr: {
+      clientPort: 443,
+      protocol: 'wss'
+    },
+    proxy: {
+      '/api/stream': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/stream/, ''),
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom']
+        }
+      }
+    }
+  }
+})
+```
+
+---
+
+**=== STEP 8: MAKE SURE FFMPEG IS IN THE DEPLOYMENT ===**
+
+Check `replit.nix` — it must have `ffmpeg-full`:
+
+```nix
+{ pkgs }: {
+  deps = [
+    pkgs.nodejs-20_x
+    pkgs.ffmpeg-full
+    pkgs.nodePackages.npm
+  ];
+}
+```
+
+---
+
+**=== STEP 9: TEST EVERYTHING LOCALLY FIRST ===**
+
+Before publishing run these tests:
+
+```bash
+# Build the frontend
+npm run build
+
+# Confirm dist/index.html exists
+ls dist/index.html
+
+# Start the unified server in production mode
+NODE_ENV=production node server/streamRelay.js &
+
+# Test every endpoint
+curl http://localhost:5000/
+curl http://localhost:5000/api/stream/health
+curl http://localhost:5000/api/stream/proxy/forex-rates
+curl http://localhost:5000/alchemist
+
+# Test WebSocket (requires wscat: npm install -g wscat)
+wscat -c ws://localhost:5000/api/stream/ws
+```
+
+All four curl commands must return 200. The WebSocket must connect and return the connected message.
+
+---
+
+**=== STEP 10: PUBLISH AND VERIFY ===**
+
+After local tests pass:
+
+1. Click Deploy/Publish in Replit
+2. Wait for build to complete
+3. Open the published URL
+4. Open browser console
+5. Go to the streaming page
+6. Click Go Live
+7. The WebSocket must connect to `wss://yourapp.replit.app/api/stream/ws`
+8. The health check must return ffmpegAvailable true
+9. Screen share must prompt and stream must start
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Read package.json, .replit, vite.config.ts, and find server file
+2.  Find where vite builds to (dist path)
+3.  Rewrite the server file with unified Express + WebSocket + proxy
+4.  Update getRelayUrl() in BrowserStreamEngine.ts
+5.  Update health check in StreamingCommandCenter.tsx
+6.  Update vite.config.ts
+7.  Verify replit.nix has ffmpeg-full
+8.  Update .replit deployment config
+9.  npm run build — confirm dist/index.html exists
+10. NODE_ENV=production node [server file] — test locally
+11. Test all four curl endpoints return 200
+12. Kill test server, run npm run dev — confirm dev still works
+13. Go Live in dev — confirm stream works
+14. Publish the app
+15. Open published URL — Go Live — confirm stream works in production
+16. Report: published URL, health check response, ffmpegAvailable value,
+    WebSocket URL used, whether stream went live successfully
+```
+
+---
+
+**After finishing confirm all of these:**
+- Published URL loads the app correctly
+- `/api/stream/health` returns `ffmpegAvailable: true` on the published URL
+- WebSocket connects to `wss://[published-domain]/api/stream/ws`
+- Go Live button starts the stream successfully on the published version
+- Restream receives the stream and distributes to TikTok and YouTube

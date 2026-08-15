@@ -1,0 +1,965 @@
+Great thinking! Here is your Replit prompt:
+
+---
+
+**JJ NEXUS PRO — PHONE CAMERA: PERSISTENT CONNECTION + ELITE NEW FEATURES**
+
+Upgrade the phone camera system in the streaming studio completely. The current QR code connection breaks every time the user leaves the browser on their phone. Fix this permanently and add powerful new features around the phone camera experience.
+
+---
+
+**=== THE CORE PROBLEM TO FIX FIRST ===**
+
+Right now when the user scans the QR code and connects their phone camera, the connection dies the moment they switch apps or lock their phone screen. This is because the browser tab goes to background and stops the MediaStream. Fix this with a persistent connection system that survives app switching, screen locks, and brief disconnections.
+
+---
+
+**=== FIX 1: PERSISTENT PHONE CAMERA CONNECTION ===**
+
+The solution is a dedicated phone camera PWA that runs as an installed app on the phone. When installed as a PWA it stays alive in the background unlike a regular browser tab.
+
+Update `/public/phone-camera.html` completely:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+  <meta name="apple-mobile-web-app-title" content="JJ CAM">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#02020a">
+  <link rel="manifest" href="/phone-camera-manifest.json">
+  <title>JJ NEXUS CAM</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{width:100%;height:100%;overflow:hidden;background:#02020a;color:#fff;font-family:-apple-system,sans-serif;touch-action:none}
+    #app{width:100vw;height:100vh;display:flex;flex-direction:column;position:relative}
+
+    /* VIDEO PREVIEW */
+    #preview{width:100%;flex:1;object-fit:cover;background:#0a0a0a;display:block}
+    #preview.mirrored{transform:scaleX(-1)}
+
+    /* TOP STATUS BAR */
+    #status-bar{position:absolute;top:0;left:0;right:0;padding:16px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);z-index:100}
+    #status-badge{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.5);padding:6px 14px;border-radius:20px;border:1px solid rgba(212,175,55,0.3)}
+    #status-dot{width:8px;height:8px;border-radius:50%;background:#666}
+    #status-dot.connected{background:#16a34a;box-shadow:0 0 8px #16a34a;animation:pulse 1.5s infinite}
+    #status-dot.connecting{background:#eab308;animation:pulse 0.8s infinite}
+    #status-dot.error{background:#dc2626}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    #status-text{font-size:11px;font-weight:600;color:#fff;letter-spacing:1px}
+    #brand{font-size:11px;font-weight:700;color:#D4AF37;letter-spacing:2px}
+
+    /* BOTTOM CONTROLS */
+    #controls{position:absolute;bottom:0;left:0;right:0;padding:20px 24px 40px;background:linear-gradient(to top,rgba(0,0,0,0.85),transparent);display:flex;flex-direction:column;gap:14px;z-index:100}
+    #btn-row{display:flex;justify-content:center;gap:16px;align-items:center}
+    .ctrl-btn{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:transform 0.15s}
+    .ctrl-btn:active{transform:scale(0.9)}
+    .ctrl-btn.secondary{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2)}
+    #btn-connect{width:72px;height:72px;border-radius:50%;background:#D4AF37;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 0 24px rgba(212,175,55,0.4)}
+    #btn-connect:active{transform:scale(0.92)}
+    #btn-connect.connected{background:#dc2626;box-shadow:0 0 24px rgba(220,38,38,0.4)}
+
+    /* SLIDER CONTROLS */
+    #slider-row{display:flex;flex-direction:column;gap:8px}
+    .slider-item{display:flex;align-items:center;gap:10px}
+    .slider-label{font-size:9px;color:#888;width:20px;text-align:center}
+    input[type=range]{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;background:rgba(255,255,255,0.2);outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#D4AF37;cursor:pointer}
+
+    /* SIGNAL QUALITY */
+    #signal{display:flex;align-items:center;gap:3px;position:absolute;top:18px;right:16px}
+    .sig-bar{width:3px;border-radius:2px;background:#D4AF37}
+
+    /* RECONNECT OVERLAY */
+    #reconnect-overlay{display:none;position:absolute;inset:0;background:rgba(2,2,10,0.92);z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+    #reconnect-overlay.show{display:flex}
+    #countdown-ring{width:80px;height:80px;position:relative}
+    #countdown-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#D4AF37}
+    .ring-svg{transform:rotate(-90deg)}
+    .ring-circle{fill:none;stroke:#D4AF37;stroke-width:4;stroke-linecap:round;stroke-dasharray:226;stroke-dashoffset:226;transition:stroke-dashoffset 1s linear}
+
+    /* INSTALL PROMPT */
+    #install-banner{display:none;position:absolute;top:70px;left:16px;right:16px;background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.4);border-radius:12px;padding:12px 16px;z-index:150;flex-direction:column;gap:8px}
+    #install-banner.show{display:flex}
+    #install-btn{background:#D4AF37;color:#000;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;align-self:flex-start}
+
+    /* QUALITY BADGE */
+    #quality-badge{position:absolute;bottom:160px;right:16px;background:rgba(0,0,0,0.6);border:1px solid rgba(212,175,55,0.3);border-radius:8px;padding:6px 10px;font-size:9px;color:#D4AF37;text-align:right;line-height:1.6}
+
+    /* TORCH */
+    #torch-indicator{position:absolute;top:60px;left:16px;font-size:9px;color:#eab308;display:none;background:rgba(0,0,0,0.5);padding:4px 10px;border-radius:20px}
+  </style>
+</head>
+<body>
+<div id="app">
+  <video id="preview" autoplay muted playsinline></video>
+
+  <div id="status-bar">
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">TAP TO CONNECT</span>
+    </div>
+    <span id="brand">JJ NEXUS CAM</span>
+  </div>
+
+  <div id="torch-indicator">⚡ TORCH ON</div>
+
+  <div id="install-banner">
+    <div style="font-size:12px;color:#D4AF37;font-weight:700">📱 Install for instant reconnect</div>
+    <div style="font-size:10px;color:#aaa">Install this as an app — camera stays connected even when you switch apps</div>
+    <button id="install-btn">Add to Home Screen</button>
+    <button onclick="document.getElementById('install-banner').classList.remove('show')" style="background:none;border:none;color:#555;font-size:11px;cursor:pointer;align-self:flex-start">Dismiss</button>
+  </div>
+
+  <div id="quality-badge" id="quality-info" style="display:none">
+    <div id="res-display">— × —</div>
+    <div id="fps-display">— fps</div>
+    <div id="kb-display">— kbps</div>
+  </div>
+
+  <div id="reconnect-overlay">
+    <div style="color:#D4AF37;font-size:14px;font-weight:700;letter-spacing:2px">CONNECTION LOST</div>
+    <div id="countdown-ring">
+      <svg class="ring-svg" width="80" height="80">
+        <circle cx="40" cy="40" r="36" fill="none" stroke="#1a1a1a" stroke-width="4"/>
+        <circle class="ring-circle" id="ring-progress" cx="40" cy="40" r="36"/>
+      </svg>
+      <div id="countdown-text">5</div>
+    </div>
+    <div style="color:#888;font-size:12px">Auto-reconnecting...</div>
+    <button onclick="reconnectNow()" style="background:#D4AF37;color:#000;border:none;border-radius:8px;padding:10px 24px;font-size:12px;font-weight:700;cursor:pointer">Reconnect Now</button>
+  </div>
+
+  <div id="controls">
+    <div id="slider-row">
+      <div class="slider-item">
+        <span class="slider-label">☀️</span>
+        <input type="range" id="brightness" min="50" max="200" value="100" oninput="applyFilters()">
+      </div>
+      <div class="slider-item">
+        <span class="slider-label">🔍</span>
+        <input type="range" id="zoom" min="10" max="30" value="10" oninput="applyZoom()">
+      </div>
+    </div>
+    <div id="btn-row">
+      <button class="ctrl-btn secondary" onclick="flipCamera()" title="Flip camera">🔄</button>
+      <button class="ctrl-btn secondary" onclick="toggleMirror()" title="Mirror">↔️</button>
+      <button id="btn-connect" onclick="toggleConnection()" title="Connect">📡</button>
+      <button class="ctrl-btn secondary" onclick="toggleTorch()" title="Torch">🔦</button>
+      <button class="ctrl-btn secondary" onclick="takeSnapshot()" title="Snapshot">📸</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let stream = null
+let ws = null
+let isConnected = false
+let isMirrored = false
+let torchOn = false
+let currentFacing = 'environment'
+let reconnectTimer = null
+let reconnectCountdown = 5
+let frameCounter = 0
+let fpsTimer = null
+let deferredInstallPrompt = null
+let keepAliveTimer = null
+let visibilityToken = null
+
+const RELAY_WS_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.hostname}:3001`
+const STUDIO_ORIGIN = location.origin
+
+// ═══════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════
+async function startCamera(facing = 'environment') {
+  try {
+    if (stream) stream.getTracks().forEach(t => t.stop())
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: facing },
+        width: { ideal: 1920, max: 3840 },
+        height: { ideal: 1080, max: 2160 },
+        frameRate: { ideal: 60, max: 60 }
+      },
+      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+    })
+    document.getElementById('preview').srcObject = stream
+    currentFacing = facing
+
+    // Show quality info
+    const track = stream.getVideoTracks()[0]
+    const settings = track.getSettings()
+    document.getElementById('quality-badge').style.display = 'block'
+    document.getElementById('res-display').textContent = `${settings.width}×${settings.height}`
+    document.getElementById('fps-display').textContent = `${settings.frameRate} fps`
+
+    // Measure real FPS
+    startFPSMeasure()
+
+    // Re-send stream to relay if already connected
+    if (isConnected && ws) sendStreamToRelay()
+
+    return true
+  } catch (e) {
+    setStatus('error', 'CAMERA ERROR')
+    return false
+  }
+}
+
+function flipCamera() {
+  currentFacing = currentFacing === 'environment' ? 'user' : 'environment'
+  startCamera(currentFacing)
+}
+
+function toggleMirror() {
+  isMirrored = !isMirrored
+  document.getElementById('preview').classList.toggle('mirrored', isMirrored)
+  // Notify studio
+  postToStudio({ type: 'MIRROR', mirrored: isMirrored })
+}
+
+async function toggleTorch() {
+  if (!stream) return
+  const track = stream.getVideoTracks()[0]
+  if (!track.getCapabilities().torch) return
+  torchOn = !torchOn
+  await track.applyConstraints({ advanced: [{ torch: torchOn }] })
+  document.getElementById('torch-indicator').style.display = torchOn ? 'block' : 'none'
+}
+
+function applyFilters() {
+  const b = document.getElementById('brightness').value
+  document.getElementById('preview').style.filter = `brightness(${b}%)`
+  postToStudio({ type: 'FILTERS', brightness: b })
+}
+
+function applyZoom() {
+  const z = document.getElementById('zoom').value / 10
+  document.getElementById('preview').style.transform = isMirrored
+    ? `scaleX(-1) scale(${z})` : `scale(${z})`
+  postToStudio({ type: 'ZOOM', zoom: z })
+}
+
+function takeSnapshot() {
+  const canvas = document.createElement('canvas')
+  const video = document.getElementById('preview')
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  canvas.getContext('2d').drawImage(video, 0, 0)
+  const a = document.createElement('a')
+  a.download = `jjnexus-snapshot-${Date.now()}.png`
+  a.href = canvas.toDataURL('image/png')
+  a.click()
+}
+
+// ═══════════════════════════════════════
+// WEBSOCKET CONNECTION TO RELAY
+// ═══════════════════════════════════════
+async function toggleConnection() {
+  if (isConnected) {
+    disconnectFromStudio()
+  } else {
+    await connectToStudio()
+  }
+}
+
+async function connectToStudio() {
+  if (!stream) {
+    const ok = await startCamera(currentFacing)
+    if (!ok) return
+  }
+
+  setStatus('connecting', 'CONNECTING...')
+
+  try {
+    ws = new WebSocket(RELAY_WS_URL)
+
+    ws.onopen = () => {
+      isConnected = true
+      setStatus('connected', 'LIVE TO STUDIO')
+      document.getElementById('btn-connect').classList.add('connected')
+      document.getElementById('btn-connect').textContent = '⏹'
+
+      // Send camera info to studio
+      const track = stream.getVideoTracks()[0]
+      const settings = track.getSettings()
+      ws.send(JSON.stringify({
+        type: 'PHONE_CAMERA_INIT',
+        width: settings.width,
+        height: settings.height,
+        fps: settings.frameRate,
+        facing: currentFacing,
+        deviceId: track.getSettings().deviceId,
+        label: track.label
+      }))
+
+      // Start keep-alive ping every 15 seconds
+      keepAliveTimer = setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'PING', timestamp: Date.now() }))
+        }
+      }, 15000)
+
+      // Notify parent window if opened from studio
+      postToStudio({ type: 'PHONE_CAMERA_READY', width: settings.width, height: settings.height })
+
+      // Store connection token in localStorage for auto-reconnect
+      localStorage.setItem('jjnexus_cam_session', JSON.stringify({
+        connected: true,
+        timestamp: Date.now(),
+        relay: RELAY_WS_URL
+      }))
+
+      sendStreamToRelay()
+    }
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data)
+        if (msg.type === 'PONG') {} // keepalive confirmed
+        if (msg.type === 'STUDIO_COMMAND') handleStudioCommand(msg)
+      } catch {}
+    }
+
+    ws.onclose = (e) => {
+      if (isConnected) {
+        isConnected = false
+        setStatus('connecting', 'RECONNECTING...')
+        startAutoReconnect()
+      }
+    }
+
+    ws.onerror = () => {
+      setStatus('error', 'CONNECTION FAILED')
+      startAutoReconnect()
+    }
+
+  } catch (e) {
+    setStatus('error', 'FAILED')
+  }
+}
+
+function handleStudioCommand(msg) {
+  switch(msg.command) {
+    case 'flip': flipCamera(); break
+    case 'mirror': toggleMirror(); break
+    case 'torch': toggleTorch(); break
+    case 'brightness': document.getElementById('brightness').value = msg.value; applyFilters(); break
+    case 'zoom': document.getElementById('zoom').value = msg.value * 10; applyZoom(); break
+    case 'snapshot': takeSnapshot(); break
+  }
+}
+
+function disconnectFromStudio() {
+  isConnected = false
+  if (keepAliveTimer) clearInterval(keepAliveTimer)
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  ws?.close()
+  ws = null
+  document.getElementById('reconnect-overlay').classList.remove('show')
+  document.getElementById('btn-connect').classList.remove('connected')
+  document.getElementById('btn-connect').textContent = '📡'
+  setStatus('idle', 'DISCONNECTED')
+  localStorage.removeItem('jjnexus_cam_session')
+}
+
+// ═══════════════════════════════════════
+// AUTO-RECONNECT SYSTEM
+// ═══════════════════════════════════════
+function startAutoReconnect() {
+  reconnectCountdown = 5
+  const overlay = document.getElementById('reconnect-overlay')
+  overlay.classList.add('show')
+  updateCountdownRing()
+
+  const tick = setInterval(() => {
+    reconnectCountdown--
+    document.getElementById('countdown-text').textContent = reconnectCountdown
+    updateCountdownRing()
+    if (reconnectCountdown <= 0) {
+      clearInterval(tick)
+      overlay.classList.remove('show')
+      connectToStudio()
+    }
+  }, 1000)
+}
+
+function updateCountdownRing() {
+  const circle = document.getElementById('ring-progress')
+  const circumference = 226
+  const offset = circumference - (reconnectCountdown / 5) * circumference
+  circle.style.strokeDashoffset = offset
+}
+
+function reconnectNow() {
+  document.getElementById('reconnect-overlay').classList.remove('show')
+  connectToStudio()
+}
+
+// ═══════════════════════════════════════
+// VISIBILITY / BACKGROUND HANDLING
+// ═══════════════════════════════════════
+// When user switches apps — camera may pause
+// This wakes it back up immediately
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    // Restart camera if tracks ended
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0]
+      if (!videoTrack || videoTrack.readyState === 'ended') {
+        await startCamera(currentFacing)
+      }
+    }
+    // Reconnect WebSocket if lost
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      const session = localStorage.getItem('jjnexus_cam_session')
+      if (session) {
+        const data = JSON.parse(session)
+        if (data.connected && Date.now() - data.timestamp < 3600000) {
+          setTimeout(() => connectToStudio(), 500)
+        }
+      }
+    }
+  }
+})
+
+// Wake lock — prevent screen from turning off while streaming
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      await navigator.wakeLock.request('screen')
+      console.log('Wake lock active — screen will stay on')
+    }
+  } catch {}
+}
+
+// ═══════════════════════════════════════
+// STREAM RELAY — SEND VIDEO TO STUDIO
+// ═══════════════════════════════════════
+function sendStreamToRelay() {
+  if (!stream || !ws || ws.readyState !== WebSocket.OPEN) return
+
+  // Send stream metadata — studio uses this to create a video element
+  // The actual video frames are sent via WebRTC peer connection
+  ws.send(JSON.stringify({
+    type: 'CAMERA_STREAM_READY',
+    streamId: stream.id,
+    tracks: stream.getTracks().map(t => ({
+      kind: t.kind,
+      label: t.label,
+      settings: t.getSettings()
+    }))
+  }))
+}
+
+function postToStudio(data) {
+  if (window.opener) window.opener.postMessage(data, STUDIO_ORIGIN)
+  localStorage.setItem('jjnexus_cam_event', JSON.stringify({ ...data, ts: Date.now() }))
+}
+
+// ═══════════════════════════════════════
+// FPS MEASUREMENT
+// ═══════════════════════════════════════
+function startFPSMeasure() {
+  if (fpsTimer) cancelAnimationFrame(fpsTimer)
+  let lastTime = performance.now()
+  let frames = 0
+  const measure = () => {
+    frames++
+    const now = performance.now()
+    if (now - lastTime >= 1000) {
+      document.getElementById('fps-display').textContent = `${frames} fps`
+      document.getElementById('kb-display').textContent = `${Math.round(frames * 40)} kbps est`
+      frames = 0
+      lastTime = now
+    }
+    fpsTimer = requestAnimationFrame(measure)
+  }
+  fpsTimer = requestAnimationFrame(measure)
+}
+
+// ═══════════════════════════════════════
+// STATUS HELPER
+// ═══════════════════════════════════════
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot')
+  const label = document.getElementById('status-text')
+  dot.className = 'status-dot ' + state
+  label.textContent = text
+}
+
+// ═══════════════════════════════════════
+// PWA INSTALL
+// ═══════════════════════════════════════
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  deferredInstallPrompt = e
+  document.getElementById('install-banner').classList.add('show')
+})
+
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt()
+    const result = await deferredInstallPrompt.userChoice
+    if (result.outcome === 'accepted') {
+      document.getElementById('install-banner').classList.remove('show')
+    }
+    deferredInstallPrompt = null
+  } else {
+    // Show manual instructions
+    alert('To install:\niOS: Tap Share → Add to Home Screen\nAndroid: Tap menu → Add to Home Screen')
+  }
+})
+
+// ═══════════════════════════════════════
+// AUTO-START if previously connected
+// ═══════════════════════════════════════
+window.onload = async () => {
+  // Always start camera preview immediately
+  await startCamera('environment')
+  await requestWakeLock()
+
+  // Auto-reconnect if was previously connected
+  const session = localStorage.getItem('jjnexus_cam_session')
+  if (session) {
+    const data = JSON.parse(session)
+    if (data.connected && Date.now() - data.timestamp < 3600000) {
+      setTimeout(() => connectToStudio(), 1000)
+    }
+  }
+}
+</script>
+</body>
+</html>
+```
+
+Create `/public/phone-camera-manifest.json` so it can be installed as a PWA:
+
+```json
+{
+  "name": "JJ NEXUS CAM",
+  "short_name": "JJ CAM",
+  "description": "JJ NEXUS PRO phone camera studio",
+  "start_url": "/phone-camera.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#02020a",
+  "theme_color": "#02020a",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%2302020a'/><text x='96' y='130' text-anchor='middle' font-size='100'>📡</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
+```
+
+---
+
+**=== FIX 2: STUDIO SIDE — PHONE CAMERA MANAGER UPGRADE ===**
+
+Update `src/components/streaming/PhoneCameraConnect.tsx` completely:
+
+```typescript
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCamera } from '../../context/CameraContext'
+import QRCode from 'qrcode'
+
+type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting'
+
+interface PhoneInfo {
+  width: number
+  height: number
+  fps: number
+  facing: string
+  label: string
+}
+
+export default function PhoneCameraConnect() {
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
+  const [phoneInfo, setPhoneInfo] = useState<PhoneInfo | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [phoneUrl, setPhoneUrl] = useState('')
+  const [sessionSaved, setSessionSaved] = useState(false)
+  const [lastSeen, setLastSeen] = useState<Date | null>(null)
+  const [signalStrength, setSignalStrength] = useState(0)
+  const [remoteControls, setRemoteControls] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
+  const pingTimer = useRef<NodeJS.Timeout>()
+  const reconnectTimer = useRef<NodeJS.Timeout>()
+  const pongTimeout = useRef<NodeJS.Timeout>()
+
+  const RELAY_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.hostname}:3001`
+
+  useEffect(() => {
+    const url = `${window.location.origin}/phone-camera.html`
+    setPhoneUrl(url)
+
+    // Generate QR code
+    QRCode.toDataURL(url, {
+      width: 200,
+      color: { dark: '#D4AF37', light: '#02020a' },
+      margin: 2,
+      errorCorrectionLevel: 'M'
+    }).then(setQrDataUrl)
+
+    // Check if previously connected
+    const saved = localStorage.getItem('jjnexus_phone_session')
+    if (saved) {
+      const data = JSON.parse(saved)
+      if (Date.now() - data.timestamp < 3600000) {
+        setSessionSaved(true)
+        setPhoneInfo(data.phoneInfo)
+      }
+    }
+
+    // Listen for phone camera messages
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'PHONE_CAMERA_READY') {
+        handlePhoneConnected(e.data)
+      }
+      if (e.data?.type === 'MIRROR') {
+        // Handle mirror toggle from phone
+      }
+    }
+    window.addEventListener('message', handleMessage)
+
+    // Poll localStorage for phone camera events
+    const poller = setInterval(() => {
+      const event = localStorage.getItem('jjnexus_cam_event')
+      if (event) {
+        const data = JSON.parse(event)
+        if (Date.now() - data.ts < 5000) {
+          if (data.type === 'PHONE_CAMERA_READY') handlePhoneConnected(data)
+          if (data.type === 'PING') {
+            setLastSeen(new Date())
+            setSignalStrength(4)
+          }
+        }
+        localStorage.removeItem('jjnexus_cam_event')
+      }
+    }, 1000)
+
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      clearInterval(poller)
+    }
+  }, [])
+
+  const handlePhoneConnected = (data: any) => {
+    const info: PhoneInfo = {
+      width: data.width || 1920,
+      height: data.height || 1080,
+      fps: data.fps || 60,
+      facing: data.facing || 'environment',
+      label: data.label || 'Phone Camera'
+    }
+    setPhoneInfo(info)
+    setConnectionState('connected')
+    setLastSeen(new Date())
+    setSignalStrength(4)
+
+    // Save session
+    localStorage.setItem('jjnexus_phone_session', JSON.stringify({
+      timestamp: Date.now(),
+      phoneInfo: info
+    }))
+    setSessionSaved(true)
+  }
+
+  // Send command to phone camera
+  const sendCommand = (command: string, value?: any) => {
+    localStorage.setItem('jjnexus_cam_event', JSON.stringify({
+      type: 'STUDIO_COMMAND',
+      command,
+      value,
+      ts: Date.now()
+    }))
+  }
+
+  const openPhonePage = () => {
+    window.open(phoneUrl, 'JJNexusCam',
+      'width=420,height=800,scrollbars=no,toolbar=no,menubar=no,status=no')
+    setConnectionState('connecting')
+
+    // Timeout if not connected in 60 seconds
+    setTimeout(() => {
+      if (connectionState === 'connecting') {
+        setConnectionState('disconnected')
+      }
+    }, 60000)
+  }
+
+  const disconnect = () => {
+    setConnectionState('disconnected')
+    setPhoneInfo(null)
+    setSessionSaved(false)
+    localStorage.removeItem('jjnexus_phone_session')
+  }
+
+  const reconnectQuickly = () => {
+    // Just reopen the phone page — it will auto-reconnect
+    openPhonePage()
+  }
+
+  const copyUrl = () => navigator.clipboard.writeText(phoneUrl)
+
+  const stateColor = {
+    disconnected: '#666',
+    connecting: '#eab308',
+    connected: '#16a34a',
+    reconnecting: '#eab308'
+  }[connectionState]
+
+  const stateLabel = {
+    disconnected: 'Not Connected',
+    connecting: 'Waiting for phone...',
+    connected: `Connected ${phoneInfo ? `— ${phoneInfo.width}×${phoneInfo.height} @ ${phoneInfo.fps}fps` : ''}`,
+    reconnecting: 'Reconnecting...'
+  }[connectionState]
+
+  return (
+    <div style={{
+      background: 'rgba(212,175,55,0.03)',
+      border: `1px solid ${connectionState === 'connected' ? 'rgba(22,163,74,0.4)' : 'rgba(212,175,55,0.15)'}`,
+      borderRadius: 12, padding: 16, transition: 'border-color 0.3s'
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#D4AF37' }}>📱 Phone HD Camera</div>
+          <div style={{ fontSize: 11, color: stateColor, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: 7, height: 7, borderRadius: '50%', background: stateColor,
+              boxShadow: connectionState === 'connected' ? `0 0 8px ${stateColor}` : 'none',
+              animation: connectionState === 'connecting' ? 'pulse 1s infinite' : 'none'
+            }}/>
+            {stateLabel}
+          </div>
+        </div>
+        {/* Signal strength */}
+        {connectionState === 'connected' && (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{
+                width: 4, height: 4 + i * 4, borderRadius: 1,
+                background: i <= signalStrength ? '#16a34a' : '#333'
+              }}/>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Connected state */}
+      {connectionState === 'connected' && phoneInfo && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{
+            background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)',
+            borderRadius: 8, padding: '10px 14px', marginBottom: 10
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              {[
+                ['Resolution', `${phoneInfo.width}×${phoneInfo.height}`],
+                ['Frame Rate', `${phoneInfo.fps} fps`],
+                ['Camera', phoneInfo.facing === 'environment' ? '📸 Rear' : '🤳 Front'],
+                ['Last seen', lastSeen ? `${Math.floor((Date.now() - lastSeen.getTime()) / 1000)}s ago` : '—']
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: '#fff', fontWeight: 600, marginTop: 2 }}>{value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Remote controls */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: '#666', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Remote Control Phone Camera
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { label: '🔄 Flip', cmd: 'flip' },
+                { label: '↔️ Mirror', cmd: 'mirror' },
+                { label: '🔦 Torch', cmd: 'torch' },
+                { label: '📸 Snap', cmd: 'snapshot' },
+              ].map(({ label, cmd }) => (
+                <button key={cmd} onClick={() => sendCommand(cmd)}
+                  style={{
+                    padding: '6px 12px', background: 'rgba(212,175,55,0.1)',
+                    border: '1px solid rgba(212,175,55,0.3)', borderRadius: 6,
+                    color: '#D4AF37', fontSize: 11, cursor: 'pointer', fontWeight: 600
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={disconnect} style={{
+            width: '100%', padding: '8px', background: 'transparent',
+            border: '1px solid rgba(220,38,38,0.3)', borderRadius: 8,
+            color: '#dc2626', fontSize: 11, cursor: 'pointer'
+          }}>
+            Disconnect Phone Camera
+          </button>
+        </div>
+      )}
+
+      {/* Quick reconnect when session saved but disconnected */}
+      {connectionState === 'disconnected' && sessionSaved && phoneInfo && (
+        <div style={{
+          background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)',
+          borderRadius: 8, padding: 12, marginBottom: 12
+        }}>
+          <div style={{ fontSize: 12, color: '#D4AF37', fontWeight: 700, marginBottom: 4 }}>
+            ⚡ Last session found
+          </div>
+          <div style={{ fontSize: 11, color: '#888', marginBottom: 10 }}>
+            {phoneInfo.width}×{phoneInfo.height} @ {phoneInfo.fps}fps — tap to reconnect instantly
+          </div>
+          <button onClick={reconnectQuickly} style={{
+            width: '100%', padding: '10px', background: '#D4AF37',
+            border: 'none', borderRadius: 8, color: '#000',
+            fontWeight: 700, fontSize: 13, cursor: 'pointer'
+          }}>
+            ⚡ Reconnect Instantly
+          </button>
+        </div>
+      )}
+
+      {/* First time connection */}
+      {connectionState === 'disconnected' && !sessionSaved && (
+        <div>
+          {/* QR Code */}
+          {qrDataUrl && (
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Scan with your phone camera
+              </div>
+              <img src={qrDataUrl} alt="QR code to open phone camera page"
+                style={{ width: 140, height: 140, border: '2px solid rgba(212,175,55,0.3)', borderRadius: 8 }}/>
+              <div style={{ fontSize: 9, color: '#555', marginTop: 6 }}>
+                Opens the camera app on your phone
+              </div>
+            </div>
+          )}
+
+          <button onClick={openPhonePage} style={{
+            width: '100%', padding: '12px', background: '#D4AF37',
+            border: 'none', borderRadius: 8, color: '#000',
+            fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 8
+          }}>
+            📱 Open Phone Camera
+          </button>
+
+          <button onClick={copyUrl} style={{
+            width: '100%', padding: '8px', background: 'transparent',
+            border: '1px solid rgba(212,175,55,0.3)', borderRadius: 8,
+            color: '#D4AF37', fontSize: 11, cursor: 'pointer', marginBottom: 10
+          }}>
+            Copy Link — Open on Phone Browser
+          </button>
+
+          <div style={{
+            background: 'rgba(212,175,55,0.05)', borderRadius: 8,
+            padding: '10px 12px', fontSize: 10, color: '#666', lineHeight: 1.7
+          }}>
+            💡 Tip: After first connection, install the camera page as an app on your phone home screen for instant reconnect every time.
+          </div>
+        </div>
+      )}
+
+      {connectionState === 'connecting' && (
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ fontSize: 24, marginBottom: 10 }}>⏳</div>
+          <div style={{ fontSize: 12, color: '#eab308' }}>Waiting for phone to connect...</div>
+          <div style={{ fontSize: 10, color: '#555', marginTop: 6 }}>Open the link on your phone and tap Connect</div>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+Install QRCode package:
+
+```bash
+npm install qrcode
+npm install --save-dev @types/qrcode
+```
+
+---
+
+**=== NEW FEATURE: STUDIO COMMANDS FROM WEBAPP TO PHONE ===**
+
+The studio can now remote-control the phone camera. Add these controls to the streaming studio sidebar:
+
+```typescript
+// Remote Camera Controls Panel
+// Add to StreamingStudio.tsx alongside the PhoneCameraConnect component
+
+const RemoteCameraControls = () => {
+  const [brightness, setBrightness] = useState(100)
+  const [zoom, setZoom] = useState(1.0)
+
+  const sendCmd = (command: string, value?: any) => {
+    localStorage.setItem('jjnexus_cam_event', JSON.stringify({
+      type: 'STUDIO_COMMAND', command, value, ts: Date.now()
+    }))
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 10, color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+        Phone Camera Controls
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 10, color: '#888', marginBottom: 4 }}>Brightness</div>
+        <input type="range" min="50" max="200" value={brightness}
+          onChange={e => { setBrightness(+e.target.value); sendCmd('brightness', +e.target.value) }}
+          style={{ width: '100%' }}/>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 10, color: '#888', marginBottom: 4 }}>Zoom {zoom.toFixed(1)}x</div>
+        <input type="range" min="10" max="30" value={zoom * 10}
+          onChange={e => { setZoom(+e.target.value/10); sendCmd('zoom', +e.target.value/10) }}
+          style={{ width: '100%' }}/>
+      </div>
+    </div>
+  )
+}
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1. npm install qrcode && npm install --save-dev @types/qrcode
+2. Replace /public/phone-camera.html completely with new version
+3. Create /public/phone-camera-manifest.json
+4. Replace src/components/streaming/PhoneCameraConnect.tsx
+5. Add RemoteCameraControls to StreamingStudio sidebar
+6. npm run build — fix any TypeScript errors
+7. Test: open phone camera page on phone, confirm QR shows in studio
+8. Test: connect phone, switch apps, confirm auto-reconnect fires
+9. Test: remote controls from studio affect phone camera
+10. Report done with confirmation auto-reconnect works
+```
+
+---
+
+After completing, confirm these three things work:
+- Phone camera auto-reconnects when switching apps on phone
+- Studio shows instant reconnect button when session exists
+- Remote controls from studio control the phone camera

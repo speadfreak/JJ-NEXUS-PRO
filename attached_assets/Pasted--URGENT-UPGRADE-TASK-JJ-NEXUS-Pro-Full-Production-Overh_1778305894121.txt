@@ -1,0 +1,106 @@
+
+URGENT UPGRADE TASK — JJ NEXUS Pro: Full Production Overhaul
+You have a partially built JJ NEXUS Pro app. I need you to upgrade it to a FULLY WORKING, production-ready application before my Replit limit runs out. Work fast, be systematic, and complete everything below. Do NOT simulate any data — everything must be real and live.
+MY ANTHROPIC API KEY: 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
+Use this key in every Claude API call. Store it in .env as VITE_ANTHROPIC_API_KEY. The app should read from localStorage key 'ethiostream_api_key' first, then fall back to the env variable.
+=== CRITICAL FIX 1 — OUTDATED AI PRICES ===
+Gold (XAUUSD) is currently around $4,700+. The AI is giving analysis at around $2,090 which is completely wrong. Fix this immediately:
+Every Claude API call must include the web_search tool: tools: [{ type: "web_search_20250305", name: "web_search" }]
+Add this header to every request: "anthropic-beta": "web-search-2025-03-05"
+The system prompt for ALL AI calls must say: "You are Alchemist AI, an elite forex trading assistant. CRITICAL: Before ANY analysis, use web_search to find the current live price of the requested pair. Search '[PAIR] current price today [current month and year]'. Use ONLY the price you find via web search. Never use your training data prices. Today's date: [inject new Date().toLocaleDateString() dynamically]."
+Display the fetched current price prominently at the top of every AI analysis response
+=== CRITICAL FIX 2 — ALL AI MUST USE LIVE WEB DATA ===
+Technical analysis: search current price + recent price action news before analyzing
+Fundamental analysis: search FXStreet, Bloomberg, ForexFactory, FinancialJuice for today's news
+Every single Claude API call in the entire app must have the web_search tool attached — no exceptions
+The claudeAPI.ts utility file must always include the tool and the beta header
+=== STREAMING STUDIO — MAKE FULLY REAL ===
+Real Webcam:
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+Show actual live video in the stream preview
+Camera selection dropdown using enumerateDevices()
+Beauty filter via CSS filter on the video element (brightness, contrast, saturation)
+Flip via transform: scaleX(-1), zoom via transform: scale()
+Real Screen Share:
+navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+Composite screen + webcam onto a <canvas> using drawImage()
+Two separate <video> elements drawn onto one canvas
+Real Recording:
+canvas.captureStream(30) then new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' })
+Collect chunks, create Blob, trigger .webm download
+Show real recording timer counting up + real file size in MB
+Real Stream Health:
+FPS: measure via requestAnimationFrame timestamps
+Resolution: read from track.getSettings() — do NOT fake these numbers
+TikTok/YouTube/Instagram buttons:
+Browsers cannot do RTMP — show a professional modal instead with RTMP URL + Stream Key fields
+Give clear instructions to use OBS pointed at the canvas output
+Do not fake a "Going Live" screen
+=== LIVE ECONOMIC CALENDAR ===
+Fetch from: https://nfs.faireconomy.media/ff_calendar_thisweek.json on load and every 30 minutes
+Parse: title, date, impact, currency, forecast, previous, actual
+High impact = red badge, Medium = orange, Low = gray
+Real countdown timers to each upcoming event using setInterval
+Filter by currency (USD, EUR, GBP, JPY, etc.)
+Past events: color actual vs forecast (green = beat, red = missed)
+Highlight NFP, CPI, FOMC, GDP, PMI, Retail Sales, Interest Rate decisions
+AI Event Analysis:
+Clicking any event calls Claude API with web_search: "Search [event name] impact on USD forex today"
+Show: what the event measures, expected USD impact, how to trade it — using real current data
+=== WATCHLIST — EXPAND WITH REAL PRICES ===
+Add all these pairs: EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD, NZDUSD, USDCAD, XAUUSD, XAGUSD, USOIL, US30, NAS100, SPX500, GER40, BTCUSD
+Real prices:
+Frankfurter API for forex: https://api.frankfurter.app/latest?from=USD
+Yahoo Finance for Gold/indices: https://query1.finance.yahoo.com/v8/finance/chart/GC=F
+Update every 5 seconds, show % change with green/red arrows
+AI Sentiment per pair:
+On click/hover, call Claude API with web_search: "[PAIR] market sentiment analysis today"
+Show Bullish / Bearish / Neutral badge with a one-line reason
+=== ALCHEMIST AI — FULL UPGRADE ===
+Technical Analysis (when user clicks Analyze):
+Call Claude API with web_search tool
+Prompt: search current price first, then perform full SMC/ICT analysis — market structure, order blocks, FVGs, liquidity grabs, breaker blocks, inducement
+Give specific price levels for entry, stop loss, take profit based on the CURRENT fetched price
+Format with clear sections: Market Structure | Key Levels | Entry Model | Trade Plan | Risk Management
+Fundamental Analysis:
+Call Claude API with web_search, searching: "[PAIR] fundamental analysis [month year]", "USD news today", "central bank policy [currency]", "geopolitical risk [pair]"
+Output sections: Macro Outlook | Central Bank Policy | News Impact | Fundamental Score (1-10)
+Confluence Engine:
+Third Claude API call combining both analyses
+Output: final bias, probability score 0-100%, entry plan, invalidation level
+Display as a card with a circular progress indicator for the probability score
+=== SETTINGS — ALL MUST ACTUALLY WORK ===
+Theme: Dark/Light toggle switches real CSS variables. Accent color picker changes --color-accent globally. Font size slider changes document.documentElement.style.fontSize
+Audio: Music toggle plays/pauses a real <audio> element. Volume slider controls audio.volume. Use these royalty-free URLs: https://cdn.pixabay.com/audio/2022/10/16/audio_05f67b3be9.mp3 and https://cdn.pixabay.com/audio/2022/03/15/audio_c8e0a5c27e.mp3. Fallback: Web Audio API oscillators if CDN fails
+Notifications: Notification.requestPermission() — trigger browser notifications when a watched pair hits a set price alert, and X minutes before high-impact calendar events
+API Key: Input field saves to localStorage('ethiostream_api_key'), app reads this first before env variable
+Stream: Resolution (720p/1080p), FPS (24/30/60), and bitrate selectors must pass real values to getUserMedia constraints and MediaRecorder
+=== BACKGROUND MUSIC — MAKE IT WORK ===
+Real <audio> element in the app, preloaded with the Pixabay URLs above
+Top navigation toggle button must actually play/pause it
+Volume slider must control audio.volume in real time
+Show track name of currently playing song
+If CDN URLs fail, fall back to Web Audio API: layer 3 sine oscillators at 110Hz, 220Hz, 330Hz with low gain for ambient tone
+=== LOCAL HOSTING PREP ===
+vite.config.ts: set base: './' for local file serving
+Create .env.example listing all env variables
+Create README.md with exact commands: npm install, cp .env.example .env, npm run dev, npm run build, npx serve dist
+.gitignore must exclude node_modules and .env
+No hardcoded localhost URLs anywhere — use relative paths or env variables
+=== QUALITY STANDARDS ===
+Error handling with friendly messages on every API call
+Loading spinners for all async operations
+Zero console errors on startup
+Mobile responsive at 768px minimum width
+TypeScript types correct throughout — minimize use of any
+START NOW in this exact order:
+Fix Claude API utility (web_search + beta header + system prompt)
+Fix real camera + screen share
+Fix MediaRecorder recording
+Economic calendar with real API
+Expand watchlist with real prices
+Fix all settings
+Fix background music
+Prepare build/local hosting files
+After finishing, run the app, confirm it works, and tell me it's ready for download.
+BUILD FOR LOCAL - Ensure vite.config.ts has correct base path for local hosting - Create a README.md with exact steps: * npm install * cp .env.example .env (fill in API key) * npm run dev (for development) * npm run build (for production build) * npx serve dist (to serve locally) - Create .env.example with all required variables listed - Make sure all imports are correct and no broken paths exist 23. CREATE A ZIP-READY EXPORT - Make sure .gitignore excludes node_modules - All assets must be either in /public or imported in code - No hardcoded localhost URLs — use relative paths or env variables 

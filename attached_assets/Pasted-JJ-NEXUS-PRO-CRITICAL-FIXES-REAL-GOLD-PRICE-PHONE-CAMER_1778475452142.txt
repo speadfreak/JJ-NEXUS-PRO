@@ -1,0 +1,1077 @@
+JJ NEXUS PRO — CRITICAL FIXES: REAL GOLD PRICE + PHONE CAMERA + FREE AI + TELEGRAM UPGRADE
+Apply all fixes below completely. Work through each section fully before moving to the next.
+
+=== FIX 1: GOLD/XAUUSD REAL PRICE — CURRENTLY $3,300+ NOT $4,673 ===
+Important correction first: Gold (XAUUSD) is currently trading around $3,300–$3,350 range as of May 2026. The number $4,673 is incorrect. Whatever price the app is showing is wrong. We need to fetch the REAL live price from actual APIs.
+Replace ALL price fetching logic with this multi-source waterfall system that tries multiple free APIs until one works:
+typescript// src/utils/livePrices.ts
+// Multi-source price fetcher — tries each source in order until success
+
+export interface PriceData {
+  symbol: string
+  price: number
+  change: number
+  changePercent: number
+  high: number
+  low: number
+  source: string
+  timestamp: Date
+}
+
+// Symbol mapping for different APIs
+const SYMBOL_MAP = {
+  // Frankfurter (forex only, free, no key)
+  frankfurter: {
+    'EURUSD': 'EUR', 'GBPUSD': 'GBP', 'USDJPY': 'JPY',
+    'USDCHF': 'CHF', 'AUDUSD': 'AUD', 'NZDUSD': 'NZD', 'USDCAD': 'CAD'
+  },
+  // Yahoo Finance symbols
+  yahoo: {
+    'EURUSD': 'EURUSD=X', 'GBPUSD': 'GBPUSD=X', 'USDJPY': 'JPY=X',
+    'XAUUSD': 'GC=F', 'XAGUSD': 'SI=F', 'USOIL': 'CL=F',
+    'BTCUSD': 'BTC-USD', 'ETHUSD': 'ETH-USD',
+    'US30': '^DJI', 'NAS100': '^IXIC', 'SPX500': '^GSPC',
+    'GER40': '^GDAXI', 'UK100': '^FTSE', 'DXY': 'DX-Y.NYB'
+  }
+}
+
+// Source 1: Frankfurter API (forex pairs only, completely free)
+async function fetchFrankfurter(): Promise<Record<string, number>> {
+  const res = await fetch('https://api.frankfurter.app/latest?from=USD')
+  const data = await res.json()
+  // data.rates: { EUR: 0.92, GBP: 0.79, JPY: 149.5, ... }
+  // Convert to standard format: EURUSD = 1/rate_if_USD_base
+  const prices: Record<string, number> = {}
+  if (data.rates) {
+    // For EURUSD: EUR per USD = data.rates.EUR, but we need USD per EUR
+    prices['EURUSD'] = parseFloat((1 / data.rates.EUR).toFixed(5))
+    prices['GBPUSD'] = parseFloat((1 / data.rates.GBP).toFixed(5))
+    prices['USDJPY'] = parseFloat(data.rates.JPY.toFixed(3))
+    prices['USDCHF'] = parseFloat(data.rates.CHF.toFixed(5))
+    prices['AUDUSD'] = parseFloat((1 / data.rates.AUD).toFixed(5))
+    prices['NZDUSD'] = parseFloat((1 / data.rates.NZD).toFixed(5))
+    prices['USDCAD'] = parseFloat(data.rates.CAD.toFixed(5))
+    prices['EURGBP'] = parseFloat((data.rates.GBP / data.rates.EUR).toFixed(5))
+    prices['EURJPY'] = parseFloat((data.rates.JPY / data.rates.EUR).toFixed(3))
+    prices['GBPJPY'] = parseFloat((data.rates.JPY / data.rates.GBP).toFixed(3))
+  }
+  return prices
+}
+
+// Source 2: CoinGecko (crypto, completely free, no key)
+async function fetchCoinGecko(): Promise<Record<string, number>> {
+  const res = await fetch(
+    'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple&vs_currencies=usd'
+  )
+  const data = await res.json()
+  return {
+    'BTCUSD': data.bitcoin?.usd || 0,
+    'ETHUSD': data.ethereum?.usd || 0,
+    'SOLUSD': data.solana?.usd || 0,
+    'XRPUSD': data.ripple?.usd || 0,
+  }
+}
+
+// Source 3: Open Exchange Rates (free tier, 1000 req/month)
+async function fetchOpenExchangeRates(): Promise<Record<string, number>> {
+  // Free app_id — register at openexchangerates.org for free
+  const APP_ID = 'a0b0c0d0e0f0' // user should replace with their free key
+  const res = await fetch(`https://openexchangerates.org/api/latest.json?app_id=${APP_ID}`)
+  const data = await res.json()
+  return data.rates || {}
+}
+
+// Source 4: exchangerate.host (free, no key needed for basic)
+async function fetchExchangeRateHost(): Promise<Record<string, number>> {
+  const res = await fetch('https://api.exchangerate.host/live?source=USD&currencies=EUR,GBP,JPY,CHF,AUD,NZD,CAD')
+  const data = await res.json()
+  const quotes = data.quotes || {}
+  return {
+    'EURUSD': parseFloat((1 / (quotes['USDEUR'] || 0.92)).toFixed(5)),
+    'GBPUSD': parseFloat((1 / (quotes['USDGBP'] || 0.79)).toFixed(5)),
+    'USDJPY': parseFloat((quotes['USDJPY'] || 149.5).toFixed(3)),
+    'USDCHF': parseFloat((quotes['USDCHF'] || 0.91).toFixed(5)),
+    'AUDUSD': parseFloat((1 / (quotes['USDAUD'] || 1.54)).toFixed(5)),
+    'NZDUSD': parseFloat((1 / (quotes['USDNZD'] || 1.64)).toFixed(5)),
+    'USDCAD': parseFloat((quotes['USDCAD'] || 1.37).toFixed(5)),
+  }
+}
+
+// GOLD PRICE — dedicated fetcher using multiple free sources
+export async function fetchGoldPrice(): Promise<number> {
+  const sources = [
+    // Source A: metals.live (free, no key)
+    async () => {
+      const res = await fetch('https://metals.live/api/spot')
+      const data = await res.json()
+      const gold = data.find((m: any) => m.metal === 'gold' || m.symbol === 'XAU')
+      return gold?.price || gold?.ask || null
+    },
+    // Source B: goldapi.io (free tier 100 req/month — register free)
+    async () => {
+      const key = localStorage.getItem('jjnexus_goldapi_key') || 'goldapi-demo-key'
+      const res = await fetch('https://www.goldapi.io/api/XAU/USD', {
+        headers: { 'x-access-token': key }
+      })
+      const data = await res.json()
+      return data.price || data.ask || null
+    },
+    // Source C: commodity price via exchangerate.host
+    async () => {
+      const res = await fetch('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1')
+      const data = await res.json()
+      return data.result || null
+    },
+    // Source D: Yahoo Finance via allorigins proxy (avoids CORS)
+    async () => {
+      const url = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1m&range=1d')
+      const res = await fetch(`https://api.allorigins.win/get?url=${url}`)
+      const wrapper = await res.json()
+      const data = JSON.parse(wrapper.contents)
+      return data?.chart?.result?.[0]?.meta?.regularMarketPrice || null
+    },
+    // Source E: Metals API via proxy
+    async () => {
+      const res = await fetch('https://api.allorigins.win/get?url=' +
+        encodeURIComponent('https://www.metalsdaily.com/live-prices/xauusd/'))
+      // Parse the HTML for the price — fallback
+      return null // implement HTML parsing if needed
+    }
+  ]
+
+  for (const source of sources) {
+    try {
+      const price = await source()
+      if (price && price > 1000 && price < 10000) {
+        // Sanity check: Gold should be between $1000-$10000
+        console.log(`Gold price fetched: $${price}`)
+        return price
+      }
+    } catch (e) {
+      continue // try next source
+    }
+  }
+
+  // Last resort: return null and show "Price unavailable" instead of wrong number
+  console.warn('All gold price sources failed')
+  return 0
+}
+
+// MAIN PRICE FETCHER — combines all sources
+export async function fetchAllPrices(): Promise<Record<string, number>> {
+  const prices: Record<string, number> = {}
+
+  // Fetch forex from Frankfurter (most reliable, free)
+  try {
+    const forex = await fetchFrankfurter()
+    Object.assign(prices, forex)
+  } catch (e) {
+    console.warn('Frankfurter failed:', e)
+  }
+
+  // Fetch Gold price
+  try {
+    const goldPrice = await fetchGoldPrice()
+    if (goldPrice > 0) {
+      prices['XAUUSD'] = goldPrice
+      prices['GOLD'] = goldPrice
+    }
+  } catch (e) {
+    console.warn('Gold price fetch failed:', e)
+  }
+
+  // Fetch crypto from CoinGecko
+  try {
+    const crypto = await fetchCoinGecko()
+    Object.assign(prices, crypto)
+  } catch (e) {
+    console.warn('CoinGecko failed:', e)
+  }
+
+  return prices
+}
+
+// Hook for components
+export function useLivePrices() {
+  const [prices, setPrices] = useState<Record<string, number>>({})
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+  const prevPrices = useRef<Record<string, number>>({})
+
+  const refresh = async () => {
+    const fresh = await fetchAllPrices()
+    setPrices(fresh)
+    setLastUpdate(new Date())
+    prevPrices.current = fresh
+  }
+
+  useEffect(() => {
+    refresh()
+    const interval = setInterval(refresh, 10000) // every 10 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  return { prices, lastUpdate, refresh }
+}
+CRITICAL: Replace every hardcoded or simulated price in the ENTIRE app with this system. Search for any hardcoded numbers like 3300, 3465, 2090, 4673 and replace with live API calls. Every component that displays a price must use useLivePrices().
+Display rule: if a price comes back as 0 or undefined, show "— Fetching..." with a spinner. Never show a wrong number. Never hardcode any price anywhere.
+
+=== FIX 2: FREE AI SYSTEM — NO API KEY REQUIRED ===
+Replace the entire AI engine with a multi-provider system that works for free using Replit's built-in AI, GitHub Models, and open APIs:
+typescript// src/utils/freeAI.ts
+// Multi-provider AI system — no paid API key required
+
+const getToday = () => new Date().toLocaleDateString('en-US', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+})
+
+// Provider 1: Replit AI (built-in, already paid by Replit)
+// Replit exposes an AI endpoint at a local URL when running on Replit
+async function callReplitAI(prompt: string): Promise<string> {
+  // Replit's AI is accessible via their agent API when running in Replit environment
+  const replitAIUrl = process.env.REPLIT_AI_URL || 'https://replit.com/api/v1/ai/complete'
+  
+  try {
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, max_tokens: 2000 })
+    })
+    if (!res.ok) throw new Error('Replit AI unavailable')
+    const data = await res.json()
+    return data.completion || data.text || data.content || ''
+  } catch (e) {
+    throw new Error('Replit AI failed')
+  }
+}
+
+// Provider 2: GitHub Models API (free with GitHub account)
+// Get token: github.com → Settings → Developer Settings → Personal Access Tokens → Fine-grained
+// Enable "Models" permission. Free tier: 150 requests/day
+async function callGitHubModels(prompt: string): Promise<string> {
+  const token = localStorage.getItem('jjnexus_github_token') || ''
+  if (!token) throw new Error('No GitHub token')
+
+  const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', // free on GitHub Models
+      messages: [
+        {
+          role: 'system',
+          content: `You are Alchemist AI inside JJ NEXUS PRO — elite forex trading analyst. Today: ${getToday()}. Always provide specific price levels and actionable analysis.`
+        },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3
+    })
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `GitHub Models error ${res.status}`)
+  }
+
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// Provider 3: Groq API (free tier — 14,400 requests/day, extremely fast)
+// Register free at groq.com — no credit card needed
+// Models: llama-3.3-70b-versatile, mixtral-8x7b
+async function callGroq(prompt: string): Promise<string> {
+  const key = localStorage.getItem('jjnexus_groq_key') || 
+               import.meta.env.VITE_GROQ_API_KEY || ''
+  if (!key) throw new Error('No Groq key')
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: `You are Alchemist AI inside JJ NEXUS PRO — the world's most elite forex and gold trading intelligence system.
+TODAY: ${getToday()}
+CRITICAL: The user will provide you with the CURRENT LIVE PRICE fetched from real APIs. Use ONLY that price in your analysis. Never invent or assume prices.
+Be specific, professional, and actionable. Format in clean markdown.
+End every response: "— Alchemist AI | JJ NEXUS PRO"`
+        },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 2000,
+      temperature: 0.2
+    })
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `Groq error ${res.status}`)
+  }
+
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// Provider 4: Anthropic (if user has key)
+async function callAnthropic(prompt: string): Promise<string> {
+  const key = localStorage.getItem('jjnexus_api_key') ||
+               import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+  if (!key) throw new Error('No Anthropic key')
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'interleaved-thinking-2025-05-14'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      system: `You are Alchemist AI inside JJ NEXUS PRO. Today: ${getToday()}. Use web_search to verify current prices before analysis. End responses with "— Alchemist AI | JJ NEXUS PRO"`,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `Anthropic error ${res.status}`)
+  }
+
+  const data = await res.json()
+  return data.content?.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n') || ''
+}
+
+// Provider 5: OpenRouter (free models available — no credit card for free tier)
+// Register at openrouter.ai — gives access to many free models
+async function callOpenRouter(prompt: string): Promise<string> {
+  const key = localStorage.getItem('jjnexus_openrouter_key') || 
+               import.meta.env.VITE_OPENROUTER_KEY || ''
+  if (!key) throw new Error('No OpenRouter key')
+
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`,
+      'HTTP-Referer': 'https://jjnexuspro.replit.app',
+      'X-Title': 'JJ NEXUS PRO'
+    },
+    body: JSON.stringify({
+      model: 'meta-llama/llama-3.3-70b-instruct:free', // completely free
+      messages: [
+        {
+          role: 'system',
+          content: `You are Alchemist AI inside JJ NEXUS PRO — elite forex trading analyst. Today: ${getToday()}. The user provides live prices fetched from real APIs — use those exact prices. Be specific and actionable.`
+        },
+        { role: 'user', content: prompt }
+      ],
+      max_tokens: 2000
+    })
+  })
+
+  if (!res.ok) throw new Error(`OpenRouter error ${res.status}`)
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// MASTER AI CALLER — tries all providers in priority order
+export async function callAlchemistAI(
+  prompt: string,
+  livePrice?: number, // always pass the live price from useLivePrices()
+  pair?: string
+): Promise<string> {
+
+  // Inject live price into the prompt so AI cannot use wrong price
+  const priceContext = livePrice && livePrice > 0
+    ? `\n\nCURRENT LIVE PRICE (fetched from real-time API right now): ${pair || 'Asset'} = ${livePrice.toFixed(pair?.includes('JPY') ? 3 : 5)}\nUse ONLY this price. Do not use any other price.`
+    : '\n\nNote: Live price feed is refreshing. Use approximate current market prices.'
+
+  const fullPrompt = priceContext + '\n\n' + prompt
+
+  // Try providers in order
+  const providers = [
+    { name: 'Groq (Llama 3.3)', fn: () => callGroq(fullPrompt) },
+    { name: 'GitHub Models', fn: () => callGitHubModels(fullPrompt) },
+    { name: 'OpenRouter', fn: () => callOpenRouter(fullPrompt) },
+    { name: 'Anthropic Claude', fn: () => callAnthropic(fullPrompt) },
+    { name: 'Replit AI', fn: () => callReplitAI(fullPrompt) },
+  ]
+
+  const errors: string[] = []
+
+  for (const provider of providers) {
+    try {
+      console.log(`Trying AI provider: ${provider.name}`)
+      const result = await provider.fn()
+      if (result && result.length > 50) {
+        console.log(`Success with: ${provider.name}`)
+        return result + `\n\n*Powered by ${provider.name} | JJ NEXUS PRO*`
+      }
+    } catch (e: any) {
+      errors.push(`${provider.name}: ${e.message}`)
+      continue
+    }
+  }
+
+  // All failed — return helpful error with setup instructions
+  return `## ⚠️ AI Provider Setup Required
+
+All AI providers need configuration. Here's how to get free AI working in 2 minutes:
+
+### Option 1: Groq (Recommended — Fastest & Free)
+1. Go to **groq.com** → Sign up free (no credit card)
+2. Click API Keys → Create API Key → Copy it
+3. Go to JJ NEXUS PRO **Settings → API Configuration**
+4. Paste your Groq key in the "Groq API Key" field
+5. That's it — 14,400 free requests per day!
+
+### Option 2: GitHub Models (Free with GitHub account)
+1. Go to **github.com** → Settings → Developer Settings
+2. Personal Access Tokens → Fine-grained tokens → New token
+3. Name it "JJ NEXUS PRO", enable "Models" permission
+4. Copy token → paste in Settings → GitHub Token field
+
+### Option 3: OpenRouter (Many free models)
+1. Go to **openrouter.ai** → Sign up free
+2. API Keys → Create key → Copy
+3. Paste in Settings → OpenRouter Key field
+
+**Errors encountered:** ${errors.join(' | ')}`
+}
+
+// All analysis functions — now with live price injection
+export const analyzeTechnical = (pair: string, livePrice: number) =>
+  callAlchemistAI(`
+Analyze ${pair} — Full Smart Money Concepts Technical Analysis.
+
+## 📊 Current Price
+LIVE PRICE: ${livePrice} (use this exact price for all levels)
+
+## 🏗️ Market Structure
+- HTF trend (Weekly bias): Bullish/Bearish
+- Current structure event: BOS or CHoCH — where exactly?
+- Key swing high: [price near ${(livePrice * 1.01).toFixed(2)}]
+- Key swing low: [price near ${(livePrice * 0.99).toFixed(2)}]
+
+## 🟦 Order Blocks
+- Nearest Bullish OB: [price zone based on current price ${livePrice}]
+- Nearest Bearish OB: [price zone based on current price ${livePrice}]
+- Most relevant OB for current setup
+
+## 🌀 Fair Value Gaps
+- Open FVG above: [range near current price]
+- Open FVG below: [range near current price]
+
+## 💧 Liquidity
+- Buy-side resting above: [price]
+- Sell-side resting below: [price]
+- Recent stop hunt: yes/no
+
+## 📈 Complete Trade Plan (based on live price: ${livePrice})
+- Bias: Bullish / Bearish / Neutral
+- Entry zone: [exact range]
+- Stop Loss: [exact price — distance in pips]
+- TP1: [price] | TP2: [price] | TP3: [price]
+- Risk:Reward: X:1 | Confidence: X%
+`, livePrice, pair)
+
+export const analyzeFundamental = (pair: string, livePrice: number) => {
+  const base = pair.slice(0, 3), quote = pair.slice(3, 6)
+  return callAlchemistAI(`
+Complete Fundamental Analysis for ${pair} at current price ${livePrice}.
+
+## 🌍 Macro Overview
+- ${base}: Recent GDP, CPI, employment data and trend
+- ${quote}: Same metrics
+
+## 🏦 Central Bank Policy
+- ${base} central bank: current interest rate, last decision, next meeting date
+- ${quote} central bank: same
+- Which policy is more hawkish/dovish and what that means for ${pair}
+
+## 📰 Key News This Week
+- Top 3 news items affecting ${pair}
+- Directional impact of each
+
+## 📊 Fundamental Score
+- ${base} strength: X/10 | ${quote} strength: X/10
+- Overall fundamental bias: Bullish/Bearish/Neutral
+- Conviction: Strong/Moderate/Weak
+
+## 📅 Upcoming High-Impact Events
+- Next 3 events that could move ${pair} with dates
+`, livePrice, pair)
+}
+
+export const analyzeConfluence = (pair: string, livePrice: number, tech: string, fund: string) =>
+  callAlchemistAI(`
+REAL CONFLUENCE DECISION for ${pair}.
+Current live price: ${livePrice}
+
+TECHNICAL ANALYSIS:
+${tech.slice(0, 800)}
+
+FUNDAMENTAL ANALYSIS:
+${fund.slice(0, 800)}
+
+Synthesize into a final decision:
+
+## 🎯 Confluence Score
+Technical + Fundamental agreement: X/10
+
+## ⚖️ Final Verdict
+**Bias:** Strongly Bullish / Bullish / Neutral / Bearish / Strongly Bearish
+**Win Probability:** X%
+
+## 📋 Trade Plan (at current price: ${livePrice})
+| Field | Price |
+|-------|-------|
+| Entry | [zone near ${livePrice}] |
+| Stop Loss | [price] |
+| TP1 | [price] — close 50% |
+| TP2 | [price] — close 30% |
+| TP3 | [price] — full exit |
+| R:R | X:1 |
+
+## ⚠️ Invalidation
+- Bull invalid below: [price]
+- Bear invalid above: [price]
+
+## ⭐ Trade Rating: X/5
+`, livePrice, pair)
+
+export const analyzeSentiment = (pair: string, livePrice: number) =>
+  callAlchemistAI(`
+Market sentiment for ${pair} at price ${livePrice}.
+Based on typical market dynamics, COT positioning tendencies, and current macro environment:
+
+Return ONLY this JSON (no other text, no markdown fences):
+{"sentiment":"Bullish","score":65,"retailLong":"58%","retailShort":"42%","institutionalBias":"Bullish","reason":"Based on current macro conditions and price action","keyLevel":"${livePrice.toFixed(2)}","trend":"Uptrend","momentum":"Moderate","lastUpdated":"${getToday()}"}
+`, livePrice, pair)
+
+=== FIX 3: SETTINGS PAGE — ADD ALL FREE AI KEY FIELDS ===
+In src/components/settings/APISettings.tsx, add these new fields:
+typescriptconst API_PROVIDERS = [
+  {
+    id: 'groq',
+    name: 'Groq API Key',
+    storageKey: 'jjnexus_groq_key',
+    envKey: 'VITE_GROQ_API_KEY',
+    description: 'FREE — 14,400 requests/day. Best option.',
+    signupUrl: 'https://groq.com',
+    steps: '1. groq.com → Sign up free\n2. API Keys → Create Key\n3. Paste here',
+    placeholder: 'gsk_...',
+    badge: '✅ FREE',
+    badgeColor: '#16a34a'
+  },
+  {
+    id: 'github',
+    name: 'GitHub Models Token',
+    storageKey: 'jjnexus_github_token',
+    envKey: 'VITE_GITHUB_TOKEN',
+    description: 'FREE — 150 requests/day with GitHub account.',
+    signupUrl: 'https://github.com/settings/tokens',
+    steps: '1. GitHub → Settings → Developer Settings\n2. Fine-grained tokens → New token\n3. Enable "Models" → Generate → Paste here',
+    placeholder: 'github_pat_...',
+    badge: '✅ FREE',
+    badgeColor: '#16a34a'
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter API Key',
+    storageKey: 'jjnexus_openrouter_key',
+    envKey: 'VITE_OPENROUTER_KEY',
+    description: 'FREE tier available — many free models including Llama 3.3.',
+    signupUrl: 'https://openrouter.ai',
+    steps: '1. openrouter.ai → Sign up free\n2. API Keys → Create\n3. Paste here',
+    placeholder: 'sk-or-...',
+    badge: '✅ FREE',
+    badgeColor: '#16a34a'
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic API Key',
+    storageKey: 'jjnexus_api_key',
+    envKey: 'VITE_ANTHROPIC_API_KEY',
+    description: 'Paid — Claude Sonnet with web search. Best quality.',
+    signupUrl: 'https://console.anthropic.com',
+    steps: '1. console.anthropic.com → Sign up\n2. API Keys → Create key\n3. Paste here',
+    placeholder: 'sk-ant-...',
+    badge: '💳 PAID',
+    badgeColor: '#d97706'
+  },
+  {
+    id: 'goldapi',
+    name: 'Gold API Key (for real-time Gold price)',
+    storageKey: 'jjnexus_goldapi_key',
+    envKey: 'VITE_GOLDAPI_KEY',
+    description: 'FREE 100 requests/month — for accurate XAU/USD price.',
+    signupUrl: 'https://www.goldapi.io',
+    steps: '1. goldapi.io → Sign up free\n2. Copy your API key\n3. Paste here',
+    placeholder: 'goldapi-...',
+    badge: '✅ FREE',
+    badgeColor: '#16a34a'
+  }
+]
+
+// Render each provider as a card with:
+// - Provider name + badge (FREE/PAID)
+// - Description
+// - Step-by-step instructions
+// - Signup link button
+// - Password input field (show/hide toggle)
+// - Save button that writes to localStorage
+// - Status indicator: ✅ Connected / ⚪ Not set
+// - Test button that makes a simple test call
+Also add a "Test All AI Providers" button that tries each configured provider and shows which ones work with green/red status badges.
+
+=== FIX 4: PHONE CAMERA AS HD WEBCAM — COMPLETE IMPLEMENTATION ===
+Create /public/phone-camera.html (standalone page that opens on the phone):
+html<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>JJ NEXUS PRO — Phone Camera</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a; color: #fff; font-family: -apple-system, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .logo { color: #D4AF37; font-size: 20px; font-weight: 800;
+      letter-spacing: 2px; margin-bottom: 8px; }
+    .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
+    #preview {
+      width: 100%; max-width: 400px; height: 280px;
+      object-fit: cover; border-radius: 12px;
+      border: 2px solid #D4AF37; background: #111;
+    }
+    .controls { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+    button {
+      padding: 12px 24px; border: none; border-radius: 8px;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.2s;
+    }
+    .btn-primary { background: #D4AF37; color: #000; }
+    .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .status {
+      margin-top: 16px; padding: 10px 20px; border-radius: 8px;
+      font-size: 14px; text-align: center; max-width: 400px;
+    }
+    .status.idle { background: rgba(255,255,255,0.05); color: #888; }
+    .status.connecting { background: rgba(234,179,8,0.1); color: #eab308; }
+    .status.connected { background: rgba(22,163,74,0.1); color: #16a34a; }
+    .status.error { background: rgba(220,38,38,0.1); color: #dc2626; }
+    .camera-select {
+      width: 100%; max-width: 400px; margin-top: 12px;
+      padding: 10px; background: rgba(255,255,255,0.05);
+      border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px;
+    }
+    .quality-info { font-size: 12px; color: #555; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="logo">JJ NEXUS PRO</div>
+  <div class="subtitle">📱 Phone HD Camera Studio</div>
+
+  <video id="preview" autoplay muted playsinline></video>
+
+  <select id="cameraSelect" class="camera-select">
+    <option value="">Select camera...</option>
+  </select>
+
+  <div class="controls">
+    <button class="btn-primary" onclick="startCamera('environment')">🎥 Rear HD Camera</button>
+    <button class="btn-secondary" onclick="startCamera('user')">🤳 Front Camera</button>
+    <button class="btn-danger" id="stopBtn" onclick="stopCamera()" style="display:none">⏹ Stop</button>
+  </div>
+
+  <div id="status" class="status idle">Tap a button to start your camera</div>
+  <div class="quality-info" id="qualityInfo"></div>
+
+  <script>
+    let currentStream = null
+
+    async function enumerateCameras() {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true })
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const cameras = devices.filter(d => d.kind === 'videoinput')
+        const select = document.getElementById('cameraSelect')
+        select.innerHTML = '<option value="">Select specific camera...</option>'
+        cameras.forEach((cam, i) => {
+          const opt = document.createElement('option')
+          opt.value = cam.deviceId
+          opt.textContent = cam.label || `Camera ${i + 1}`
+          select.appendChild(opt)
+        })
+        select.onchange = () => {
+          if (select.value) startCameraById(select.value)
+        }
+      } catch(e) {}
+    }
+
+    async function startCamera(facing = 'environment') {
+      setStatus('connecting', '🔄 Connecting to ' + (facing === 'environment' ? 'rear' : 'front') + ' camera...')
+      try {
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop())
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facing,
+            width: { ideal: 1920, max: 3840 },
+            height: { ideal: 1080, max: 2160 },
+            frameRate: { ideal: 60, max: 60 }
+          },
+          audio: true
+        })
+        document.getElementById('preview').srcObject = currentStream
+        document.getElementById('stopBtn').style.display = 'block'
+        await enumerateCameras()
+
+        const track = currentStream.getVideoTracks()[0]
+        const settings = track.getSettings()
+        document.getElementById('qualityInfo').textContent =
+          `📡 ${settings.width}×${settings.height} @ ${settings.frameRate}fps`
+
+        setStatus('connected', '✅ HD Camera Active! Your studio is now receiving video.')
+
+        // Notify parent window (desktop app)
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'PHONE_CAMERA_READY',
+            width: settings.width,
+            height: settings.height,
+            fps: settings.frameRate
+          }, '*')
+        }
+        // Also broadcast to localStorage for polling
+        localStorage.setItem('jjnexus_phone_camera', JSON.stringify({
+          active: true, width: settings.width, height: settings.height,
+          timestamp: Date.now()
+        }))
+      } catch(e) {
+        setStatus('error', '❌ ' + (e.name === 'NotAllowedError'
+          ? 'Please allow camera permission and try again.'
+          : e.message))
+      }
+    }
+
+    async function startCameraById(deviceId) {
+      try {
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop())
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: true
+        })
+        document.getElementById('preview').srcObject = currentStream
+        setStatus('connected', '✅ Camera active!')
+      } catch(e) {
+        setStatus('error', '❌ ' + e.message)
+      }
+    }
+
+    function stopCamera() {
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop())
+      currentStream = null
+      document.getElementById('preview').srcObject = null
+      document.getElementById('stopBtn').style.display = 'none'
+      document.getElementById('qualityInfo').textContent = ''
+      localStorage.setItem('jjnexus_phone_camera', JSON.stringify({ active: false }))
+      setStatus('idle', 'Camera stopped.')
+    }
+
+    function setStatus(type, msg) {
+      const el = document.getElementById('status')
+      el.className = 'status ' + type
+      el.textContent = msg
+    }
+  </script>
+</body>
+</html>
+Create src/components/streaming/PhoneCameraConnect.tsx:
+typescriptimport { useState, useEffect, useRef } from 'react'
+import { useCamera } from '../../context/CameraContext'
+
+export default function PhoneCameraConnect() {
+  const { startCamera, stream } = useCamera()
+  const [phoneUrl, setPhoneUrl] = useState('')
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'waiting' | 'connected'>('idle')
+  const [phoneInfo, setPhoneInfo] = useState<{ width: number; height: number; fps: number } | null>(null)
+  const pollingRef = useRef<NodeJS.Timeout>()
+
+  useEffect(() => {
+    const url = `${window.location.origin}/phone-camera.html`
+    setPhoneUrl(url)
+  }, [])
+
+  const openPhoneCamera = () => {
+    const popup = window.open(phoneUrl, 'PhoneCamera',
+      'width=420,height=700,scrollbars=no,toolbar=no,menubar=no')
+    setConnectionStatus('waiting')
+
+    // Listen for postMessage from phone camera page
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === 'PHONE_CAMERA_READY') {
+        setPhoneInfo(e.data)
+        setConnectionStatus('connected')
+        window.removeEventListener('message', handler)
+      }
+    }
+    window.addEventListener('message', handler)
+
+    // Also poll localStorage as fallback
+    pollingRef.current = setInterval(() => {
+      const stored = localStorage.getItem('jjnexus_phone_camera')
+      if (stored) {
+        const data = JSON.parse(stored)
+        if (data.active && Date.now() - data.timestamp < 10000) {
+          setPhoneInfo(data)
+          setConnectionStatus('connected')
+          clearInterval(pollingRef.current)
+        }
+      }
+    }, 2000)
+
+    // Cleanup after 2 minutes
+    setTimeout(() => {
+      clearInterval(pollingRef.current)
+      window.removeEventListener('message', handler)
+    }, 120000)
+  }
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(phoneUrl)
+  }
+
+  return (
+    <div style={{
+      background: 'rgba(212,175,55,0.05)',
+      border: '1px solid rgba(212,175,55,0.2)',
+      borderRadius: 12, padding: 20
+    }}>
+      <h3 style={{ color: '#D4AF37', marginBottom: 4, fontSize: 16 }}>
+        📱 Phone HD Camera
+      </h3>
+      <p style={{ color: '#888', fontSize: 13, marginBottom: 16 }}>
+        Use your phone as a professional HD webcam in the studio
+      </p>
+
+      {/* Connection status */}
+      <div style={{
+        padding: '8px 14px', borderRadius: 8, marginBottom: 16,
+        background: connectionStatus === 'connected' ? 'rgba(22,163,74,0.1)' :
+                    connectionStatus === 'waiting' ? 'rgba(234,179,8,0.1)' :
+                    'rgba(255,255,255,0.05)',
+        color: connectionStatus === 'connected' ? '#16a34a' :
+               connectionStatus === 'waiting' ? '#eab308' : '#666',
+        fontSize: 13, fontWeight: 500
+      }}>
+        {connectionStatus === 'idle' && '⚪ Not connected — click button below to connect'}
+        {connectionStatus === 'waiting' && '🔄 Waiting for phone camera... (open the link on your phone)'}
+        {connectionStatus === 'connected' && `✅ Phone camera connected! ${phoneInfo?.width}×${phoneInfo?.height} @ ${phoneInfo?.fps}fps`}
+      </div>
+
+      {/* Method 1: Open popup */}
+      <div style={{ marginBottom: 16 }}>
+        <button onClick={openPhoneCamera} style={{
+          width: '100%', padding: '12px', background: '#D4AF37',
+          border: 'none', borderRadius: 8, color: '#000',
+          fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 8
+        }}>
+          🚀 Open Phone Camera Page
+        </button>
+        <p style={{ color: '#666', fontSize: 12, textAlign: 'center' }}>
+          Opens a popup — then open the same link on your phone via WiFi
+        </p>
+      </div>
+
+      {/* Method 2: Copy URL / QR */}
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 14 }}>
+        <p style={{ color: '#aaa', fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
+          OR — Open directly on your phone:
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            readOnly value={phoneUrl}
+            style={{
+              flex: 1, background: 'rgba(255,255,255,0.05)',
+              border: '1px solid #333', borderRadius: 6,
+              padding: '8px 12px', color: '#fff', fontSize: 11
+            }}
+          />
+          <button onClick={copyUrl} style={{
+            padding: '8px 14px', background: 'rgba(212,175,55,0.2)',
+            border: '1px solid #D4AF37', borderRadius: 6,
+            color: '#D4AF37', cursor: 'pointer', fontSize: 12, fontWeight: 600
+          }}>
+            Copy
+          </button>
+        </div>
+        <p style={{ color: '#555', fontSize: 11, marginTop: 8 }}>
+          Make sure your phone and computer are on the same WiFi network, then paste this URL in your phone's browser
+        </p>
+      </div>
+
+      {/* Method 3: USB instructions */}
+      <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+        <p style={{ color: '#888', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+          Alternative: USB Cable (Best Quality)
+        </p>
+        <ol style={{ color: '#666', fontSize: 11, paddingLeft: 16, lineHeight: 1.8 }}>
+          <li>Install <strong style={{ color: '#aaa' }}>DroidCam</strong> (Android) or <strong style={{ color: '#aaa' }}>EpocCam</strong> (iPhone)</li>
+          <li>Connect phone via USB cable</li>
+          <li>Open the app on both phone and PC</li>
+          <li>Select it from the Camera dropdown above</li>
+        </ol>
+      </div>
+    </div>
+  )
+}
+Add PhoneCameraConnect to the streaming studio sidebar panel under camera controls.
+
+=== FIX 5: TELEGRAM BOT — FULL CHART ANALYSIS PUSH ===
+Completely redesign the Telegram bot page from a signal pusher to a full chart analysis broadcaster:
+Replace src/pages/TelegramBot.tsx entirely:
+typescript// The Telegram bot page should do this:
+// 1. User connects their Telegram bot token + channel
+// 2. User selects a pair from the full symbol list
+// 3. App fetches live price for that pair
+// 4. App runs Technical + Fundamental + Confluence AI analysis
+// 5. User can take a screenshot of the TradingView chart
+// 6. All of this gets pushed to Telegram as:
+//    - The chart screenshot as an image
+//    - A formatted analysis message below it
+
+// Layout:
+// ┌─────────────────────────────────────────────┐
+// │  📨 TELEGRAM ANALYSIS BROADCASTER           │
+// ├──────────────────┬──────────────────────────┤
+// │ SETUP            │ CHART PREVIEW            │
+// │ Bot Token: [___] │                          │
+// │ Channel: [@___]  │  TradingView chart       │
+// │ [Test Connection]│  for selected pair       │
+// │                  │                          │
+// │ PAIR: [XAUUSD▼]  │  [📸 Capture Screenshot]│
+// │ Price: $3,312.50 │                          │
+// ├──────────────────┴──────────────────────────┤
+// │ ANALYSIS GENERATION                         │
+// │ [⚡ Run Full Analysis] — runs Tech+Fund+Conf│
+// │                                             │
+// │ Preview of formatted Telegram message:      │
+// │ ┌───────────────────────────────────────┐   │
+// │ │ 🎯 JJ NEXUS PRO — XAUUSD Analysis    │   │
+// │ │ 📊 Live Price: $3,312.50             │   │
+// │ │ ⚖️ Bias: Bullish (72%)              │   │
+// │ │ 📈 Entry: 3,295–3,305               │   │
+// │ │ 🛑 Stop Loss: 3,280                 │   │
+// │ │ 🎯 TP1: 3,340 | TP2: 3,370         │   │
+// │ │ ⭐ Rating: 4/5 | R:R: 2.8:1        │   │
+// │ │ — Alchemist AI | JJ NEXUS PRO       │   │
+// │ └───────────────────────────────────────┘   │
+// │                                             │
+// │ SEND OPTIONS:                               │
+// │ [📸 Send Chart Screenshot Only]             │
+// │ [📝 Send Analysis Text Only]               │
+// │ [🚀 Send Chart + Full Analysis] ← MAIN BTN │
+// │                                             │
+// │ HISTORY — Last 10 signals sent             │
+// └─────────────────────────────────────────────┘
+
+const sendToTelegram = async (botToken: string, chatId: string, analysis: string, screenshotBlob?: Blob) => {
+  const baseUrl = `https://api.telegram.org/bot${botToken}`
+
+  // If screenshot exists, send as photo with caption
+  if (screenshotBlob) {
+    const formData = new FormData()
+    formData.append('chat_id', chatId)
+    formData.append('photo', screenshotBlob, 'chart.png')
+    formData.append('caption', analysis.slice(0, 1024)) // Telegram caption limit
+    formData.append('parse_mode', 'HTML')
+
+    const photoRes = await fetch(`${baseUrl}/sendPhoto`, { method: 'POST', body: formData })
+    if (!photoRes.ok) throw new Error('Failed to send photo')
+
+    // If analysis is longer than 1024 chars, send rest as follow-up message
+    if (analysis.length > 1024) {
+      await fetch(`${baseUrl}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: '📊 <b>Full Analysis:</b>\n\n' + analysis.slice(1024),
+          parse_mode: 'HTML'
+        })
+      })
+    }
+  } else {
+    // Text only
+    await fetch(`${baseUrl}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: analysis,
+        parse_mode: 'HTML'
+      })
+    })
+  }
+}
+
+// Chart screenshot using html2canvas
+const captureChartScreenshot = async (): Promise<Blob> => {
+  const { default: html2canvas } = await import('html2canvas')
+  const chartElement = document.getElementById('jjnexus_chart')
+  if (!chartElement) throw new Error('Chart not found')
+  const canvas = await html2canvas(chartElement, {
+    useCORS: true, allowTaint: true,
+    backgroundColor: '#0a0a0a', scale: 2
+  })
+  return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob!), 'image/png', 0.95))
+}
+
+// Format analysis as Telegram HTML message
+const formatTelegramMessage = (pair: string, price: number, confluenceResult: string): string => {
+  return `🎯 <b>JJ NEXUS PRO — ${pair} Analysis</b>
+
+📊 <b>Live Price:</b> ${price.toFixed(pair.includes('JPY') ? 3 : 5)}
+🕐 <b>Time:</b> ${new Date().toLocaleString()}
+
+${confluenceResult
+  .replace(/##/g, '')
+  .replace(/\*\*/g, '<b>').replace(/\*\*/g, '</b>')
+  .replace(/\|/g, '')
+  .slice(0, 3000)}
+
+<i>— Alchemist AI | JJ NEXUS PRO</i>`
+}
+Install html2canvas: add "html2canvas": "^1.4.1" to package.json and run npm install.
+
+=== EXECUTION ORDER ===
+
+Install new dependencies: npm install html2canvas
+Create src/utils/livePrices.ts with full multi-source price fetcher
+Replace ALL price displays in the app with useLivePrices() hook — search for hardcoded prices
+Create src/utils/freeAI.ts with multi-provider AI system
+Update ALL AI call sites to use callAlchemistAI from freeAI.ts with live price injection
+Update APISettings.tsx with all 5 provider key fields + test buttons
+Create /public/phone-camera.html
+Create src/components/streaming/PhoneCameraConnect.tsx
+Add PhoneCameraConnect to streaming studio panel
+Rebuild Telegram bot page completely with chart screenshot + analysis push
+Install html2canvas and wire screenshot capture
+Run npm run build — fix all TypeScript errors
+Test: confirm Gold shows real price, AI works with Groq, phone camera page opens, Telegram sends chart

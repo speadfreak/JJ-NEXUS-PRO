@@ -1,0 +1,613 @@
+================================================================================
+JJ NEXUS PRO: HEALTH REPORT PAGE + ALCHEMIST AI FULL BUILD PROMPT
+Complete Technical Specification for Replit
+================================================================================
+
+Use your FULL potential, maximum coding skill, and highest-quality engineering to build everything described below. This is a two-part build:
+
+  PART 1: Health Report (HR) Verification Page — Monte Carlo, MCMC, and statistical verification of every output JJ NEXUS PRO generates.
+  PART 2: Alchemist AI — Fine-tuned Llama 3.1 8B model trained on SMC, COT, and Alchemist MSNR concepts, integrated into the entire webapp.
+
+Both parts must be built into the existing JJ NEXUS PRO Next.js application, use the existing design system (Tailwind CSS + shadcn/ui + Recharts), and be pushed to the GitHub repository.
+
+================================================================================
+PART 1: HEALTH REPORT VERIFICATION PAGE
+================================================================================
+
+1.1 PAGE OVERVIEW AND ARCHITECTURE
+
+You are building a new page called “Health Report” (route: /health-report) in the existing JJ NEXUS PRO Next.js application. This page is a quantitative verification engine that runs Monte Carlo simulations, Markov Chain Monte Carlo (MCMC) Bayesian inference, bootstrap resampling, and statistical hypothesis tests on EVERY piece of data and analysis the webapp generates. Every time the user opens this page, it runs all verification engines and produces a comprehensive, Bloomberg-terminal-quality health report.
+
+The page must have a navigation tab/label “Health Report” in the existing sidebar (Hedge Fund Suite section, alongside “Order Flow / COT” and “Quant Lab (COT Backtest)”).
+
+Tech constraints: Next.js 14+ App Router, TypeScript, Tailwind CSS, shadcn/ui components, Recharts for all visualizations. Do NOT introduce new frameworks or charting libraries. All statistical computation must run in the browser using pure TypeScript/JavaScript (no Python server needed for Monte Carlo — these calculations on a few hundred data points take milliseconds in JS). For MCMC, implement a simple Metropolis-Hastings sampler in TypeScript — it does not require external libraries.
+
+The page must have a top-level “RUN FULL VERIFICATION” button that triggers all engines simultaneously with a progress indicator, plus individual section refresh buttons. Results must be cached in sessionStorage so they persist during the session.
+
+1.2 SECTION 1: SYSTEM HEALTH SCORE (HERO SECTION)
+
+At the top of the page, display a large, prominent system health score from 0 to 100. This is a composite score calculated from all verification results below.
+
+Scoring methodology:
+  - COT Signal Verification contributes 25 points max
+  - Backtest Verification contributes 25 points max
+  - Statistical Robustness contributes 20 points max
+  - Data Integrity contributes 15 points max
+  - Risk Engine Check contributes 15 points max
+
+Color coding (Bloomberg terminal style):
+  - 80-100: Bright green (#00C853) with label “SYSTEM HEALTHY”
+  - 60-79: Amber (#FFB300) with label “MODERATE CONCERNS”
+  - 40-59: Orange (#FF6D00) with label “SIGNIFICANT ISSUES”
+  - 0-39: Red (#FF1744) with label “CRITICAL — REVIEW REQUIRED”
+
+Display the score as a large circular gauge (use a custom SVG circle component, not a library). Below the score, show 5 smaller metric cards, one for each component above, each showing its individual score and a 1-word status (HEALTHY / WARNING / CRITICAL).
+
+1.3 SECTION 2: COT SIGNAL VERIFICATION (MONTE CARLO)
+
+This is the most important section. It answers the question: “Are our COT signal grades genuinely predictive, or could they have occurred by random chance?”
+
+Data source: Use the existing COT backtest data that is already available in the application. If the backtest has been run, pull the signal history. If not, display a message: “Run a COT Backtest first to enable signal verification.”
+
+Monte Carlo Simulation Engine (implement in pure TypeScript):
+
+For each signal grade (A, B+, B) and each instrument (XAUUSD, EURUSD, GBPUSD):
+
+  Step 1: Get the actual signal returns (4W returns for all signals of this grade/instrument)
+  Step 2: Calculate actual win rate, mean return, Sharpe ratio
+  Step 3: Run 10,000 Monte Carlo simulations:
+    - For each simulation, randomly select N dates from the instrument’s price history
+      (where N = number of actual signals)
+    - Calculate the 4-week forward return for each random date
+    - Calculate the win rate, mean return, and Sharpe for this random simulation
+  Step 4: Build the distribution of 10,000 random Sharpe ratios
+  Step 5: Calculate what percentile the actual Sharpe falls in
+  Step 6: Calculate the p-value: proportion of random simulations that
+      produced a Sharpe equal to or better than the actual
+
+Display for each grade/instrument combination:
+  - Actual win rate vs random mean win rate (with difference highlighted)
+  - Actual Sharpe vs 95th percentile of random Sharpe distribution
+  - p-value with significance stars (*** p<0.01, ** p<0.05, * p<0.1)
+  - A histogram chart (Recharts BarChart) showing the distribution of 10,000 random
+    Sharpe ratios, with a vertical line marking the actual Sharpe
+  - Verdict: “GENUINE ALPHA” if p < 0.05, “MARGINAL” if p < 0.10,
+    “NOT SIGNIFICANT” if p >= 0.10
+
+MCMC Bayesian Inference (implement Metropolis-Hastings in TypeScript):
+
+For each signal grade on XAUUSD (the instrument with the edge):
+
+  Prior distribution: Beta distribution with alpha=2, beta=2 (uninformative prior
+    centered at 50% win rate) — OR use the Dreesmann paper’s reported win rate
+    as an informed prior (Beta distribution centered at the Dreesmann value)
+
+  Likelihood: Binomial (wins out of N signals)
+
+  Metropolis-Hastings sampler:
+    - Parameter to estimate: true underlying win rate (theta, bounded 0 to 1)
+    - Proposal distribution: Normal(theta_current, 0.02), reflected at 0 and 1
+    - Run 50,000 iterations (discard first 10,000 as burn-in)
+    - Store the posterior samples
+
+  Calculate and display:
+    - Posterior mean win rate (point estimate)
+    - 95% credible interval (2.5th and 97.5th percentiles of posterior)
+    - Posterior standard deviation
+    - A density chart (Recharts AreaChart) showing the posterior distribution
+      with the 95% CI shaded and the prior distribution overlaid as a dashed line
+    - Interpretation text: “Given the data and prior, there is a 95% probability
+      the true win rate is between X% and Y%”
+
+Also run MCMC on the MEAN RETURN (not just win rate):
+  - Prior: Normal(0, 2%) — we believe the true mean return is near zero
+  - Likelihood: Normal(actual_returns, observed_std)
+  - Estimate the posterior distribution of the true mean return
+  - Display: posterior mean, 95% CI, and density chart
+  - This answers: “What is the true expected return per signal?”
+
+1.4 SECTION 3: BACKTEST RESULT VERIFICATION
+
+This section verifies the integrity and robustness of the backtest results.
+
+Bootstrap Sharpe Ratio Confidence Interval:
+  For the overall backtest strategy (all signals on XAUUSD LONG):
+    - Take the actual 4W returns array
+    - Resample with replacement 10,000 times (each resample = same size as original)
+    - Calculate Sharpe for each bootstrap sample
+    - Report: Actual Sharpe, Bootstrap 95% CI [lower, upper], Bootstrap mean
+    - Display as a chart: histogram of bootstrap Sharpe distribution with CI marked
+
+Overfitting Detection:
+  - Calculate the ratio: Out-of-Sample Sharpe / In-Sample Sharpe
+  - If ratio >= 0.70: “NO SIGNIFICANT OVERFITTING” (green)
+  - If ratio 0.50-0.69: “MODERATE OVERFITTING RISK” (amber)
+  - If ratio < 0.50: “SEVERE OVERFITTING DETECTED” (red)
+  - Display a comparison bar: In-Sample Sharpe vs Out-of-Sample Sharpe
+
+Walk-Forward Validation Score:
+  - Divide the data into 6 rolling windows (each ~4 years)
+  - Calculate Sharpe for each window
+  - Calculate the coefficient of variation (std/mean) across windows
+  - Lower CV = more consistent performance = more robust
+  - Display: line chart of rolling Sharpe over time
+  - Flag any window where Sharpe < 0 as a “failure period”
+
+Multiple Testing Correction:
+  - Count total hypothesis tests: grades (3) x instruments (3) x horizons (5) = 45 tests
+  - Apply Bonferroni correction: significance threshold = 0.05 / 45 = 0.00111
+  - Apply Benjamini-Hochberg FDR correction
+  - For each significant result, report: uncorrected p-value, Bonferroni-corrected
+    significance, BH-adjusted q-value
+  - Display a table showing which results survive correction
+  - This is critical — it shows whether the edge is real after accounting for
+    the fact that we tested many combinations
+
+1.5 SECTION 4: ALCHEMIST AI ACCURACY REPORT
+
+If the app tracks Alchemist AI trade setups and their outcomes, this section verifies the AI’s accuracy.
+
+If no AI setup tracking data exists yet (which is likely at this stage), display a placeholder:
+  “Alchemist AI accuracy tracking will be available after sufficient trade
+   setup outcomes are recorded. The system requires a minimum of 30 completed
+   setups per category to produce statistically meaningful accuracy metrics.”
+
+When data is available, calculate and display:
+  - Overall AI setup win rate with 95% Clopper-Pearson confidence interval
+  - Win rate by setup type (Order Block, FVG, Liquidity Sweep, CHoCH, etc.)
+  - R-multiple distribution chart (histogram)
+  - Average R-multiple by setup type
+  - Kelly Criterion optimal position size: f* = (bp - q) / b
+    where b = avg win/avg loss, p = win rate, q = 1 - p
+  - Monte Carlo: 1,000 simulations of 50 consecutive trades using the AI’s
+    historical distribution to project expected drawdowns and terminal wealth
+
+1.6 SECTION 5: CORRELATION AND ACADEMIC VERIFICATION
+
+This section verifies that the app’s data matches published academic findings.
+
+Zhang and Laws (2020) Replication:
+  - Calculate the Pearson correlation between Commercial Sentiment Index and
+    contemporaneous XAUUSD returns
+  - Report: correlation coefficient, beta, standard error, t-statistic, p-value
+  - Zhang & Laws found: beta = -0.016, t = -5.696, p < 0.01
+  - Display: “Academic Finding: beta = -0.016 | Your Data: beta = X.XXX”
+  - Verdict: “CONFIRMED” if same sign and p < 0.05, “NOT REPLICATED” otherwise
+
+Dreesmann (2012) Comparison:
+  - Display side-by-side comparison table:
+    | Metric | Dreesmann Published | Your Backtest |
+    | Sharpe Ratio | ~0.8-1.2 | X.XX |
+    | Annualized Return | X% | X% |
+    | Max Drawdown | X% | X% |
+    | Winning Trades | X% | X% |
+  - Note any significant differences with possible explanations
+
+Live vs Backtest Comparison:
+  - If forward/live signal tracking data exists, compare live performance
+    metrics against backtest metrics
+  - Display: overlapping distribution charts
+  - Verdict: “CONSISTENT” if within 95% CI, “DIVERGING” otherwise
+
+1.7 SECTION 6: RISK ENGINE VERIFICATION
+
+Monte Carlo Drawdown Projection:
+  - Take the actual return distribution (mean, std, skewness, kurtosis)
+  - Run 5,000 simulations of 100 consecutive trades
+  - For each simulation, calculate: maximum drawdown, worst losing streak,
+    terminal equity (starting from $10,000 hypothetical)
+  - Display:
+    - Histogram of maximum drawdown distribution
+    - “With 95% confidence, maximum drawdown will not exceed X%”
+    - “With 99% confidence, maximum drawdown will not exceed Y%”
+    - Histogram of terminal equity distribution
+    - “With 95% confidence, after 100 trades equity will be between $X and $Y”
+
+Value at Risk (VaR) Calculation:
+  - Parametric VaR: mean - 1.645 * std (95% one-tailed)
+  - Historical VaR: 5th percentile of actual returns
+  - Conditional VaR (CVaR/Expected Shortfall): mean of returns below 5th percentile
+  - Display all three with clear labels
+
+Position Sizing Verification:
+  - If the app has a position sizing formula, verify it produces
+    reasonable results across the return distribution
+  - Check: does position sizing keep maximum per-trade risk below 2%?
+  - Monte Carlo: simulate 1,000 trades with the position sizing formula
+    and check if any single trade risks more than 2% of equity
+
+1.8 SECTION 7: DATA INTEGRITY REPORT
+
+Automated checks that run on every page load:
+
+  - CFTC Data Freshness: How old is the most recent COT data? Display date.
+    Flag if older than 7 days.
+  - Price Feed Accuracy: Compare latest price in the app against a
+    secondary source (if available). Flag discrepancies > 0.1%.
+  - Backtest Data Completeness: Check for gaps in historical data.
+    Report date range, number of data points, any gaps.
+  - Signal Engine Consistency: Run the 5-condition calculation on the most
+    recent COT data and verify it matches the live dashboard’s signal.
+    If mismatch, flag as CRITICAL.
+  - API Health: Check status of all API endpoints used by the app.
+    Display green/red status for each.
+  - Regime Data Coverage: What percentage of signals have DXY, VIX, and
+    Trend regime classifications? Flag if < 90%.
+
+Display as a table with columns: Check Name | Status | Details | Last Verified
+
+1.9 SECTION 8: REPORT EXPORT
+
+A “Download Full Report” button that generates a text-based summary of
+all verification results and downloads it as a .txt file. Include:
+  - Timestamp and app version
+  - System Health Score with breakdown
+  - All Monte Carlo results with p-values
+  - All MCMC posterior distributions with credible intervals
+  - All bootstrap confidence intervals
+  - Academic verification results
+  - Risk metrics (VaR, CVaR, drawdown projections)
+  - Data integrity status
+  - A plain-text summary suitable for sharing with a mentor
+
+================================================================================
+PART 2: ALCHEMIST AI — FINE-TUNED LLAMA 3.1 8B
+================================================================================
+
+2.1 OVERVIEW AND ARCHITECTURE
+
+You are building a custom AI model called “Alchemist AI” that is fine-tuned on
+Smart Money Concepts (SMC), Market Structure, Nasdaq/Range (MSNR), and
+CFTC COT data. The model will be fine-tuned using Llama 3.1 8B on Google Colab
+(free GPU), deployed on Hugging Face Spaces (free), and integrated into
+JJ NEXUS PRO via API.
+
+What Replit must build:
+
+  A) A Python training pipeline (Jupyter notebook format for Google Colab)
+  B) A dataset generation script (TypeScript/Node.js, runs in JJ NEXUS PRO)
+  C) A model deployment configuration for Hugging Face Spaces
+  D) An API integration layer (Next.js API routes in JJ NEXUS PRO)
+  E) A chat/analysis UI component in JJ NEXUS PRO
+
+2.2 COMPONENT A: TRAINING PIPELINE (Google Colab Notebook)
+
+Create a file: /notebooks/alchemist_ai_training.ipynb
+This is a Jupyter notebook that the user will upload to Google Colab and run.
+
+The notebook must contain these cells in order:
+
+Cell 1: Environment Setup
+  - pip install transformers datasets accelerate peft trl bitsandbytes
+  - import torch; print(torch.cuda.get_device_name(0))
+  - Verify GPU is available (T4 on Colab free tier)
+
+Cell 2: Load Base Model
+  - Load meta-llama/Meta-Llama-3.1-8B-Instruct in 4-bit quantization
+    using BitsAndBytesConfig (load_in_4bit=True, bnb_4bit_quant_type="nf4")
+  - This fits in 16GB VRAM (Colab T4 has 16GB)
+  - Set pad_token = eos_token
+
+Cell 3: Load Training Dataset
+  - The dataset will be a JSONL file uploaded to Colab or hosted on Hugging Face
+  - Format: each line is {"messages": [{"role": "system", "content": "..."},
+    {"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
+  - Load with datasets.load_dataset(“json”, data_files="alchemist_training_data.jsonl”)
+  - Split into train (90%) and test (10%)
+  - Print dataset statistics
+
+Cell 4: Configure LoRA Fine-Tuning
+  - Use PEFT (Parameter-Efficient Fine-Tuning) with LoRA
+  - Target modules: ["q_proj", "k_proj", "v_proj", "o_proj",
+    "gate_proj", "up_proj", "down_proj"]
+  - r=16, lora_alpha=32, lora_dropout=0.05
+  - This only trains ~0.1% of the model’s parameters — extremely efficient
+
+Cell 5: Training Arguments
+  - Use trl.SFTTrainer
+  - per_device_train_batch_size=2, gradient_accumulation_steps=4
+    (effective batch size = 8)
+  - learning_rate=2e-4, warmup_ratio=0.03
+  - num_train_epochs=3, fp16=True
+  - max_seq_length=2048
+  - Output to ./alchemist-ai-checkpoint
+  - This should complete in 4-8 hours on Colab T4
+
+Cell 6: Run Training
+  - trainer.train()
+  - Print training loss curve
+
+Cell 7: Save and Export
+  - Merge LoRA weights into base model
+  - Save locally: model.save_pretrained(“./alchemist-ai-merged”)
+  - Optional: push to Hugging Face Hub:
+    model.push_to_hub(“USERNAME/alchemist-ai-v1”)
+    tokenizer.push_to_hub(“USERNAME/alchemist-ai-v1”)
+
+Cell 8: Test the Fine-Tuned Model
+  - Run inference on 5 test examples from the held-out set
+  - Print the model’s responses
+  - Compare with the expected outputs
+
+Cell 9: Quantize for Deployment
+  - Convert to GGUF format using llama.cpp for efficient serving:
+    pip install llama-cpp-python
+  - Or use GPTQ quantization for Hugging Face Spaces deployment
+  - Save the quantized model
+
+2.3 COMPONENT B: DATASET GENERATION SCRIPT
+
+Create a file: /src/utils/generateTrainingDataset.ts
+This is a TypeScript module that generates the training data for the AI.
+
+The dataset must contain examples in these categories:
+
+Category 1: SMC Analysis (1,000 examples)
+  Each example is a conversation where:
+    System: “You are Alchemist AI, an expert in Smart Money Concepts (SMC),
+      institutional order flow analysis, and market structure trading.
+      You analyze price action using Order Blocks, Fair Value Gaps (FVGs),
+      Liquidity Sweeps, Change of Character (CHoCH), Break of Structure (BOS),
+      and Premium/Discount zones. Always explain the institutional logic
+      behind your analysis.”
+    User: “Analyze this XAUUSD H4 chart. Price swept liquidity at 2340,
+      formed a CHoCH, and is now at a Bearish Order Block at 2365.
+      What is the trade setup?”
+    Assistant: [Detailed SMC analysis with entry, SL, TP, confluence,
+      and institutional reasoning]
+
+  Generate diverse examples covering:
+  - Bullish and bearish scenarios
+  - All SMC concepts (OB, FVG, liquidity sweep, CHoCH, BOS)
+  - All instruments (XAUUSD, EURUSD, GBPUSD)
+  - All timeframes (M15, H1, H4, D1)
+  - Different market conditions (trending, ranging, volatile)
+
+  The script should use template-based generation with randomized parameters
+  to create diverse examples programmatically.
+
+Category 2: COT Data Interpretation (500 examples)
+  Each example:
+    User: “The latest COT report shows: CSI = 0.82, NC% = 42%,
+      NRSI = 0.15, OI rising, commercials increasing longs.
+      What does this mean for Gold?”
+    Assistant: [Interpretation linking COT data to price direction,
+      signal grade, and trade implications]
+
+Category 3: Combined SMC + COT Analysis (500 examples)
+  Each example:
+    User: “XAUUSD H4 shows a bullish CHoCH at 2340 with a bullish OB
+      at 2320. The COT report shows CSI = 0.78, NRSI = 0.22,
+      commercials heavily long. How do I combine these?”
+    Assistant: [Integrated analysis showing how SMC and COT confirm
+      each other, with specific trade plan]
+
+Category 4: MSNR Concepts (300 examples)
+  Market Structure, Nasdaq/Range analysis, premium/discount zones,
+  institutional levels, and how they relate to SMC entries.
+
+Category 5: Risk Management and Position Sizing (200 examples)
+  Kelly criterion, R-multiple calculations, drawdown management,
+  portfolio heat, correlation between positions.
+
+Total: 2,500 examples minimum
+Output format: JSONL file with Hugging Face chat template format
+Each example must be 200-500 words in the assistant response
+
+The generation script should create a file: /data/alchemist_training_data.jsonl
+
+2.4 COMPONENT C: MODEL DEPLOYMENT
+
+Create a file: /deployment/hf_spaces/README.md
+This contains instructions for deploying the fine-tuned model on Hugging Face Spaces.
+
+Create a file: /deployment/hf_spaces/app.py
+A Gradio or FastAPI application that:
+  - Loads the fine-tuned model
+  - Exposes a /generate endpoint
+  - Accepts: messages array, temperature, max_tokens
+  - Returns: generated response
+  - Handles concurrent requests
+  - Includes rate limiting (free tier: 30 requests/minute)
+
+Deployment options (document all three, user chooses):
+  Option 1: Hugging Face Spaces (free, easiest)
+    - Create a Space with GPU (T4 free tier available)
+    - Deploy the app.py with the model
+    - Get an API endpoint URL
+  Option 2: Google Cloud Run (free tier available)
+    - Containerize with Docker
+    - Deploy model as a REST API
+  Option 3: RunPod (cheap, $0.20/hour for GPU)
+    - Rent a GPU instance
+    - Deploy vLLM for fast inference
+
+2.5 COMPONENT D: API INTEGRATION LAYER (IN JJ NEXUS PRO)
+
+Create these Next.js API routes:
+
+Route 1: /api/alchemist/chat
+  - POST endpoint
+  - Accepts: { messages: Array<{role: string, content: string}>,
+    model: “alchemist” | “claude”, temperature?: number,
+    maxTokens?: number }
+  - If model === “alchemist”: forward to the deployed Alchemist AI endpoint
+  - If model === “claude”: forward to Anthropic API (existing functionality)
+  - Response: { response: string, model: string, latency: number }
+  - Include error handling and fallback:
+    If Alchemist API is down, automatically fall back to Claude
+    Log the failure for monitoring
+
+Route 2: /api/alchemist/status
+  - GET endpoint
+  - Returns: { status: “online” | “offline”, latency: number,
+    modelVersion: string, lastHealthCheck: string }
+  - Performs a lightweight health check against the Alchemist endpoint
+
+Route 3: /api/alchemist/dataset/generate
+  - POST endpoint
+  - Triggers the dataset generation script
+  - Returns: { status: “generating”, estimatedExamples: number }
+  - The actual generation runs asynchronously
+  - When complete, the JSONL file is saved to /data/
+
+2.6 COMPONENT E: ALCHEMIST AI UI IN JJ NEXUS PRO
+
+Create a new page or tab called “Alchemist AI” that provides a chat interface
+for interacting with the custom model.
+
+UI Components:
+  - Chat message display area (user messages right-aligned, AI left-aligned)
+  - Message input with send button
+  - Model selector dropdown: “Alchemist AI (Custom)” / “Claude (Fallback)”
+  - Status indicator: green dot when Alchemist is online, red when offline
+  - Pre-built analysis buttons:
+    “Analyze Current COT Data” — auto-generates a prompt using
+      the latest COT signal data and sends it to Alchemist
+    “SMC Analysis: XAUUSD” — opens a pre-filled prompt for Gold analysis
+    “Combined COT + SMC Analysis” — generates an integrated prompt
+    “Explain Current Signal Grade” — sends the current signal
+      details and asks Alchemist to explain the institutional logic
+  - Response time display (latency in ms)
+  - Export conversation as text
+
+The Alchemist AI must be deeply integrated with the rest of the app:
+  - When the user views the COT Dashboard, a button “Ask Alchemist about
+    this signal” should appear, pre-filling the chat with the current
+    signal data
+  - When viewing a backtest result, “Ask Alchemist to interpret”
+    should send the backtest metrics for AI commentary
+  - The AI’s responses should reference actual app data, not generic analysis
+
+2.7 TRAINING DATA QUALITY STANDARDS
+
+The training data must meet these quality standards:
+
+  - Every assistant response must be 200-500 words minimum
+  - Every response must include specific price levels, not vague statements
+  - Every response must explain the INSTITUTIONAL LOGIC (why would
+    commercials/hedge funds do this?)
+ - Every SMC analysis must identify: the specific SMC concept, the
+    exact price level, the entry/SL/TP, and the confluence factors
+  - Every COT interpretation must reference the specific data values
+    and explain what they mean for institutional positioning
+  - Combined analyses must show HOW the two methods confirm each other,
+    not just state them separately
+  - No hallucinated data — all examples must use realistic but clearly
+    fictional scenarios (not real market data that could mislead)
+  - Include edge cases: what to do when signals conflict, when COT
+    says one thing but price says another, when no clear setup exists
+
+2.8 SYSTEM PROMPT FOR THE FINE-TUNED MODEL
+
+The system prompt that will be baked into the model during fine-tuning:
+
+“You are Alchemist AI, the proprietary trading intelligence system of
+JJ NEXUS PRO. You are an expert in three integrated methodologies:
+
+1. Smart Money Concepts (SMC): You analyze institutional order flow
+   through Order Blocks, Fair Value Gaps (FVGs), Liquidity Sweeps,
+   Change of Character (CHoCH), Break of Structure (BOS), Premium and
+   Discount zones, and displacement candles. You always explain the
+   institutional logic: WHY would smart money defend this level?
+   WHERE are stop losses clustered? WHAT does the liquidity map look like?
+
+2. CFTC Commitments of Traders (COT): You interpret the weekly CFTC
+   report using the Dreesmann 5-condition methodology. You understand
+   that commercials are hedgers (producers, merchants), non-commercials
+   are speculators (hedge funds, CTAs), and non-reportables are small
+   traders. You use the Commercial Sentiment Index (CSI), Non-Commercial
+   positioning percentage, Non-Reportable Sentiment Index (NRSI),
+   open interest trends, and week-over-week changes. You know that
+   COT is a CONTRARIAN indicator: extreme commercial positioning
+   predicts reversals.
+
+3. Market Structure and MSNR: You identify institutional levels,
+   premium/discount zones, and market structure shifts. You combine
+   this with SMC for precise entries and with COT for directional
+   conviction.
+
+Your analysis style:
+- Always provide specific price levels for entry, stop loss,
+  and take profit
+- Always explain the institutional reasoning (WHO is doing WHAT
+  and WHY)
+- Always assess confluence (how many factors align)
+- Always state the risk/reward ratio and confidence level
+- When methodologies conflict, say so explicitly and recommend
+  the conservative approach
+- Never give financial advice — always frame as analysis, not recommendation”
+
+2.9 INTEGRATION CHECKLIST
+
+Everything below must be working before the build is complete:
+
+  [ ] Health Report page loads at /health-report
+  [ ] System Health Score calculates and displays correctly
+  [ ] Monte Carlo simulation runs 10,000 iterations in < 10 seconds
+  [ ] MCMC posterior distribution displays with 95% CI
+  [ ] Bootstrap Sharpe CI calculates and displays
+  [ ] Overfitting detection (in-sample vs out-of-sample ratio) works
+  [ ] Multiple testing correction (Bonferroni and BH) implemented
+  [ ] Risk metrics (VaR, CVaR, drawdown projection) calculate
+  [ ] Data integrity checks run and display status
+  [ ] Report export downloads as .txt file
+  [ ] Training notebook is complete and ready for Google Colab
+  [ ] Dataset generation script creates 2,500+ examples in JSONL format
+  [ ] Deployment configuration for Hugging Face Spaces is ready
+  [ ] API routes (/api/alchemist/chat, /status, /dataset/generate) exist
+  [ ] Alchemist AI chat UI renders and sends messages
+  [ ] Model selector dropdown works (Alchemist / Claude fallback)
+  [ ] Pre-built analysis buttons populate and send correct prompts
+  [ ] Alchemist AI is integrated with COT Dashboard (Ask Alchemist button)
+  [ ] Alchemist AI is integrated with Quant Lab (interpret backtest button)
+  [ ] All new pages and routes are in the GitHub repo
+  [ ] Code is TypeScript throughout with proper types
+  [ ] No console.log in production code
+  [ ] UI is consistent with existing JJ NEXUS PRO design
+
+2.10 WHAT YOUR MENTOR WANTS TO SEE
+
+When the mentor opens the Health Report page, he should see:
+  - A quantitative verification system that runs real statistical tests
+  - Monte Carlo p-values proving the COT edge is not luck
+  - Bayesian posterior distributions showing uncertainty ranges
+  - Bootstrap confidence intervals on all key metrics
+  - A composite health score that summarizes system integrity
+  - Every claim backed by a statistical test with a p-value
+
+When he sees the Alchemist AI:
+  - A custom-trained model that speaks SMC and COT fluently
+  - Not a generic chatbot — a specialized financial intelligence system
+  - Integrated with the app’s actual data, not generic analysis
+  - A training pipeline that could be extended and improved
+  - The combination of custom AI + statistical verification is
+    what separates a hobby project from a quant platform
+
+================================================================================
+BUILD ORDER AND PRIORITY
+================================================================================
+
+Build in this exact order (each step must be complete before moving on):
+
+Step 1: Health Report page shell with navigation and System Health Score
+Step 2: Monte Carlo simulation engine for COT signal verification
+Step 3: MCMC Bayesian inference engine for posterior distributions
+Step 4: Backtest verification section (bootstrap, overfitting, multiple testing)
+Step 5: Risk engine verification (drawdown projection, VaR, CVaR)
+Step 6: Data integrity report and academic verification
+Step 7: Report export functionality
+Step 8: Dataset generation script (2,500 examples)
+Step 9: Training notebook for Google Colab
+Step 10: Deployment configuration for Hugging Face Spaces
+Step 11: API integration routes
+Step 12: Alchemist AI chat UI
+Step 13: Deep integration (Ask Alchemist buttons on COT and Quant Lab pages)
+Step 14: Push everything to GitHub
+
+Use your maximum coding ability. Build everything to production quality.
+This is the build that takes JJ NEXUS PRO from a trading tool to a
+quantitative trading platform. Make it insane.
+================================================================================
+END OF PROMPT
+================================================================================

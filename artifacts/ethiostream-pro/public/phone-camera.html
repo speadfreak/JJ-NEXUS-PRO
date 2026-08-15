@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JJ Camera">
+  <meta name="theme-color" content="#D4AF37">
+  <link rel="manifest" href="/phone-camera-manifest.json">
+  <title>JJ NEXUS PRO — Phone Camera</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #050505; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; padding: 16px 14px 40px; gap: 0;
+    }
+    .logo { color: #D4AF37; font-size: 18px; font-weight: 900; letter-spacing: 3px; margin: 6px 0 2px; }
+    .subtitle { color: #555; font-size: 12px; margin-bottom: 12px; letter-spacing: 1px; }
+
+    .preview-wrap { position: relative; width: 100%; max-width: 420px; }
+    #preview {
+      width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 14px;
+      border: 2px solid #D4AF37; background: #111;
+      box-shadow: 0 0 30px rgba(212,175,55,0.2); display: block;
+    }
+    #flipBtn {
+      position: absolute; top: 10px; right: 10px;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.65); border: 2px solid rgba(212,175,55,0.6);
+      color: #D4AF37; font-size: 20px; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px); transition: all 0.2s;
+    }
+    #flipBtn:active { transform: scale(0.88); background: rgba(212,175,55,0.2); }
+    #camLabel {
+      position: absolute; bottom: 10px; left: 10px;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+      border: 1px solid rgba(212,175,55,0.3); border-radius: 999px;
+      padding: 4px 12px; font-size: 11px; font-weight: 700; color: #D4AF37;
+      display: none; letter-spacing: 1px;
+    }
+    #bgIndicator {
+      position: absolute; top: 10px; left: 10px;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+      border: 1px solid rgba(34,197,94,0.5); border-radius: 999px;
+      padding: 4px 10px; font-size: 10px; font-weight: 700; color: #22c55e;
+      display: none; letter-spacing: 0.5px; animation: bgPulse 2s infinite;
+    }
+    @keyframes bgPulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 8px; padding: 6px 14px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; transition: all 0.3s;
+    }
+    .badge.idle { background: rgba(255,255,255,0.05); color: #555; }
+    .badge.connecting { background: rgba(234,179,8,0.1); color: #eab308; }
+    .badge.live { background: rgba(22,163,74,0.12); color: #22c55e; }
+    .badge.error { background: rgba(220,38,38,0.1); color: #ef4444; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.green { background: #22c55e; animation: pulse 1.2s infinite; }
+    .dot.yellow { background: #eab308; animation: pulse 0.8s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    .quality { font-size: 11px; color: #D4AF37; margin-top: 4px; font-family: monospace; letter-spacing: 1px; min-height: 16px; }
+
+    .start-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; margin-top: 12px; width: 100%; max-width: 420px;
+    }
+    .start-card {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 16px 10px; border-radius: 14px; cursor: pointer;
+      border: 2px solid transparent; transition: all 0.18s; user-select: none;
+    }
+    .start-card:active { transform: scale(0.95); }
+    .start-card .icon { font-size: 30px; line-height: 1; }
+    .start-card .label { font-size: 13px; font-weight: 800; }
+    .start-card .sub { font-size: 10px; font-weight: 600; opacity: 0.7; letter-spacing: 0.5px; }
+    .card-rear { background: rgba(212,175,55,0.12); border-color: rgba(212,175,55,0.5); color: #D4AF37; }
+    .card-rear:hover { background: rgba(212,175,55,0.2); border-color: #D4AF37; }
+    .card-front { background: rgba(41,98,255,0.1); border-color: rgba(41,98,255,0.45); color: #5b9bff; }
+    .card-front:hover { background: rgba(41,98,255,0.18); border-color: #2962FF; }
+    .card-active-rear { background: rgba(212,175,55,0.22) !important; border-color: #D4AF37 !important; box-shadow: 0 0 16px rgba(212,175,55,0.3); }
+    .card-active-front { background: rgba(41,98,255,0.22) !important; border-color: #2962FF !important; box-shadow: 0 0 16px rgba(41,98,255,0.3); }
+
+    .btn-stop {
+      width: 100%; max-width: 420px; margin-top: 10px;
+      padding: 14px; border: none; border-radius: 12px;
+      background: #dc2626; color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; display: none; align-items: center; justify-content: center; gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-stop:active { transform: scale(0.97); }
+
+    #installBanner {
+      width: 100%; max-width: 420px; margin-top: 10px;
+      padding: 12px 16px; background: rgba(212,175,55,0.08);
+      border: 1px solid rgba(212,175,55,0.35); border-radius: 12px;
+      display: none; align-items: center; gap: 10px;
+    }
+    #installBanner .ib-icon { font-size: 22px; flex-shrink: 0; }
+    #installBanner .ib-text { flex: 1; }
+    #installBanner .ib-text strong { color: #D4AF37; font-size: 12px; display: block; margin-bottom: 2px; }
+    #installBanner .ib-text span { color: #777; font-size: 11px; line-height: 1.5; }
+    #installBanner button { background: #D4AF37; color: #000; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
+
+    /* ── Audio / Mic panel ─────────────────────────────────────────────────── */
+    #micPanel {
+      width: 100%; max-width: 420px; margin-top: 10px;
+      border: 1px solid rgba(212,175,55,0.25); border-radius: 12px;
+      overflow: hidden; display: none;
+    }
+    .mic-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: rgba(212,175,55,0.06);
+      cursor: pointer; user-select: none;
+    }
+    .mic-header-left { display: flex; align-items: center; gap: 8px; }
+    .mic-header-left span { font-size: 13px; font-weight: 700; color: #D4AF37; }
+    #micActiveLabel { font-size: 10px; color: #888; font-weight: 500; }
+    .mic-body { padding: 12px 14px; background: rgba(0,0,0,0.3); display: none; }
+    .mic-body.open { display: block; }
+    .mic-label-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .mic-label-row span { font-size: 11px; color: #888; }
+    #audioSelect {
+      width: 100%; padding: 10px 12px; background: #0a0a0a;
+      border: 1px solid #1e1e1e; border-radius: 8px; color: #fff; font-size: 12px;
+      outline: none; -webkit-appearance: none; cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .airpods-tip {
+      background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #666; line-height: 1.7;
+    }
+    .airpods-tip strong { color: #22c55e; }
+
+    /* Mic level bar */
+    #micLevelWrap { display: none; margin-top: 8px; }
+    .mic-level-bar-bg { height: 6px; background: #111; border-radius: 3px; overflow: visible; position: relative; }
+    #micLevelBar { height: 100%; width: 0%; background: linear-gradient(90deg,#22c55e,#D4AF37); border-radius: 3px; transition: width 0.06s ease; }
+    #micPeakBar { position: absolute; top: -1px; width: 3px; height: 8px; background: #D4AF37; border-radius: 1px; left: 0%; transition: left 0.15s ease; pointer-events: none; }
+
+    /* Gain slider */
+    .gain-wrap { margin-top: 10px; }
+    .gain-row { display: flex; align-items: center; gap: 8px; }
+    .gain-label { font-size: 10px; color: #666; font-weight: 700; letter-spacing: 0.5px; flex-shrink: 0; }
+    .gain-val { font-size: 11px; color: #D4AF37; font-family: monospace; font-weight: 900; width: 40px; text-align: right; flex-shrink: 0; }
+    input[type=range].gain-slider {
+      flex: 1; height: 4px; background: #1e1e1e; border-radius: 2px;
+      outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
+    }
+    input[type=range].gain-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+      background: #D4AF37; cursor: pointer; border: 2px solid #050505;
+    }
+
+    /* Audio processing toggles */
+    .audio-toggle-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px;
+    }
+    .audio-toggle {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: rgba(255,255,255,0.03); border: 1px solid #1e1e1e;
+      border-radius: 8px; cursor: pointer; user-select: none; transition: all 0.15s;
+    }
+    .audio-toggle.active {
+      background: rgba(212,175,55,0.1); border-color: rgba(212,175,55,0.4);
+    }
+    .audio-toggle .toggle-icon { font-size: 16px; }
+    .audio-toggle .toggle-text { font-size: 10px; font-weight: 700; color: #888; line-height: 1.3; }
+    .audio-toggle.active .toggle-text { color: #D4AF37; }
+    .toggle-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #333;
+      margin-left: auto; flex-shrink: 0; transition: background 0.15s;
+    }
+    .audio-toggle.active .toggle-dot { background: #D4AF37; }
+
+    /* Audio mode selector */
+    .audio-mode-row { display: flex; gap: 6px; margin-top: 8px; }
+    .audio-mode-btn {
+      flex: 1; padding: 7px 4px; border-radius: 8px; border: 1px solid #1e1e1e;
+      background: rgba(255,255,255,0.03); color: #555; font-size: 10px; font-weight: 700;
+      cursor: pointer; text-align: center; transition: all 0.15s;
+    }
+    .audio-mode-btn.active { background: rgba(212,175,55,0.12); border-color: rgba(212,175,55,0.5); color: #D4AF37; }
+
+    /* Audio quality badge */
+    #audioQualityBadge {
+      margin-top: 8px; padding: 5px 10px; border-radius: 6px; font-size: 10px;
+      font-family: monospace; background: rgba(34,197,94,0.07);
+      border: 1px solid rgba(34,197,94,0.2); color: #4ade80; display: none;
+    }
+
+    .cam-select {
+      width: 100%; max-width: 420px; margin-top: 10px;
+      padding: 11px 14px; background: rgba(255,255,255,0.05);
+      border: 1px solid #222; border-radius: 10px; color: #fff; font-size: 13px; outline: none;
+      -webkit-appearance: none; display: none;
+    }
+
+    /* ── Manual session code input ──────────────────────────────────────────── */
+    .code-input-wrap {
+      width: 100%; max-width: 420px; margin-bottom: 10px;
+      background: rgba(212,175,55,0.07); border: 1.5px solid rgba(212,175,55,0.45);
+      border-radius: 14px; padding: 16px 14px;
+    }
+    .code-input-wrap h3 { color: #D4AF37; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+    .code-input-row { display: flex; gap: 8px; }
+    #sessionCodeInput {
+      flex: 1; padding: 12px 10px; background: #0a0a0a;
+      border: 1.5px solid #252525; border-radius: 10px; color: #fff;
+      font-size: 26px; font-weight: 900; font-family: monospace; letter-spacing: 8px;
+      text-transform: uppercase; outline: none; text-align: center; min-width: 0;
+    }
+    #sessionCodeInput::placeholder { color: #2a2a2a; letter-spacing: 4px; font-size: 20px; }
+    #sessionCodeInput:focus { border-color: rgba(212,175,55,0.6); box-shadow: 0 0 0 2px rgba(212,175,55,0.1); }
+    #connectCodeBtn {
+      padding: 12px 18px; background: #D4AF37; color: #000;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 900;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
+    }
+    #connectCodeBtn:active { transform: scale(0.94); opacity: 0.85; }
+    .code-tip { color: #555; font-size: 11px; text-align: center; margin-top: 8px; line-height: 1.7; }
+
+    .session-box {
+      width: 100%; max-width: 420px; margin-top: 12px;
+      padding: 14px; background: rgba(212,175,55,0.05);
+      border: 1px solid rgba(212,175,55,0.2); border-radius: 12px;
+    }
+    .session-box h3 { color: #D4AF37; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+    .session-id { font-family: monospace; font-size: 22px; font-weight: 900; color: #fff; letter-spacing: 4px; text-align: center; padding: 10px 0; }
+    .tip { font-size: 11px; color: #444; text-align: center; line-height: 1.7; margin-top: 4px; }
+    .step-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .step { display: flex; gap: 10px; align-items: flex-start; }
+    .step-n { background: #D4AF37; color: #000; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0; margin-top: 1px; }
+    .step p { font-size: 12px; color: #888; line-height: 1.6; }
+
+    .bg-info {
+      width: 100%; max-width: 420px; margin-top: 10px;
+      padding: 12px 16px; background: rgba(34,197,94,0.05);
+      border: 1px solid rgba(34,197,94,0.2); border-radius: 12px;
+      display: none;
+    }
+    .bg-info h4 { color: #22c55e; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+    .bg-info p { font-size: 11px; color: #666; line-height: 1.6; }
+    .bg-info.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="logo">JJ NEXUS PRO</div>
+  <div class="subtitle">📱 PHONE STUDIO CAMERA</div>
+
+  <!-- Session code input — shown when no ?session= in URL -->
+  <div id="codeInputWrap" class="code-input-wrap" style="display:none">
+    <h3>⚡ Quick Connect — Type Session Code</h3>
+    <div class="code-input-row">
+      <input id="sessionCodeInput" type="text" maxlength="8" placeholder="ABC123"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"
+        onkeydown="if(event.key==='Enter')connectByCode()">
+      <button id="connectCodeBtn" onclick="connectByCode()">Go →</button>
+    </div>
+    <p class="code-tip">Find this code on your Chromebook: Studio → Phone Camera tab<br>
+      OR scan the QR code — both work!</p>
+  </div>
+
+  <!-- Hidden silent audio — keeps page alive when backgrounded on Android -->
+  <audio id="silentAudio" loop autoplay style="display:none" playsinline></audio>
+
+  <div class="preview-wrap">
+    <video id="preview" autoplay muted playsinline></video>
+    <button id="flipBtn" title="Flip camera">🔄</button>
+    <div id="camLabel"></div>
+    <div id="bgIndicator">🎙 BACKGROUND ACTIVE</div>
+  </div>
+
+  <div id="badge" class="badge idle"><div class="dot"></div><span>Choose a camera to start</span></div>
+  <div class="quality" id="quality"></div>
+
+  <!-- Install to home screen (PWA) banner -->
+  <div id="installBanner">
+    <div class="ib-icon">📲</div>
+    <div class="ib-text">
+      <strong>Install for Background Streaming</strong>
+      <span>Add to Home Screen for best background performance</span>
+    </div>
+    <button id="installBtn">Install</button>
+  </div>
+
+  <!-- Camera start cards -->
+  <div class="start-grid" id="startGrid">
+    <div class="start-card card-rear" id="cardRear" onclick="startCamera('environment')">
+      <div class="icon">🎥</div>
+      <div class="label">Rear HD Cam</div>
+      <div class="sub">MAIN CAMERA</div>
+    </div>
+    <div class="start-card card-front" id="cardFront" onclick="startCamera('user')">
+      <div class="icon">🤳</div>
+      <div class="label">Front Cam</div>
+      <div class="sub">SELFIE CAM</div>
+    </div>
+  </div>
+
+  <select id="camSelect" class="cam-select">
+    <option value="">📷 Switch to specific device...</option>
+  </select>
+
+  <!-- 🎤 Mic / Audio panel — shown after camera starts -->
+  <div id="micPanel">
+    <div class="mic-header" onclick="toggleMicPanel()">
+      <div class="mic-header-left">
+        <span>🎤 Mic &amp; Audio</span>
+        <span id="micActiveLabel">tap to configure</span>
+      </div>
+      <span style="color:#555;font-size:12px" id="micChevron">▼</span>
+    </div>
+    <div class="mic-body" id="micBody">
+      <div class="mic-label-row">
+        <span>📡 Active audio source:</span>
+      </div>
+      <select id="audioSelect" onchange="switchAudioDevice(this.value)">
+        <option value="">Loading audio devices...</option>
+      </select>
+
+      <!-- Live mic level meter with peak hold -->
+      <div id="micLevelWrap">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#444;margin-bottom:4px">
+          <span>🎚️ Mic level</span><span id="micLevelPct" style="font-family:monospace;color:#D4AF37">—</span>
+        </div>
+        <div class="mic-level-bar-bg">
+          <div id="micLevelBar"></div>
+          <div id="micPeakBar"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:3px;font-size:9px;color:#2a2a2a">
+          <span>Silent</span><span>-18dB</span><span>-12dB</span><span>-6dB</span><span>0dB</span>
+        </div>
+      </div>
+
+      <!-- Audio processing toggles -->
+      <div style="margin-top:10px">
+        <div style="font-size:10px;color:#555;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">
+          🎛️ Audio Processing
+        </div>
+        <div class="audio-toggle-grid">
+          <div class="audio-toggle active" id="toggleNoise" onclick="toggleAudioProc('noise')">
+            <span class="toggle-icon">🔇</span>
+            <div class="toggle-text">Noise<br>Suppress</div>
+            <div class="toggle-dot"></div>
+          </div>
+          <div class="audio-toggle active" id="toggleEcho" onclick="toggleAudioProc('echo')">
+            <span class="toggle-icon">🔄</span>
+            <div class="toggle-text">Echo<br>Cancel</div>
+            <div class="toggle-dot"></div>
+          </div>
+          <div class="audio-toggle active" id="toggleAGC" onclick="toggleAudioProc('agc')">
+            <span class="toggle-icon">📈</span>
+            <div class="toggle-text">Auto<br>Gain</div>
+            <div class="toggle-dot"></div>
+          </div>
+          <div class="audio-toggle active" id="toggleHighpass" onclick="toggleAudioProc('highpass')">
+            <span class="toggle-icon">🎵</span>
+            <div class="toggle-text">Highpass<br>Filter</div>
+            <div class="toggle-dot"></div>
+          </div>
+        </div>
+        <!-- Gain control slider -->
+        <div class="gain-wrap">
+          <div class="gain-row">
+            <span class="gain-label">🎚️ GAIN</span>
+            <input type="range" class="gain-slider" id="gainSlider" min="0.2" max="3.0" step="0.1" value="1.0"
+              oninput="setMicGainSlider(parseFloat(this.value))">
+            <span class="gain-val" id="gainValue">1.0×</span>
+          </div>
+        </div>
+        <!-- Audio preset modes -->
+        <div class="audio-mode-row" style="margin-top:8px;flex-wrap:wrap;">
+          <button class="audio-mode-btn active" id="modeProfessional" onclick="setAudioMode('professional')">🎙 Pro</button>
+          <button class="audio-mode-btn" id="modeBroadcast" onclick="setAudioMode('broadcast')">📡 Broadcast</button>
+          <button class="audio-mode-btn" id="modePodcast" onclick="setAudioMode('podcast')">🎤 Podcast</button>
+          <button class="audio-mode-btn" id="modeAirPods" onclick="setAudioMode('airpods')">🎧 AirPods</button>
+          <button class="audio-mode-btn" id="modeRaw" onclick="setAudioMode('raw')">🔈 Raw</button>
+        </div>
+        <!-- Quality indicator -->
+        <div id="audioQualityBadge"></div>
+      </div>
+
+      <div class="airpods-tip" style="margin-top:10px">
+        <strong>🎧 AirPods connected to your phone?</strong><br>
+        Select them above, then tap <strong>🎧 AirPods mode</strong> for optimized noise cancellation.<br>
+        AirPods work on iPhone &amp; Android — no Chromebook Bluetooth needed.
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-stop" id="btnStop" onclick="stopCamera()">⏹ Stop Camera</button>
+
+  <div id="sessionBox" class="session-box" style="display:none">
+    <h3>🔗 Session ID — type this on your Chromebook</h3>
+    <div class="session-id" id="sessionId">—</div>
+    <p class="tip">In JJ Nexus Pro → Studio → Camera tab → "Enter Session ID"</p>
+  </div>
+
+  <!-- Background mode status -->
+  <div class="bg-info" id="bgInfo">
+    <h4>🟢 Background Mode Active</h4>
+    <p>Your camera is staying live in the background. Audio session is active. You can minimize your browser — the stream will continue on Android Chrome.</p>
+  </div>
+
+  <div class="session-box" style="margin-top:12px;">
+    <h3>📋 How to use</h3>
+    <div class="step-list">
+      <div class="step"><div class="step-n">1</div><p>Tap <strong style="color:#D4AF37">Rear HD Cam</strong> or <strong style="color:#5b9bff">Front Cam</strong> — allow camera when asked</p></div>
+      <div class="step"><div class="step-n">2</div><p>Tap <strong style="color:#D4AF37">🎤 Mic &amp; Audio</strong> — select your AirPods if connected</p></div>
+      <div class="step"><div class="step-n">3</div><p>A <strong style="color:#fff">Session ID</strong> appears — on the Chromebook go to Studio → Phone Camera and tap <strong style="color:#D4AF37">⚡ Quick Reconnect</strong> or enter the code</p></div>
+      <div class="step"><div class="step-n">4</div><p>Wait for "Connected" — your phone is now a live HD camera + clean mic in the studio</p></div>
+      <div class="step"><div class="step-n">5</div><p><strong style="color:#22c55e">Android:</strong> You can minimize Chrome — background audio keeps the stream alive. <strong style="color:#ef4444">iOS:</strong> Install to Home Screen for best background support.</p></div>
+    </div>
+  </div>
+
+  <script>
+    // ── Service Worker registration ───────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw-camera.js').catch(() => {})
+    }
+
+    // ── PWA install prompt ────────────────────────────────────────────────────
+    let deferredInstall = null
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault()
+      deferredInstall = e
+      document.getElementById('installBanner').style.display = 'flex'
+    })
+    document.getElementById('installBtn').onclick = async () => {
+      if (deferredInstall) {
+        deferredInstall.prompt()
+        const { outcome } = await deferredInstall.userChoice
+        if (outcome === 'accepted') document.getElementById('installBanner').style.display = 'none'
+        deferredInstall = null
+      }
+    }
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone
+    if (isIOS) {
+      document.getElementById('installBanner').style.display = 'flex'
+      document.getElementById('installBanner').querySelector('.ib-text span').textContent =
+        'Tap Share → "Add to Home Screen" for background camera'
+      document.getElementById('installBtn').style.display = 'none'
+    }
+
+    // ── Silent audio — keeps page alive when backgrounded on Android ─────────
+    let silentAudioReady = false
+    function createSilentAudio() {
+      if (silentAudioReady) return
+      const sampleRate = 8000, duration = 3, numSamples = sampleRate * duration
+      const buf = new ArrayBuffer(44 + numSamples * 2)
+      const v = new DataView(buf)
+      const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)) }
+      str(0, 'RIFF'); v.setUint32(4, 36 + numSamples * 2, true); str(8, 'WAVE')
+      str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true)
+      v.setUint16(22, 1, true); v.setUint32(24, sampleRate, true)
+      v.setUint32(28, sampleRate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+      str(36, 'data'); v.setUint32(40, numSamples * 2, true)
+      const blob = new Blob([buf], { type: 'audio/wav' })
+      const audio = document.getElementById('silentAudio')
+      audio.src = URL.createObjectURL(blob)
+      audio.volume = 0.001
+      audio.play().catch(() => {})
+      silentAudioReady = true
+    }
+
+    // ── MediaSession API ──────────────────────────────────────────────────────
+    function activateMediaSession() {
+      if (!('mediaSession' in navigator)) return
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'JJ NEXUS PRO Live Camera',
+        artist: 'Background Streaming Active',
+        album: 'JJ NEXUS PRO Studio',
+      })
+      navigator.mediaSession.playbackState = 'playing'
+      navigator.mediaSession.setActionHandler('play', () => {})
+      navigator.mediaSession.setActionHandler('pause', () => {})
+      navigator.mediaSession.setActionHandler('stop', () => stopCamera())
+    }
+
+    // ── AudioContext oscillator (silent keep-alive) ───────────────────────────
+    function keepAliveOscillator() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        gain.gain.value = 0.00001
+        osc.connect(gain); gain.connect(ctx.destination); osc.start()
+      } catch(e) {}
+    }
+
+    // ── Service Worker keep-alive ping every 20s ──────────────────────────────
+    function startSWKeepalive() {
+      if (!navigator.serviceWorker?.controller) return
+      setInterval(() => {
+        const ch = new MessageChannel()
+        navigator.serviceWorker.controller.postMessage('keepalive', [ch.port2])
+      }, 20000)
+    }
+
+    // ── Wake Lock ─────────────────────────────────────────────────────────────
+    let wakeLock = null
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen')
+          wakeLock.addEventListener('release', () => { wakeLock = null })
+        }
+      } catch(e) {}
+    }
+    async function releaseWakeLock() {
+      if (wakeLock) { try { await wakeLock.release() } catch(e) {} wakeLock = null }
+    }
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    const STUN = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
+    let pc = null, stream = null, sessionId = null, pollTimer = null
+    let currentFacing = 'environment', iceBuffer = [], calleeIceIdx = 0
+    let isBackgrounded = false
+    let selectedAudioDeviceId = '' // empty = default (auto-picks AirPods if connected)
+    let micAnalyser = null, micLevelRaf = null
+    let manualSessionId = null     // set by connectByCode() when user types a code
+    let lastReconnectSignal = 0    // tracks server reconnectSignal to detect laptop Quick Reconnect
+
+    const urlParams = new URLSearchParams(location.search)
+    const presetSession = urlParams.get('session')
+
+    // Show code input when not opened via QR (no ?session= in URL)
+    if (!presetSession) {
+      document.getElementById('codeInputWrap').style.display = 'block'
+    }
+
+    // ── Connect by typed code ─────────────────────────────────────────────────
+    function connectByCode() {
+      const raw = document.getElementById('sessionCodeInput').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (!raw) {
+        document.getElementById('sessionCodeInput').style.borderColor = '#ef4444'
+        setTimeout(() => document.getElementById('sessionCodeInput').style.borderColor = '', 1200)
+        return
+      }
+      manualSessionId = raw
+      document.getElementById('codeInputWrap').style.display = 'none'
+      if (stream && !sessionId) {
+        // Camera already running, no session yet — connect now
+        createSession()
+      } else if (!stream) {
+        // Camera not started yet — save code, prompt user to pick camera
+        setBadge('connecting', '✅ Code saved — tap Rear or Front cam to start')
+      } else if (stream && sessionId) {
+        // Already have a session — just switch to the new session ID
+        sessionId = raw
+        setBadge('connecting', `🔄 Switched to session ${raw}`)
+      }
+    }
+
+    // ── Audio processing state ────────────────────────────────────────────────
+    let audioMode = 'professional'  // professional | broadcast | podcast | airpods | raw
+    let audioProc = { noise: true, echo: true, agc: true, highpass: true }
+    let micGainValue = 1.0
+    let micGainNode = null  // Web Audio gainNode for boost
+
+    function toggleAudioProc(type) {
+      audioProc[type] = !audioProc[type]
+      const el = document.getElementById('toggle' + type.charAt(0).toUpperCase() + type.slice(1))
+      if (el) el.classList.toggle('active', audioProc[type])
+      // Re-apply immediately if streaming
+      if (stream) switchAudioDevice(selectedAudioDeviceId)
+    }
+
+    function setAudioMode(mode) {
+      audioMode = mode
+      document.querySelectorAll('.audio-mode-btn').forEach(b => b.classList.remove('active'))
+      const btn = document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1))
+      if (btn) btn.classList.add('active')
+
+      // Apply preset — each preset is tuned for a specific use case
+      if (mode === 'professional') {
+        // Full processing — best for most environments
+        audioProc = { noise: true, echo: true, agc: true, highpass: true }
+        setMicGainSlider(1.0)
+      } else if (mode === 'broadcast') {
+        // TV/radio broadcast style — max clarity, no AGC (consistent levels), slight boost
+        audioProc = { noise: true, echo: true, agc: false, highpass: true }
+        setMicGainSlider(1.4)
+      } else if (mode === 'podcast') {
+        // Studio-style — no noise suppress (cleaner), no echo cancel, manual gain
+        audioProc = { noise: false, echo: false, agc: false, highpass: true }
+        setMicGainSlider(1.6)
+      } else if (mode === 'airpods') {
+        // AirPods have hardware ANC — disable SW echo/noise to avoid double processing
+        audioProc = { noise: false, echo: false, agc: true, highpass: true }
+        setMicGainSlider(1.0)
+      } else if (mode === 'raw') {
+        // Unprocessed — zero latency, use when you have external processing
+        audioProc = { noise: false, echo: false, agc: false, highpass: false }
+        setMicGainSlider(1.0)
+      }
+
+      // Sync toggle UI
+      Object.entries(audioProc).forEach(([key, val]) => {
+        const el = document.getElementById('toggle' + key.charAt(0).toUpperCase() + key.slice(1))
+        if (el) el.classList.toggle('active', val)
+      })
+
+      if (stream) switchAudioDevice(selectedAudioDeviceId)
+      updateAudioQualityBadge()
+    }
+
+    // ── Gain slider ───────────────────────────────────────────────────────────
+    function setMicGainSlider(val) {
+      micGainValue = Math.max(0.2, Math.min(3.0, val))
+      const slider = document.getElementById('gainSlider')
+      const label = document.getElementById('gainValue')
+      if (slider) slider.value = micGainValue
+      if (label) label.textContent = micGainValue.toFixed(1) + '×'
+      // Apply to live gain node if active
+      if (micGainNode) micGainNode.gain.value = micGainValue
+    }
+
+    function updateAudioQualityBadge() {
+      const badge = document.getElementById('audioQualityBadge')
+      if (!badge) return
+      const modeLabels = { professional: '🎙️ Professional', airpods: '🎧 AirPods', raw: '🔈 Raw' }
+      const active = Object.entries(audioProc).filter(([,v]) => v).map(([k]) => k)
+      badge.textContent = `${modeLabels[audioMode]} · 48kHz · ${active.length ? active.join(' + ') : 'raw'}`
+      badge.style.display = 'block'
+    }
+
+    // ── Best audio constraints — clean AirPods / phone mic ───────────────────
+    function bestAudioConstraints(deviceId) {
+      const base = {
+        echoCancellation: audioProc.echo,
+        noiseSuppression: audioProc.noise,
+        autoGainControl: audioProc.agc,
+        sampleRate: 48000,
+        channelCount: 1,
+      }
+
+      // Advanced constraints where supported (Chrome/Firefox desktop; partial on mobile)
+      const advanced = []
+      if (audioProc.noise) {
+        advanced.push({ googNoiseSuppression: true, googNoiseSuppression2: true })
+      }
+      if (audioProc.echo) {
+        advanced.push({ googEchoCancellation: true, googEchoCancellation2: true })
+      }
+      if (audioProc.agc) {
+        advanced.push({ googAutoGainControl: true, googAutoGainControl2: true })
+      }
+      if (audioProc.highpass) {
+        advanced.push({ googHighpassFilter: true })
+      }
+      if (advanced.length > 0) {
+        base.advanced = advanced
+      }
+
+      if (deviceId) return { ...base, deviceId: { exact: deviceId } }
+      return base
+    }
+
+    // ── Mic panel toggle ─────────────────────────────────────────────────────
+    let micPanelOpen = false
+    function toggleMicPanel() {
+      micPanelOpen = !micPanelOpen
+      document.getElementById('micBody').className = micPanelOpen ? 'mic-body open' : 'mic-body'
+      document.getElementById('micChevron').textContent = micPanelOpen ? '▲' : '▼'
+    }
+
+    // ── Enumerate audio input devices ─────────────────────────────────────────
+    async function enumerateAudioDevices() {
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      const inputs = devs.filter(d => d.kind === 'audioinput')
+      const sel = document.getElementById('audioSelect')
+      sel.innerHTML = ''
+
+      const defOpt = document.createElement('option')
+      defOpt.value = ''
+      defOpt.textContent = '🎤 Default (auto-select best)'
+      sel.appendChild(defOpt)
+
+      inputs.forEach((d, i) => {
+        const o = document.createElement('option')
+        o.value = d.deviceId
+        const isAirPods = /airpod|airpods|beats|headset|bluetooth/i.test(d.label)
+        o.textContent = (isAirPods ? '🎧 ' : '🎤 ') + (d.label || `Microphone ${i + 1}`)
+        if (d.deviceId === selectedAudioDeviceId) o.selected = true
+        sel.appendChild(o)
+      })
+
+      // Auto-detect and pre-select AirPods if available
+      if (!selectedAudioDeviceId) {
+        const airpods = inputs.find(d => /airpod|airpods/i.test(d.label))
+        if (airpods) {
+          sel.value = airpods.deviceId
+          selectedAudioDeviceId = airpods.deviceId
+          updateMicLabel(airpods.label)
+        }
+      }
+    }
+
+    function updateMicLabel(label) {
+      const short = label ? label.replace(/\s*\(.*\)/, '').slice(0, 28) : 'Phone mic'
+      document.getElementById('micActiveLabel').textContent = short
+    }
+
+    // ── Switch audio device while streaming ───────────────────────────────────
+    async function switchAudioDevice(deviceId) {
+      selectedAudioDeviceId = deviceId
+      if (!stream) return
+
+      try {
+        const audioConstraints = bestAudioConstraints(deviceId || undefined)
+        const newAudioStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false })
+        const newAudioTrack = newAudioStream.getAudioTracks()[0]
+
+        // Replace audio track in the peer connection live (no restart needed)
+        if (pc) {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
+          if (sender && newAudioTrack) {
+            await sender.replaceTrack(newAudioTrack)
+            console.log('[Audio] Switched mic to:', newAudioTrack.label)
+          }
+        }
+
+        // Replace audio track in local stream
+        stream.getAudioTracks().forEach(t => { t.stop(); stream.removeTrack(t) })
+        stream.addTrack(newAudioTrack)
+
+        // Restart mic level meter
+        startMicLevel(stream)
+
+        const dev = (await navigator.mediaDevices.enumerateDevices()).find(d => d.deviceId === deviceId)
+        updateMicLabel(dev?.label || 'Selected Mic')
+
+      } catch(e) {
+        console.error('[Audio] Mic switch failed:', e)
+      }
+    }
+
+    // ── Live mic level meter with peak hold + gain node ───────────────────────
+    function startMicLevel(mediaStream) {
+      if (micLevelRaf) cancelAnimationFrame(micLevelRaf)
+      try {
+        const actx = new (window.AudioContext || window.webkitAudioContext)()
+        const src = actx.createMediaStreamSource(mediaStream)
+
+        // Gain node — boost/attenuate mic signal without changing MediaRecorder
+        micGainNode = actx.createGain()
+        micGainNode.gain.value = micGainValue
+        src.connect(micGainNode)
+
+        micAnalyser = actx.createAnalyser()
+        micAnalyser.fftSize = 512
+        micAnalyser.smoothingTimeConstant = 0.7
+        micGainNode.connect(micAnalyser)
+
+        const buf = new Uint8Array(micAnalyser.frequencyBinCount)
+        document.getElementById('micLevelWrap').style.display = 'block'
+
+        let peakPct = 0, peakTime = 0
+        const levelBar = document.getElementById('micLevelBar')
+        const peakBar = document.getElementById('micPeakBar')
+        const levelPct = document.getElementById('micLevelPct')
+
+        function draw() {
+          micLevelRaf = requestAnimationFrame(draw)
+          micAnalyser.getByteFrequencyData(buf)
+          const avg = buf.reduce((a, b) => a + b, 0) / buf.length
+          const pct = Math.min(100, Math.round(avg / 128 * 120))
+
+          // Dynamic color: green < 65%, amber 65-85%, red > 85%
+          const color = pct > 85 ? '#ef4444' : pct > 65 ? '#eab308' : '#22c55e'
+          levelBar.style.width = pct + '%'
+          levelBar.style.background = `linear-gradient(90deg, ${color}, #D4AF37)`
+
+          // Peak hold: hold 2.5s then decay
+          const now = Date.now()
+          if (pct > peakPct) { peakPct = pct; peakTime = now }
+          else if (now - peakTime > 2500) { peakPct = Math.max(0, peakPct - 0.8) }
+          if (peakBar) peakBar.style.left = Math.min(97, peakPct) + '%'
+
+          // dB display (approximate RMS → dBFS)
+          const dbVal = pct > 1 ? Math.round(20 * Math.log10(pct / 100)) : null
+          levelPct.textContent = dbVal !== null ? `${dbVal}dBFS` : '—'
+        }
+        draw()
+      } catch(e) {}
+    }
+
+    // ── Visibility / background handling ─────────────────────────────────────
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        isBackgrounded = false
+        document.getElementById('bgIndicator').style.display = 'none'
+        document.getElementById('bgInfo').classList.remove('active')
+        await requestWakeLock()
+
+        if (!sessionId || !stream) return
+
+        const connState = pc?.connectionState
+        if (connState === 'connected') {
+          setBadge('live', '✅ Back! Camera still LIVE')
+          return
+        }
+
+        if (connState === 'disconnected' || connState === 'failed' || connState === 'closed' || !pc) {
+          setBadge('connecting', '🔄 Auto-reconnecting...')
+          try {
+            if (pc) { try { pc.close() } catch(e) {} pc = null }
+            iceBuffer = []; calleeIceIdx = 0
+
+            pc = new RTCPeerConnection({ iceServers: STUN })
+            stream.getTracks().forEach(t => pc.addTrack(t, stream))
+            pc.onicecandidate = e => { if (e.candidate) flushIce(JSON.stringify(e.candidate)) }
+            pc.onconnectionstatechange = () => {
+              if (pc.connectionState === 'connected') {
+                setBadge('live', '✅ Reconnected! Camera LIVE')
+                activateMediaSession()
+              } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                setBadge('error', '⚠️ Still disconnected — tap camera to retry')
+              }
+            }
+
+            const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+            await pc.setLocalDescription(offer)
+            await fetch(`/api/webrtc/session/${sessionId}/offer`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sdp: offer.sdp })
+            })
+            pollTimer = setInterval(pollAnswer, 2000)
+          } catch(e) {
+            setBadge('error', '⚠️ Reconnect failed — tap camera button to retry')
+          }
+        }
+      } else {
+        isBackgrounded = true
+        document.getElementById('bgIndicator').style.display = 'block'
+        document.getElementById('bgInfo').classList.add('active')
+      }
+    })
+
+    function setBadge(type, text) {
+      const el = document.getElementById('badge')
+      el.className = 'badge ' + type
+      const dot = el.querySelector('.dot')
+      dot.className = 'dot ' + (type === 'live' ? 'green' : type === 'connecting' ? 'yellow' : '')
+      el.querySelector('span').textContent = text
+    }
+
+    function setActiveCam(facing) {
+      currentFacing = facing
+      document.getElementById('cardRear').classList.toggle('card-active-rear', facing === 'environment')
+      document.getElementById('cardFront').classList.toggle('card-active-front', facing === 'user')
+      document.getElementById('camLabel').textContent = facing === 'user' ? '🤳 Front Cam' : '🎥 Rear HD Cam'
+      document.getElementById('camLabel').style.display = 'block'
+    }
+
+    async function startCamera(facing) {
+      setBadge('connecting', 'Starting camera...')
+      setActiveCam(facing)
+      await requestWakeLock()
+      createSilentAudio()
+      keepAliveOscillator()
+      activateMediaSession()
+      startSWKeepalive()
+      try {
+        const oldStream = stream
+        // ── Best audio constraints: echo & noise cancellation, 48 kHz ──────
+        const audioConstraints = bestAudioConstraints(selectedAudioDeviceId || undefined)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+          audio: audioConstraints
+        })
+        if (oldStream) oldStream.getTracks().forEach(t => t.stop())
+
+        document.getElementById('preview').srcObject = stream
+        document.getElementById('btnStop').style.display = 'flex'
+        document.getElementById('flipBtn').style.display = 'flex'
+        document.getElementById('micPanel').style.display = 'block'
+
+        const vt = stream.getVideoTracks()[0]
+        const s = vt.getSettings()
+        document.getElementById('quality').textContent = `📡 ${s.width}×${s.height} @ ${Math.round(s.frameRate||30)}fps`
+
+        const at = stream.getAudioTracks()[0]
+        if (at) updateMicLabel(at.label)
+
+        await enumerateCams()
+        await enumerateAudioDevices()
+        startMicLevel(stream)
+
+        if (pc && pc.connectionState === 'connected') {
+          stream.getTracks().forEach(t => {
+            const sender = pc.getSenders().find(s => s.track?.kind === t.kind)
+            if (sender) sender.replaceTrack(t)
+          })
+          setBadge('live', '✅ Camera flipped — still LIVE')
+        } else if (!sessionId) {
+          await createSession()
+        }
+      } catch(e) {
+        setBadge('error', e.name === 'NotAllowedError' ? '❌ Allow camera permission & retry' : '❌ ' + e.message)
+      }
+    }
+
+    document.getElementById('flipBtn').onclick = async () => {
+      await startCamera(currentFacing === 'environment' ? 'user' : 'environment')
+    }
+
+    async function enumerateCams() {
+      const devs = await navigator.mediaDevices.enumerateDevices()
+      const sel = document.getElementById('camSelect')
+      sel.innerHTML = '<option value="">📷 Switch camera...</option>'
+      const vids = devs.filter(d => d.kind === 'videoinput')
+      if (vids.length > 1) {
+        vids.forEach((d, i) => {
+          const o = document.createElement('option')
+          o.value = d.deviceId
+          o.textContent = d.label || `Camera ${i + 1}`
+          sel.appendChild(o)
+        })
+        sel.style.display = 'block'
+      }
+      sel.onchange = async () => {
+        if (!sel.value) return
+        const old = stream
+        const audioConstraints = bestAudioConstraints(selectedAudioDeviceId || undefined)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: sel.value }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: audioConstraints
+        })
+        if (old) old.getTracks().forEach(t => t.stop())
+        document.getElementById('preview').srcObject = stream
+        const vt = stream.getVideoTracks()[0], s = vt.getSettings()
+        document.getElementById('quality').textContent = `📡 ${s.width}×${s.height} @ ${Math.round(s.frameRate||30)}fps`
+        if (pc) stream.getTracks().forEach(t => {
+          const sender = pc.getSenders().find(s => s.track?.kind === t.kind)
+          if (sender) sender.replaceTrack(t)
+        })
+        startMicLevel(stream)
+      }
+    }
+
+    async function createSession() {
+      const useId = manualSessionId || presetSession
+      manualSessionId = null  // consume it
+      sessionId = useId || (await fetch('/api/webrtc/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+      }).then(r => r.json()).then(d => d.sessionId))
+
+      // Snapshot current reconnectSignal so we don't trigger on our own session start
+      try {
+        const st = await fetch(`/api/webrtc/session/${sessionId}/status`).then(r => r.json())
+        lastReconnectSignal = st.reconnectSignal || 0
+      } catch(e) {}
+
+      document.getElementById('sessionId').textContent = sessionId
+      document.getElementById('sessionBox').style.display = 'block'
+      setBadge('connecting', 'Waiting for Chromebook to connect...')
+
+      pc = new RTCPeerConnection({ iceServers: STUN })
+      stream.getTracks().forEach(t => pc.addTrack(t, stream))
+
+      pc.onicecandidate = e => { if (e.candidate) flushIce(JSON.stringify(e.candidate)) }
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setBadge('live', '✅ Connected to Studio! Camera + Mic LIVE')
+          activateMediaSession()
+        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+          setBadge('error', '⚠️ Connection lost — auto-reconnecting...')
+          // Phone-side auto reconnect: re-offer on the same session after 3s
+          setTimeout(async () => {
+            if (!sessionId || !stream) return
+            try {
+              if (pc) { try { pc.close() } catch(e) {} }
+              iceBuffer = []; calleeIceIdx = 0
+              pc = new RTCPeerConnection({ iceServers: STUN })
+              stream.getTracks().forEach(t => pc.addTrack(t, stream))
+              pc.onicecandidate = e => { if (e.candidate) flushIce(JSON.stringify(e.candidate)) }
+              pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'connected') {
+                  setBadge('live', '✅ Auto-reconnected! Camera + Mic LIVE')
+                  activateMediaSession()
+                }
+              }
+              const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+              await pc.setLocalDescription(offer)
+              await fetch(`/api/webrtc/session/${sessionId}/offer`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sdp: offer.sdp })
+              })
+              pollTimer = setInterval(pollAnswer, 2000)
+              setBadge('connecting', '🔄 Reconnecting — waiting for Chromebook...')
+            } catch(e) {
+              setBadge('error', '⚠️ Auto-reconnect failed — tap Quick Reconnect on Chromebook')
+            }
+          }, 3000)
+        }
+      }
+
+      const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+      await pc.setLocalDescription(offer)
+      await fetch(`/api/webrtc/session/${sessionId}/offer`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sdp: offer.sdp })
+      })
+      pollTimer = setInterval(pollAnswer, 2000)
+    }
+
+    async function flushIce(candidate) {
+      iceBuffer.push(candidate)
+      if (!sessionId) return
+      const cands = [...iceBuffer]; iceBuffer.length = 0
+      await fetch(`/api/webrtc/session/${sessionId}/ice/caller`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidates: cands })
+      })
+    }
+
+    // ── Reconnect signal polling ───────────────────────────────────────────────
+    // Laptop Quick Reconnect bumps reconnectSignal on server.
+    // We detect the change here and re-offer so the laptop can pick it up fresh.
+    async function pollReconnectSignal() {
+      if (!sessionId || !stream) return
+      try {
+        const d = await fetch(`/api/webrtc/session/${sessionId}/status`).then(r => r.json())
+        const sig = d.reconnectSignal || 0
+        if (sig > lastReconnectSignal) {
+          lastReconnectSignal = sig
+          console.log('[PhoneCam] Reconnect signal detected — re-initiating offer')
+          setBadge('connecting', '🔄 Chromebook Quick Reconnect — re-sending...')
+
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+          if (pc) { try { pc.close() } catch(e) {} pc = null }
+          iceBuffer = []; calleeIceIdx = 0
+
+          pc = new RTCPeerConnection({ iceServers: STUN })
+          stream.getTracks().forEach(t => pc.addTrack(t, stream))
+          pc.onicecandidate = e => { if (e.candidate) flushIce(JSON.stringify(e.candidate)) }
+          pc.onconnectionstatechange = () => {
+            if (pc.connectionState === 'connected') {
+              setBadge('live', '✅ Quick Reconnect — Camera + Mic LIVE!')
+              activateMediaSession()
+            } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+              setBadge('error', '⚠️ Still disconnected — tap Quick Reconnect on Chromebook again')
+            }
+          }
+
+          const offer = await pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+          await pc.setLocalDescription(offer)
+          await fetch(`/api/webrtc/session/${sessionId}/offer`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sdp: offer.sdp })
+          })
+          pollTimer = setInterval(pollAnswer, 2000)
+        }
+      } catch(e) {}
+    }
+    // Poll every 3 seconds for reconnect signal from Chromebook
+    setInterval(pollReconnectSignal, 3000)
+
+    async function pollAnswer() {
+      try {
+        const d = await fetch(`/api/webrtc/session/${sessionId}/answer`).then(r => r.json())
+        if (d.answer) {
+          clearInterval(pollTimer)
+          await pc.setRemoteDescription({ type: 'answer', sdp: d.answer })
+          setInterval(pollCalleeIce, 2000)
+        }
+      } catch(e) {}
+    }
+
+    async function pollCalleeIce() {
+      try {
+        const d = await fetch(`/api/webrtc/session/${sessionId}/ice/callee?from=${calleeIceIdx}`).then(r => r.json())
+        for (const c of d.candidates) await pc.addIceCandidate(JSON.parse(c))
+        calleeIceIdx = d.nextIndex
+      } catch(e) {}
+    }
+
+    function stopCamera() {
+      releaseWakeLock()
+      if (micLevelRaf) { cancelAnimationFrame(micLevelRaf); micLevelRaf = null }
+      if (pollTimer) clearInterval(pollTimer)
+      if (pc) { pc.close(); pc = null }
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null }
+      const audio = document.getElementById('silentAudio')
+      audio.pause(); audio.src = ''; silentAudioReady = false
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none'
+      document.getElementById('preview').srcObject = null
+      document.getElementById('btnStop').style.display = 'none'
+      document.getElementById('flipBtn').style.display = 'none'
+      document.getElementById('camLabel').style.display = 'none'
+      document.getElementById('bgIndicator').style.display = 'none'
+      document.getElementById('bgInfo').classList.remove('active')
+      document.getElementById('sessionBox').style.display = 'none'
+      document.getElementById('camSelect').style.display = 'none'
+      document.getElementById('micPanel').style.display = 'none'
+      document.getElementById('micLevelWrap').style.display = 'none'
+      document.getElementById('quality').textContent = ''
+      document.getElementById('cardRear').classList.remove('card-active-rear')
+      document.getElementById('cardFront').classList.remove('card-active-front')
+      sessionId = null; calleeIceIdx = 0
+      setBadge('idle', 'Choose a camera to start')
+    }
+  </script>
+</body>
+</html>

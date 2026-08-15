@@ -1,0 +1,825 @@
+Here is your complete prompt:
+
+---
+
+**JJ NEXUS PRO — GITHUB CODESPACES CLOUD STREAMING ENGINE: STREAM FROM THE CLOUD WITHOUT TOUCHING YOUR CHROMEBOOK**
+
+Build a complete cloud streaming system that runs entirely inside GitHub Codespaces. When the user opens a Codespace, it automatically installs everything, opens JJ NEXUS PRO in a virtual browser, captures the virtual display, and streams to Restream via FFmpeg — all from a 4-core cloud machine with zero load on the Chromebook. The Chromebook only controls what happens via VNC. This is the permanent solution.
+
+---
+
+**=== UNDERSTAND THE FULL ARCHITECTURE FIRST ===**
+
+```
+GitHub Codespace (4 CPU, 8GB RAM, Ubuntu, free 60h/month)
+  │
+  ├── Xvfb (virtual display :99) — fake screen in the cloud
+  │     └── Chrome browser (headless but visible via VNC)
+  │           └── JJ NEXUS PRO on render.com — full webapp
+  │
+  ├── x11vnc — exposes virtual display to Chromebook via browser VNC
+  │     └── noVNC web interface — control the VM from any browser
+  │           └── User navigates JJ NEXUS PRO on the cloud screen
+  │
+  ├── PulseAudio — virtual audio device for clean audio mixing
+  │     ├── Input: WebRTC mic from phone camera page
+  │     └── Output: routed to FFmpeg audio input
+  │
+  └── FFmpeg — captures virtual display + audio → RTMP
+        └── rtmp://live.restream.io/live/[KEY] → TikTok + YouTube
+```
+
+---
+
+**=== STEP 1: CREATE THE CODESPACE CONFIGURATION ===**
+
+Create `.devcontainer/devcontainer.json` in the repo root:
+
+```json
+{
+  "name": "JJ NEXUS PRO Cloud Streaming Engine",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "forwardPorts": [
+    6080,
+    5000,
+    3001,
+    8080
+  ],
+  "portsAttributes": {
+    "6080": {
+      "label": "noVNC — Cloud Screen Control",
+      "onAutoForward": "openBrowser",
+      "protocol": "https"
+    },
+    "5000": {
+      "label": "JJ NEXUS PRO API",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Stream Relay WebSocket",
+      "onAutoForward": "silent"
+    },
+    "8080": {
+      "label": "Stream Dashboard",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/autostart.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [],
+      "settings": {}
+    }
+  },
+  "remoteEnv": {
+    "DISPLAY": ":99",
+    "PULSE_SERVER": "unix:/tmp/pulse/native"
+  }
+}
+```
+
+---
+
+**=== STEP 2: CREATE THE SETUP SCRIPT ===**
+
+Create `.devcontainer/setup.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "╔══════════════════════════════════════════════════╗"
+echo "║  JJ NEXUS PRO — Cloud Streaming Engine Setup    ║"
+echo "╚══════════════════════════════════════════════════╝"
+
+# Update system
+sudo apt-get update -qq
+
+# Install all required packages in one shot
+echo "Installing system packages..."
+sudo apt-get install -y -qq \
+  ffmpeg \
+  xvfb \
+  x11vnc \
+  xdotool \
+  wmctrl \
+  openbox \
+  x11-xserver-utils \
+  pulseaudio \
+  pulseaudio-utils \
+  alsa-utils \
+  wget \
+  curl \
+  jq \
+  netcat-openbsd \
+  procps \
+  python3 \
+  python3-pip \
+  novnc \
+  websockify \
+  net-tools \
+  git
+
+# Install Google Chrome
+echo "Installing Google Chrome..."
+if ! command -v google-chrome &>/dev/null; then
+  wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  sudo apt-get install -y -qq ./google-chrome-stable_current_amd64.deb
+  rm -f google-chrome-stable_current_amd64.deb
+fi
+
+# Verify FFmpeg
+echo "FFmpeg version: $(ffmpeg -version 2>&1 | head -1)"
+
+# Verify Chrome
+echo "Chrome version: $(google-chrome --version)"
+
+# Install Node dependencies
+echo "Installing Node.js dependencies..."
+npm install 2>/dev/null || true
+
+# Create required directories
+mkdir -p /tmp/jjnexus/segments
+mkdir -p /tmp/jjnexus/logs
+mkdir -p /tmp/pulse
+mkdir -p ~/.vnc
+
+# Create VNC password (empty for easy access from Codespace)
+x11vnc -storepasswd "" ~/.vnc/passwd 2>/dev/null || true
+
+# Make all scripts executable
+chmod +x .devcontainer/*.sh 2>/dev/null || true
+chmod +x streaming/*.sh 2>/dev/null || true
+
+echo "✅ JJ NEXUS PRO Cloud Streaming Engine setup complete"
+echo "Run: bash .devcontainer/stream.sh to start streaming"
+```
+
+---
+
+**=== STEP 3: CREATE THE AUTOSTART SCRIPT ===**
+
+Create `.devcontainer/autostart.sh`:
+
+```bash
+#!/bin/bash
+# Runs every time the Codespace starts
+
+echo "🚀 JJ NEXUS PRO Cloud Engine starting..."
+
+# Kill any leftover processes from previous session
+pkill -f Xvfb 2>/dev/null || true
+pkill -f x11vnc 2>/dev/null || true
+pkill -f websockify 2>/dev/null || true
+pkill -f pulseaudio 2>/dev/null || true
+pkill -f openbox 2>/dev/null || true
+sleep 1
+
+# Start virtual display
+echo "Starting virtual display at 1280x720..."
+Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp +extension GLX &
+XVFB_PID=$!
+echo $XVFB_PID > /tmp/jjnexus/xvfb.pid
+sleep 2
+
+# Verify display started
+if ! xdpyinfo -display :99 &>/dev/null; then
+  echo "❌ Virtual display failed to start"
+  exit 1
+fi
+echo "✅ Virtual display running"
+
+# Start window manager
+DISPLAY=:99 openbox --config-file /dev/null &
+sleep 1
+
+# Start PulseAudio with virtual sink
+echo "Starting audio system..."
+pulseaudio --start \
+  --log-target=file:/tmp/jjnexus/logs/pulse.log \
+  --daemon 2>/dev/null || true
+sleep 1
+
+# Create virtual audio sink (virtual microphone output for FFmpeg)
+pactl load-module module-virtual-sink sink_name=jjnexus_sink \
+  sink_properties="device.description='JJ NEXUS Stream Sink'" 2>/dev/null || true
+pactl load-module module-null-sink sink_name=mic_input \
+  sink_properties="device.description='Virtual Mic Input'" 2>/dev/null || true
+pactl load-module module-virtual-source source_name=jjnexus_mic \
+  master=mic_input.monitor 2>/dev/null || true
+
+echo "✅ Audio system ready"
+
+# Start noVNC for browser-based remote control
+echo "Starting noVNC on port 6080..."
+websockify --web /usr/share/novnc/ 6080 localhost:5900 &
+WEBSOCKIFY_PID=$!
+echo $WEBSOCKIFY_PID > /tmp/jjnexus/websockify.pid
+
+# Start x11vnc
+x11vnc \
+  -display :99 \
+  -forever \
+  -nopw \
+  -noxdamage \
+  -noxrecord \
+  -bg \
+  -o /tmp/jjnexus/logs/x11vnc.log \
+  -rfbport 5900
+echo "✅ VNC server running on port 5900"
+echo "✅ noVNC web interface running on port 6080"
+
+echo ""
+echo "╔═══════════════════════════════════════════════╗"
+echo "║  JJ NEXUS PRO Cloud Engine READY              ║"
+echo "║                                               ║"
+echo "║  Open port 6080 to control the cloud screen  ║"
+echo "║  Run: bash .devcontainer/stream.sh to go live║"
+echo "╚═══════════════════════════════════════════════╝"
+```
+
+---
+
+**=== STEP 4: CREATE THE MAIN STREAMING SCRIPT ===**
+
+Create `.devcontainer/stream.sh`:
+
+```bash
+#!/bin/bash
+
+# ═══════════════════════════════════════════════
+# JJ NEXUS PRO — CLOUD STREAM LAUNCHER
+# ═══════════════════════════════════════════════
+
+LOGDIR="/tmp/jjnexus/logs"
+SEGDIR="/tmp/jjnexus/segments"
+mkdir -p $LOGDIR $SEGDIR
+
+# Load config
+CONFIG_FILE=".devcontainer/stream-config.json"
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "❌ No stream config found. Run: bash .devcontainer/configure.sh first"
+  exit 1
+fi
+
+RESTREAM_KEY=$(jq -r '.restreamKey' $CONFIG_FILE)
+RTMP_URL=$(jq -r '.rtmpUrl' $CONFIG_FILE)
+JJNEXUS_URL=$(jq -r '.jjnexusUrl' $CONFIG_FILE)
+RESOLUTION=$(jq -r '.resolution // "1280x720"' $CONFIG_FILE)
+FPS=$(jq -r '.fps // "24"' $CONFIG_FILE)
+VIDEO_BITRATE=$(jq -r '.videoBitrate // "2000k"' $CONFIG_FILE)
+AUDIO_BITRATE=$(jq -r '.audioBitrate // "128k"' $CONFIG_FILE)
+WIDTH=$(echo $RESOLUTION | cut -d'x' -f1)
+HEIGHT=$(echo $RESOLUTION | cut -d'x' -f2)
+
+if [ -z "$RESTREAM_KEY" ] || [ "$RESTREAM_KEY" = "null" ]; then
+  echo "❌ Restream key not configured. Run: bash .devcontainer/configure.sh"
+  exit 1
+fi
+
+echo "╔═══════════════════════════════════════════════╗"
+echo "║  JJ NEXUS PRO — CLOUD STREAM STARTING        ║"
+echo "╠═══════════════════════════════════════════════╣"
+echo "║  Resolution: $RESOLUTION @ ${FPS}fps           "
+echo "║  Video bitrate: $VIDEO_BITRATE                 "
+echo "║  Destination: Restream.io → TikTok + YouTube  "
+echo "║  JJ NEXUS URL: $JJNEXUS_URL                   "
+echo "╚═══════════════════════════════════════════════╝"
+
+# Verify virtual display is running
+if ! xdpyinfo -display :99 &>/dev/null; then
+  echo "Virtual display not running. Starting..."
+  bash .devcontainer/autostart.sh
+  sleep 3
+fi
+
+# Kill any existing Chrome and FFmpeg
+pkill -f google-chrome 2>/dev/null || true
+pkill -f ffmpeg 2>/dev/null || true
+sleep 1
+
+# Open JJ NEXUS PRO in Chrome on the virtual display
+echo "Opening JJ NEXUS PRO in cloud browser..."
+DISPLAY=:99 google-chrome \
+  --no-sandbox \
+  --disable-dev-shm-usage \
+  --disable-gpu \
+  --disable-software-rasterizer \
+  --disable-background-timer-throttling \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --disable-features=TranslateUI \
+  --no-first-run \
+  --no-default-browser-check \
+  --window-size=${WIDTH},${HEIGHT} \
+  --window-position=0,0 \
+  --start-maximized \
+  --kiosk \
+  --autoplay-policy=no-user-gesture-required \
+  --use-fake-ui-for-media-stream \
+  --app="$JJNEXUS_URL" \
+  > $LOGDIR/chrome.log 2>&1 &
+CHROME_PID=$!
+echo $CHROME_PID > /tmp/jjnexus/chrome.pid
+echo "✅ Chrome opened (PID: $CHROME_PID)"
+
+# Wait for Chrome to load JJ NEXUS PRO
+echo "Waiting for JJ NEXUS PRO to load..."
+sleep 8
+
+# Take a screenshot to verify it loaded
+DISPLAY=:99 import -window root /tmp/jjnexus/startup_screenshot.png 2>/dev/null || true
+echo "Screenshot saved to /tmp/jjnexus/startup_screenshot.png"
+
+echo ""
+echo "Starting FFmpeg cloud stream..."
+echo "Stream will appear on Restream in 5-10 seconds..."
+echo ""
+echo "Press Ctrl+C to stop streaming"
+echo ""
+
+# Start FFmpeg — captures virtual display and streams to RTMP
+DISPLAY=:99 ffmpeg \
+  -loglevel warning \
+  -f x11grab \
+  -framerate $FPS \
+  -video_size ${WIDTH}x${HEIGHT} \
+  -i :99.0 \
+  -f pulse \
+  -i jjnexus_mic \
+  -c:v libx264 \
+  -preset ultrafast \
+  -tune zerolatency \
+  -profile:v baseline \
+  -level 3.1 \
+  -pix_fmt yuv420p \
+  -b:v $VIDEO_BITRATE \
+  -maxrate $VIDEO_BITRATE \
+  -bufsize $(echo $VIDEO_BITRATE | sed 's/k//' | awk '{print $1*2}')k \
+  -g $(echo "$FPS * 2" | bc) \
+  -keyint_min $FPS \
+  -sc_threshold 0 \
+  -r $FPS \
+  -vsync cfr \
+  -c:a aac \
+  -b:a $AUDIO_BITRATE \
+  -ar 44100 \
+  -ac 2 \
+  -af "aresample=async=1:first_pts=0" \
+  -f flv \
+  -flvflags no_duration_filesize \
+  -reconnect 1 \
+  -reconnect_at_eof 1 \
+  -reconnect_streamed 1 \
+  -reconnect_delay_max 10 \
+  "${RTMP_URL}/${RESTREAM_KEY}" \
+  2>&1 | tee $LOGDIR/ffmpeg.log
+
+EXIT_CODE=$?
+echo ""
+echo "FFmpeg exited with code: $EXIT_CODE"
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "Stream ended unexpectedly. Last FFmpeg output:"
+  tail -20 $LOGDIR/ffmpeg.log
+fi
+
+# Cleanup
+pkill -f google-chrome 2>/dev/null || true
+echo "Stream stopped."
+```
+
+---
+
+**=== STEP 5: CREATE THE CONFIGURE SCRIPT ===**
+
+Create `.devcontainer/configure.sh`:
+
+```bash
+#!/bin/bash
+
+echo "╔═══════════════════════════════════════════════╗"
+echo "║  JJ NEXUS PRO — Stream Configuration         ║"
+echo "╚═══════════════════════════════════════════════╝"
+echo ""
+
+# Get JJ NEXUS PRO URL
+read -p "Enter your JJ NEXUS PRO URL on Render (e.g. https://jjnexuspro.onrender.com): " JJNEXUS_URL
+
+# Get Restream settings
+echo ""
+echo "Go to restream.io → Channel → Stream Setup → Copy these:"
+read -p "Enter your Restream RTMP URL (e.g. rtmp://live.restream.io/live): " RTMP_URL
+read -p "Enter your Restream Stream Key (re_xxxxxxxxxxxx): " RESTREAM_KEY
+
+# Quality settings
+echo ""
+echo "Quality Settings (press Enter for recommended defaults):"
+read -p "Resolution [1280x720]: " RESOLUTION
+RESOLUTION=${RESOLUTION:-1280x720}
+
+read -p "FPS [24]: " FPS
+FPS=${FPS:-24}
+
+read -p "Video bitrate [2000k]: " VIDEO_BITRATE
+VIDEO_BITRATE=${VIDEO_BITRATE:-2000k}
+
+# Save config
+cat > .devcontainer/stream-config.json << EOF
+{
+  "jjnexusUrl": "$JJNEXUS_URL",
+  "rtmpUrl": "$RTMP_URL",
+  "restreamKey": "$RESTREAM_KEY",
+  "resolution": "$RESOLUTION",
+  "fps": "$FPS",
+  "videoBitrate": "$VIDEO_BITRATE",
+  "audioBitrate": "128k"
+}
+EOF
+
+echo ""
+echo "✅ Configuration saved to .devcontainer/stream-config.json"
+echo ""
+echo "To start streaming run:"
+echo "  bash .devcontainer/stream.sh"
+```
+
+---
+
+**=== STEP 6: CREATE AUTO-RECONNECT STABLE STREAM WRAPPER ===**
+
+Create `.devcontainer/stable-stream.sh` — this is the 2-hour+ stability script:
+
+```bash
+#!/bin/bash
+
+# ═══════════════════════════════════════════════════════
+# JJ NEXUS PRO — STABLE STREAM WRAPPER
+# Auto-restarts stream on any failure
+# Designed for 2+ hour sessions
+# ═══════════════════════════════════════════════════════
+
+LOGDIR="/tmp/jjnexus/logs"
+MAX_RESTARTS=20
+RESTART_COUNT=0
+RESTART_DELAY=3
+START_TIME=$(date +%s)
+
+log() {
+  echo "[$(date '+%H:%M:%S')] $1" | tee -a $LOGDIR/stable-stream.log
+}
+
+log "╔══════════════════════════════════════════════════╗"
+log "║  JJ NEXUS PRO STABLE STREAM — AUTO-RECONNECT   ║"
+log "║  Will restart up to $MAX_RESTARTS times          ║"
+log "╚══════════════════════════════════════════════════╝"
+
+# Load config
+CONFIG_FILE=".devcontainer/stream-config.json"
+RESTREAM_KEY=$(jq -r '.restreamKey' $CONFIG_FILE)
+RTMP_URL=$(jq -r '.rtmpUrl' $CONFIG_FILE)
+JJNEXUS_URL=$(jq -r '.jjnexusUrl' $CONFIG_FILE)
+RESOLUTION=$(jq -r '.resolution // "1280x720"' $CONFIG_FILE)
+FPS=$(jq -r '.fps // "24"' $CONFIG_FILE)
+VIDEO_BITRATE=$(jq -r '.videoBitrate // "2000k"' $CONFIG_FILE)
+WIDTH=$(echo $RESOLUTION | cut -d'x' -f1)
+HEIGHT=$(echo $RESOLUTION | cut -d'x' -f2)
+FULL_RTMP="${RTMP_URL}/${RESTREAM_KEY}"
+
+# Ensure virtual display is running
+if ! xdpyinfo -display :99 &>/dev/null; then
+  log "Starting virtual display..."
+  bash .devcontainer/autostart.sh
+  sleep 3
+fi
+
+# Open Chrome once — keep it running for entire session
+pkill -f google-chrome 2>/dev/null || true
+sleep 1
+log "Opening JJ NEXUS PRO in cloud Chrome..."
+DISPLAY=:99 google-chrome \
+  --no-sandbox \
+  --disable-dev-shm-usage \
+  --disable-gpu \
+  --disable-background-timer-throttling \
+  --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding \
+  --no-first-run \
+  --window-size=${WIDTH},${HEIGHT} \
+  --window-position=0,0 \
+  --kiosk \
+  --autoplay-policy=no-user-gesture-required \
+  --app="$JJNEXUS_URL" \
+  > $LOGDIR/chrome.log 2>&1 &
+CHROME_PID=$!
+log "Chrome started (PID: $CHROME_PID)"
+sleep 8
+
+# Stream loop — FFmpeg auto-restarts without restarting Chrome
+while [ $RESTART_COUNT -lt $MAX_RESTARTS ]; do
+  STREAM_START=$(date +%s)
+  log "Starting FFmpeg stream (attempt $((RESTART_COUNT + 1))/$MAX_RESTARTS)..."
+
+  DISPLAY=:99 ffmpeg \
+    -loglevel warning \
+    -f x11grab \
+    -framerate $FPS \
+    -video_size ${WIDTH}x${HEIGHT} \
+    -i :99.0 \
+    -f pulse \
+    -i jjnexus_mic \
+    -c:v libx264 \
+    -preset ultrafast \
+    -tune zerolatency \
+    -profile:v baseline \
+    -level 3.1 \
+    -pix_fmt yuv420p \
+    -b:v $VIDEO_BITRATE \
+    -maxrate $VIDEO_BITRATE \
+    -bufsize $(echo $VIDEO_BITRATE | sed 's/k//' | awk '{print $1*2}')k \
+    -g $(echo "$FPS * 2" | bc) \
+    -r $FPS \
+    -vsync cfr \
+    -c:a aac \
+    -b:a 128k \
+    -ar 44100 \
+    -ac 2 \
+    -af "aresample=async=1:first_pts=0,volume=1.5" \
+    -f flv \
+    -flvflags no_duration_filesize \
+    -reconnect 1 \
+    -reconnect_at_eof 1 \
+    -reconnect_streamed 1 \
+    -reconnect_delay_max 10 \
+    "$FULL_RTMP" \
+    2>&1 | tee -a $LOGDIR/ffmpeg.log
+
+  EXIT_CODE=$?
+  STREAM_END=$(date +%s)
+  DURATION=$((STREAM_END - STREAM_START))
+
+  log "FFmpeg exited (code=$EXIT_CODE, ran for ${DURATION}s)"
+
+  # If stream ran for more than 30 seconds it was healthy — reset restart counter
+  if [ $DURATION -gt 30 ]; then
+    log "Stream was healthy — resetting restart counter"
+    RESTART_COUNT=0
+  else
+    RESTART_COUNT=$((RESTART_COUNT + 1))
+    log "Short run detected — restart count: $RESTART_COUNT/$MAX_RESTARTS"
+  fi
+
+  # Check total session time
+  TOTAL_TIME=$(($(date +%s) - START_TIME))
+  TOTAL_HOURS=$((TOTAL_TIME / 3600))
+  TOTAL_MINS=$(((TOTAL_TIME % 3600) / 60))
+  log "Total stream session time: ${TOTAL_HOURS}h ${TOTAL_MINS}m"
+
+  # Check if Chrome is still running
+  if ! kill -0 $CHROME_PID 2>/dev/null; then
+    log "Chrome crashed — restarting..."
+    DISPLAY=:99 google-chrome \
+      --no-sandbox \
+      --disable-dev-shm-usage \
+      --disable-gpu \
+      --disable-background-timer-throttling \
+      --no-first-run \
+      --window-size=${WIDTH},${HEIGHT} \
+      --window-position=0,0 \
+      --kiosk \
+      --app="$JJNEXUS_URL" \
+      > $LOGDIR/chrome.log 2>&1 &
+    CHROME_PID=$!
+    log "Chrome restarted (PID: $CHROME_PID)"
+    sleep 5
+  fi
+
+  if [ $RESTART_COUNT -ge $MAX_RESTARTS ]; then
+    log "❌ Max restarts reached — stopping"
+    break
+  fi
+
+  log "Restarting stream in ${RESTART_DELAY}s..."
+  sleep $RESTART_DELAY
+done
+
+log "Stable stream session ended"
+pkill -f google-chrome 2>/dev/null || true
+```
+
+---
+
+**=== STEP 7: CREATE STREAM HEALTH DASHBOARD ===**
+
+Create `.devcontainer/dashboard.sh` — a live terminal dashboard showing stream health:
+
+```bash
+#!/bin/bash
+
+# Live stream health dashboard
+LOGDIR="/tmp/jjnexus/logs"
+CONFIG_FILE=".devcontainer/stream-config.json"
+
+while true; do
+  clear
+  echo "╔═══════════════════════════════════════════════════════╗"
+  echo "║        JJ NEXUS PRO — CLOUD STREAM DASHBOARD         ║"
+  echo "╠═══════════════════════════════════════════════════════╣"
+
+  # System resources
+  CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1)
+  RAM=$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2}')
+  UPTIME=$(uptime -p)
+
+  echo "║  System: CPU ${CPU}% | RAM ${RAM} | ${UPTIME}"
+
+  # FFmpeg status
+  if pgrep -f ffmpeg > /dev/null; then
+    FFMPEG_PID=$(pgrep -f ffmpeg | head -1)
+    FFMPEG_UPTIME=$(ps -p $FFMPEG_PID -o etime= 2>/dev/null | tr -d ' ')
+    echo "║  FFmpeg: ✅ RUNNING (PID: $FFMPEG_PID, uptime: $FFMPEG_UPTIME)"
+
+    # Get last FFmpeg progress line
+    LAST_PROGRESS=$(grep "frame=" $LOGDIR/ffmpeg.log 2>/dev/null | tail -1)
+    if [ -n "$LAST_PROGRESS" ]; then
+      FRAMES=$(echo $LAST_PROGRESS | grep -oP 'frame=\s*\K[0-9]+')
+      FPS=$(echo $LAST_PROGRESS | grep -oP 'fps=\s*\K[0-9.]+')
+      BITRATE=$(echo $LAST_PROGRESS | grep -oP 'bitrate=\s*\K[0-9.]+kbits/s')
+      SPEED=$(echo $LAST_PROGRESS | grep -oP 'speed=\s*\K[0-9.]+x')
+      echo "║  Stream: frames=$FRAMES fps=$FPS bitrate=$BITRATE speed=$SPEED"
+    fi
+  else
+    echo "║  FFmpeg: ❌ NOT RUNNING"
+  fi
+
+  # Chrome status
+  if pgrep -f google-chrome > /dev/null; then
+    echo "║  Chrome: ✅ RUNNING"
+  else
+    echo "║  Chrome: ❌ NOT RUNNING"
+  fi
+
+  # Virtual display
+  if xdpyinfo -display :99 &>/dev/null 2>&1; then
+    echo "║  Display: ✅ :99 ACTIVE"
+  else
+    echo "║  Display: ❌ NOT RUNNING"
+  fi
+
+  # VNC
+  if pgrep -f x11vnc > /dev/null; then
+    echo "║  VNC: ✅ Running on port 5900"
+    echo "║  noVNC: ✅ Browser control on port 6080"
+  else
+    echo "║  VNC: ❌ NOT RUNNING"
+  fi
+
+  # Restream config
+  JJNEXUS_URL=$(jq -r '.jjnexusUrl' $CONFIG_FILE 2>/dev/null)
+  echo "║  App URL: $JJNEXUS_URL"
+
+  echo "╠═══════════════════════════════════════════════════════╣"
+  echo "║  Commands:                                            ║"
+  echo "║  Start stable stream:  bash .devcontainer/stable-stream.sh"
+  echo "║  Configure:            bash .devcontainer/configure.sh"
+  echo "║  Stop everything:      bash .devcontainer/stop.sh"
+  echo "╚═══════════════════════════════════════════════════════╝"
+  echo ""
+  echo "Refreshing in 5 seconds... (Ctrl+C to exit dashboard)"
+
+  sleep 5
+done
+```
+
+---
+
+**=== STEP 8: CREATE STOP SCRIPT ===**
+
+Create `.devcontainer/stop.sh`:
+
+```bash
+#!/bin/bash
+echo "Stopping JJ NEXUS PRO Cloud Stream..."
+pkill -f ffmpeg && echo "✅ FFmpeg stopped" || echo "FFmpeg was not running"
+pkill -f google-chrome && echo "✅ Chrome stopped" || echo "Chrome was not running"
+pkill -f stable-stream && echo "✅ Stream wrapper stopped" || true
+echo "Stream stopped. Virtual display and VNC still running."
+echo "Run bash .devcontainer/stable-stream.sh to start again."
+```
+
+---
+
+**=== STEP 9: CREATE A README FOR THE CODESPACE ===**
+
+Create `.devcontainer/README.md`:
+
+```markdown
+# JJ NEXUS PRO — GitHub Codespaces Cloud Streaming
+
+## Quick Start (3 steps)
+
+### Step 1 — Configure (run once)
+```bash
+bash .devcontainer/configure.sh
+```
+Enter your JJ NEXUS PRO URL on Render and your Restream key.
+
+### Step 2 — Control the cloud screen
+Open port **6080** in the Codespace ports panel.
+This opens noVNC — you can see and control the cloud browser from your Chromebook.
+
+### Step 3 — Start streaming
+```bash
+bash .devcontainer/stable-stream.sh
+```
+Stream starts. Restream receives it and sends to TikTok + YouTube.
+
+## Monitor your stream
+```bash
+bash .devcontainer/dashboard.sh
+```
+
+## Stop streaming
+```bash
+bash .devcontainer/stop.sh
+```
+
+## How it works
+- GitHub Codespace runs Ubuntu with 4 CPUs
+- Xvfb creates a virtual 1280x720 display
+- Chrome opens JJ NEXUS PRO on that virtual display
+- FFmpeg captures the display and streams to Restream via RTMP
+- You control what's on screen via noVNC from your Chromebook browser
+- Stream is completely independent of your Chromebook performance
+- Auto-reconnects up to 20 times if anything interrupts
+
+## Free tier: 60 hours/month
+Plan your streams: 4 streams × 15 hours = uses full monthly quota
+Or: 8 streams × 7.5 hours each
+```
+
+---
+
+**=== STEP 10: ADD TO package.json SCRIPTS ===**
+
+Add these scripts to `package.json`:
+
+```json
+{
+  "scripts": {
+    "codespace:setup": "bash .devcontainer/setup.sh",
+    "codespace:start": "bash .devcontainer/autostart.sh",
+    "codespace:configure": "bash .devcontainer/configure.sh",
+    "codespace:stream": "bash .devcontainer/stable-stream.sh",
+    "codespace:dashboard": "bash .devcontainer/dashboard.sh",
+    "codespace:stop": "bash .devcontainer/stop.sh"
+  }
+}
+```
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Create .devcontainer/ directory in repo root
+2.  Create all files:
+    - devcontainer.json
+    - setup.sh
+    - autostart.sh
+    - stream.sh
+    - stable-stream.sh
+    - configure.sh
+    - dashboard.sh
+    - stop.sh
+    - README.md
+3.  Make all .sh files executable:
+    chmod +x .devcontainer/*.sh
+4.  Add codespace scripts to package.json
+5.  git add . && git commit -m "Add Codespaces cloud streaming engine" && git push origin main
+6.  Go to github.com/speadfreak/JJ-NEXUS-PRO
+7.  Click green Code button → Codespaces tab → New codespace
+8.  Wait for setup.sh to run (2-3 minutes)
+9.  In Codespace terminal run: bash .devcontainer/configure.sh
+10. Open port 6080 in Ports panel — this is your cloud screen control
+11. Run: bash .devcontainer/stable-stream.sh
+12. Open Restream dashboard — confirm receiving
+13. Run: bash .devcontainer/dashboard.sh in a second terminal
+14. Confirm stream is live on TikTok and YouTube via Restream
+```
+
+---
+
+**After completing confirm:**
+- Codespace setup completed without errors
+- noVNC opens on port 6080 and shows JJ NEXUS PRO
+- FFmpeg shows `frame=` progress in terminal
+- Restream dashboard shows receiving
+- TikTok shows live stream
+- Dashboard shows all green status indicators

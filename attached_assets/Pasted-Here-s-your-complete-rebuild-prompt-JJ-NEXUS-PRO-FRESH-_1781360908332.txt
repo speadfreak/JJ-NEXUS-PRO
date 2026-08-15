@@ -1,0 +1,660 @@
+Here's your complete rebuild prompt:
+
+---
+
+**JJ NEXUS PRO — FRESH SETUP + COMPLETE STREAMING ENGINE REBUILD (3-HOUR STABLE)**
+
+This is a fresh ZIP import. Do setup first. Then completely rebuild ONLY the Go Live streaming system from scratch — leave every other part of the app (Alchemist AI, fundamentals, scanner, journal, all other pages) completely untouched.
+
+---
+
+**=== PART A: SETUP — RUN THE FULL APP CLEANLY ===**
+
+```bash
+cat package.json
+cat replit.nix
+npm install
+cp .env.example .env 2>/dev/null || true
+```
+
+Add to `.env`:
+```
+VITE_GROQ_API_KEY=your_groq_key
+VITE_ANTHROPIC_API_KEY=your_anthropic_key
+NODE_ENV=development
+```
+
+Ensure `replit.nix`:
+```nix
+{ pkgs }: {
+  deps = [ pkgs.nodejs-20_x pkgs.ffmpeg-full pkgs.nodePackages.npm ];
+  env = { FFMPEG_PATH = "${pkgs.ffmpeg-full}/bin/ffmpeg"; };
+}
+```
+
+Reload shell, verify `ffmpeg -version`. Run `npm run dev`. Fix all TypeScript errors (`npx tsc --noEmit`). Fix every page crash EXCEPT the streaming page — leave streaming broken for now, we rebuild it in Part B. Confirm `npm run build` succeeds. Confirm Gold price loads. Confirm `/health` returns `ffmpegAvailable: true`.
+
+Report: setup complete, all pages working except streaming.
+
+---
+
+**=== PART B: COMPLETE STREAMING ENGINE REBUILD ===**
+
+Delete the existing streaming implementation entirely — both server-side relay code and `BrowserStreamEngine.ts` — and rebuild from scratch with the architecture below. Do not reuse old logic even partially; the old chunk-pipe approach has unresolved corruption issues.
+
+---
+
+**NEW ARCHITECTURE: FILE-BASED SEGMENT RELAY (the production-grade pattern)**
+
+Instead of piping raw MediaRecorder bytes directly into FFmpeg's stdin (which loses WebM header continuity), use this pattern used by real broadcast tools:
+
+```
+Browser MediaRecorder
+  → WebSocket sends each blob with a sequence number + metadata
+  → Server writes EACH chunk to a numbered temp file (segment_0001.webm, segment_0002.webm...)
+  → Server runs FFmpeg with a concat demuxer reading a dynamically updated playlist file
+  → FFmpeg outputs continuous FLV to RTMP
+  → Auto-restart FFmpeg if it exits, without dropping the WebSocket connection
+  → Old segments cleaned up after consumption
+```
+
+This avoids the header-corruption problem entirely because each segment is decoded independently by FFmpeg's concat demuxer with `-f concat`, which is designed for exactly this.
+
+---
+
+**=== STEP 1: NEW SERVER-SIDE RELAY (server/streamRelay.js or .ts) ===**
+
+```typescript
+import { WebSocketServer, WebSocket } from 'ws'
+import { spawn, ChildProcess, execSync } from 'child_process'
+import { Server as HTTPServer } from 'http'
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
+
+// ═══════════════════════════════════════
+// FFMPEG BINARY RESOLUTION
+// ═══════════════════════════════════════
+function resolveFFmpeg(): string {
+  const candidates = [
+    process.env.FFMPEG_PATH,
+    '/run/current-system/sw/bin/ffmpeg',
+    (() => { try { return execSync('which ffmpeg', { encoding: 'utf8' }).trim() } catch { return null } })(),
+  ]
+  for (const c of candidates) {
+    if (!c) continue
+    try { execSync(`${c} -version`, { timeout: 5000 }); return c } catch {}
+  }
+  throw new Error('FFmpeg not found')
+}
+const FFMPEG_BIN = resolveFFmpeg()
+console.log(`[Relay] FFmpeg: ${FFMPEG_BIN}`)
+
+// ═══════════════════════════════════════
+// SESSION MANAGEMENT
+// ═══════════════════════════════════════
+interface RelaySession {
+  id: string
+  ws: WebSocket
+  workDir: string
+  segmentIndex: number
+  ffmpeg: ChildProcess | null
+  rtmpUrl: string
+  config: any
+  isLive: boolean
+  startTime: number
+  lastChunkTime: number
+  restartCount: number
+  watchdog: NodeJS.Timeout | null
+  segmentCleanupTimer: NodeJS.Timeout | null
+}
+
+const sessions = new Map<string, RelaySession>()
+
+export function attachStreamRelay(httpServer: HTTPServer) {
+  const wss = new WebSocketServer({ server: httpServer, path: '/api/stream/ws', maxPayload: 50 * 1024 * 1024 })
+
+  // Heartbeat — keep connections alive through Replit's proxy
+  function heartbeat(this: any) { this.isAlive = true }
+  const hbInterval = setInterval(() => {
+    wss.clients.forEach((ws: any) => {
+      if (ws.isAlive === false) return ws.terminate()
+      ws.isAlive = false
+      ws.ping()
+    })
+  }, 20000)
+  wss.on('close', () => clearInterval(hbInterval))
+
+  wss.on('connection', (ws: any) => {
+    ws.isAlive = true
+    ws.on('pong', heartbeat)
+
+    const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const workDir = path.join(os.tmpdir(), `jjstream_${sessionId}`)
+    fs.mkdirSync(workDir, { recursive: true })
+
+    const session: RelaySession = {
+      id: sessionId, ws, workDir, segmentIndex: 0,
+      ffmpeg: null, rtmpUrl: '', config: null, isLive: false,
+      startTime: Date.now(), lastChunkTime: Date.now(),
+      restartCount: 0, watchdog: null, segmentCleanupTimer: null
+    }
+    sessions.set(sessionId, session)
+    console.log(`[Relay-${sessionId}] Connected, workDir=${workDir}`)
+
+    ws.send(JSON.stringify({ type: 'connected', sessionId }))
+
+    ws.on('message', (data: Buffer, isBinary: boolean) => {
+      if (!isBinary) {
+        try {
+          const msg = JSON.parse(data.toString())
+          if (msg.type === 'init') {
+            session.rtmpUrl = `${msg.rtmpUrl}/${msg.streamKey}`
+            session.config = msg
+            startSegmentWriter(session)
+            startFFmpegConcat(session)
+          }
+          if (msg.type === 'segment_meta') {
+            // metadata before binary segment arrives — ignore, handled below
+          }
+        } catch {}
+        return
+      }
+
+      // Binary = video segment chunk
+      writeSegment(session, data)
+    })
+
+    ws.on('close', () => {
+      console.log(`[Relay-${sessionId}] Disconnected`)
+      cleanupSession(session)
+    })
+    ws.on('error', (e) => console.error(`[Relay-${sessionId}] WS error:`, e.message))
+  })
+}
+
+// ═══════════════════════════════════════
+// SEGMENT WRITER — each WebSocket binary message = one segment file
+// ═══════════════════════════════════════
+function writeSegment(session: RelaySession, data: Buffer) {
+  const idx = session.segmentIndex++
+  const filePath = path.join(session.workDir, `seg_${String(idx).padStart(8, '0')}.webm`)
+  fs.writeFileSync(filePath, data)
+  session.lastChunkTime = Date.now()
+  updatePlaylist(session)
+}
+
+// ═══════════════════════════════════════
+// PLAYLIST — concat demuxer file, FFmpeg tails this
+// ═══════════════════════════════════════
+function updatePlaylist(session: RelaySession) {
+  const files = fs.readdirSync(session.workDir)
+    .filter(f => f.startsWith('seg_') && f.endsWith('.webm'))
+    .sort()
+
+  // Keep playlist pointing at all segments not yet consumed
+  const playlistPath = path.join(session.workDir, 'playlist.txt')
+  const content = files.map(f => `file '${path.join(session.workDir, f)}'`).join('\n')
+  fs.writeFileSync(playlistPath, content + '\n')
+
+  // Cleanup old segments (keep last 30 = ~30 seconds buffer)
+  if (files.length > 30) {
+    const toDelete = files.slice(0, files.length - 30)
+    toDelete.forEach(f => {
+      try { fs.unlinkSync(path.join(session.workDir, f)) } catch {}
+    })
+  }
+}
+
+function startSegmentWriter(session: RelaySession) {
+  // Write an initial empty playlist so FFmpeg has something to open
+  const playlistPath = path.join(session.workDir, 'playlist.txt')
+  fs.writeFileSync(playlistPath, '')
+}
+
+// ═══════════════════════════════════════
+// FFMPEG — reads concat playlist, outputs to RTMP, auto-restarts
+// ═══════════════════════════════════════
+function startFFmpegConcat(session: RelaySession) {
+  const { videoBitrate = '1500k', audioBitrate = '128k', fps = 24 } = session.config || {}
+  const playlistPath = path.join(session.workDir, 'playlist.txt')
+
+  // Wait for first segment to exist before starting FFmpeg
+  const waitForFirstSegment = setInterval(() => {
+    const files = fs.readdirSync(session.workDir).filter(f => f.startsWith('seg_'))
+    if (files.length >= 1) {
+      clearInterval(waitForFirstSegment)
+      spawnFFmpeg(session, playlistPath, videoBitrate, audioBitrate, fps)
+    }
+  }, 200)
+
+  // Timeout if no segments after 15s
+  setTimeout(() => clearInterval(waitForFirstSegment), 15000)
+}
+
+function spawnFFmpeg(session: RelaySession, playlistPath: string, videoBitrate: string, audioBitrate: string, fps: number) {
+  const args = [
+    '-f', 'concat',
+    '-safe', '0',
+    '-stream_loop', '-1',          // tail the playlist as it grows — actually use re-read approach below
+    '-i', playlistPath,
+    '-c:v', 'libx264',
+    '-preset', 'ultrafast',
+    '-tune', 'zerolatency',
+    '-profile:v', 'baseline',
+    '-pix_fmt', 'yuv420p',
+    '-b:v', videoBitrate,
+    '-maxrate', videoBitrate,
+    '-bufsize', `${parseInt(videoBitrate) * 2}k`,
+    '-g', String(fps * 2),
+    '-r', String(fps),
+    '-vsync', 'cfr',
+    '-c:a', 'aac',
+    '-b:a', audioBitrate,
+    '-ar', '44100',
+    '-ac', '2',
+    '-af', 'aresample=async=1:first_pts=0',
+    '-f', 'flv',
+    '-reconnect', '1',
+    '-reconnect_at_eof', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+    session.rtmpUrl
+  ]
+
+  console.log(`[Relay-${session.id}] Spawning FFmpeg (attempt ${session.restartCount + 1})`)
+  const ffmpeg = spawn(FFMPEG_BIN, args)
+  session.ffmpeg = ffmpeg
+  session.isLive = true
+
+  let stderrLines: string[] = []
+  ffmpeg.stderr?.on('data', (d) => {
+    const line = d.toString()
+    stderrLines.push(line)
+    if (stderrLines.length > 100) stderrLines.shift()
+    if (line.includes('frame=')) {
+      const fpsMatch = line.match(/fps=\s*([\d.]+)/)
+      const bitrateMatch = line.match(/bitrate=\s*([\d.]+kbits\/s)/)
+      const speedMatch = line.match(/speed=\s*([\d.]+x)/)
+      try {
+        session.ws.send(JSON.stringify({
+          type: 'ffmpeg_progress',
+          fps: fpsMatch?.[1] || '0',
+          bitrate: bitrateMatch?.[1] || '0',
+          speed: speedMatch?.[1] || '0x'
+        }))
+      } catch {}
+    }
+  })
+
+  ffmpeg.on('close', (code) => {
+    console.log(`[Relay-${session.id}] FFmpeg exited code=${code}`)
+    session.isLive = false
+
+    if (sessions.get(session.id) !== session) return // session already cleaned up
+
+    session.restartCount++
+    if (session.restartCount > 50) {
+      // Too many restarts — give up
+      try {
+        session.ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Stream failed repeatedly. Last FFmpeg output: ' + stderrLines.slice(-10).join('')
+        }))
+      } catch {}
+      cleanupSession(session)
+      return
+    }
+
+    // Auto-restart FFmpeg seamlessly — playlist still has segments
+    // Notify client only on first restart, stay silent for routine restarts
+    if (session.restartCount === 1) {
+      try { session.ws.send(JSON.stringify({ type: 'stream_starting' })) } catch {}
+    }
+
+    setTimeout(() => {
+      if (sessions.get(session.id)) {
+        spawnFFmpeg(session, playlistPath, videoBitrate, audioBitrate, fps)
+      }
+    }, 500)
+  })
+
+  // First successful spawn — tell client we're live
+  if (session.restartCount === 0) {
+    try { session.ws.send(JSON.stringify({ type: 'stream_starting' })) } catch {}
+  }
+
+  // Watchdog — if no new segments arrive for 30s, something's wrong client-side
+  if (session.watchdog) clearInterval(session.watchdog)
+  session.watchdog = setInterval(() => {
+    if (Date.now() - session.lastChunkTime > 30000) {
+      console.log(`[Relay-${session.id}] No chunks for 30s — client likely disconnected`)
+      try {
+        session.ws.send(JSON.stringify({ type: 'error', message: 'No data received for 30 seconds' }))
+      } catch {}
+      cleanupSession(session)
+    }
+  }, 10000)
+}
+
+function cleanupSession(session: RelaySession) {
+  if (session.watchdog) clearInterval(session.watchdog)
+  if (session.ffmpeg) {
+    session.ffmpeg.removeAllListeners('close')
+    try { session.ffmpeg.kill('SIGKILL') } catch {}
+  }
+  try { fs.rmSync(session.workDir, { recursive: true, force: true }) } catch {}
+  sessions.delete(session.id)
+}
+
+// Health check export
+export function getRelayHealth() {
+  return {
+    ffmpegAvailable: !!FFMPEG_BIN,
+    ffmpegBin: FFMPEG_BIN,
+    activeSessions: sessions.size,
+    sessions: Array.from(sessions.values()).map(s => ({
+      id: s.id, isLive: s.isLive, restarts: s.restartCount,
+      uptime: Math.round((Date.now() - s.startTime) / 1000)
+    }))
+  }
+}
+```
+
+**IMPORTANT FIX to the concat approach**: `-stream_loop -1` with a growing playlist doesn't tail-follow correctly. Replace the FFmpeg invocation strategy — instead use this proven pattern: FFmpeg reads the concat playlist ONCE per spawn, processes all currently-listed segments, and exits when done. The `close` handler immediately respawns FFmpeg pointing at the updated playlist (which now includes new segments + excludes consumed ones). This creates a continuous relay via rapid respawn cycles (sub-second), which is exactly what the auto-restart logic above already does — remove `-stream_loop -1` from the args entirely since the respawn loop handles continuity.
+
+```typescript
+// Remove this line from args:
+'-stream_loop', '-1',
+```
+
+After removing it, each FFmpeg invocation processes available segments and exits cleanly (code 0), the `close` handler respawns immediately (500ms), picking up new segments. This is the correct "tailing" pattern.
+
+Also: after each FFmpeg invocation consumes segments, mark them consumed so they're excluded from the next playlist:
+
+```typescript
+// Track consumed segments
+let consumedUpTo = -1
+
+function updatePlaylist(session: RelaySession & { consumedUpTo?: number }) {
+  const files = fs.readdirSync(session.workDir)
+    .filter(f => f.startsWith('seg_') && f.endsWith('.webm'))
+    .sort()
+
+  const unconsumed = files.filter(f => {
+    const idx = parseInt(f.match(/seg_(\d+)/)?.[1] || '0')
+    return idx > (session.consumedUpTo ?? -1)
+  })
+
+  const playlistPath = path.join(session.workDir, 'playlist.txt')
+  fs.writeFileSync(playlistPath, unconsumed.map(f => `file '${path.join(session.workDir, f)}'`).join('\n') + '\n')
+
+  // Mark these as about to be consumed
+  if (unconsumed.length > 0) {
+    const lastIdx = parseInt(unconsumed[unconsumed.length - 1].match(/seg_(\d+)/)?.[1] || '0')
+    session.consumedUpTo = lastIdx
+  }
+}
+```
+
+---
+
+**=== STEP 2: WIRE RELAY INTO MAIN SERVER ===**
+
+In the main server entry file:
+
+```typescript
+import { attachStreamRelay, getRelayHealth } from './streamRelay'
+
+const httpServer = createServer(app)
+attachStreamRelay(httpServer)
+
+app.get('/api/stream/health', (req, res) => {
+  res.json({ status: 'ok', ...getRelayHealth(), environment: process.env.NODE_ENV })
+})
+
+// Self-ping to prevent Autoscale cold sleep
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    const url = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}/api/stream/health` : null
+    if (url) fetch(url).catch(() => {})
+  }, 4 * 60 * 1000)
+}
+
+httpServer.listen(PORT, '0.0.0.0', () => console.log(`Server on ${PORT}`))
+```
+
+---
+
+**=== STEP 3: NEW BrowserStreamEngine.ts ===**
+
+```typescript
+export interface StreamConfig {
+  rtmpUrl: string
+  streamKey: string
+  videoBitrate: string
+  audioBitrate: string
+  fps: number
+  resolution: string
+  captureMode: 'full_tab' | 'full_screen'
+  audioDeviceId?: string
+}
+
+export interface StreamStats {
+  status: 'idle' | 'connecting' | 'live' | 'error' | 'stopped'
+  duration: number
+  fps: string
+  bitrate: string
+  speed: string
+  error: string | null
+}
+
+type StatsCb = (s: StreamStats) => void
+
+export class BrowserStreamEngine {
+  private ws: WebSocket | null = null
+  private mediaRecorder: MediaRecorder | null = null
+  private displayStream: MediaStream | null = null
+  private micStream: MediaStream | null = null
+  private combinedStream: MediaStream | null = null
+  private durationTimer: any = null
+  private statsCb: StatsCb | null = null
+  private stats: StreamStats = { status: 'idle', duration: 0, fps: '0', bitrate: '0', speed: '0x', error: null }
+  private config: StreamConfig | null = null
+
+  onStats(cb: StatsCb) { this.statsCb = cb }
+  private update(p: Partial<StreamStats>) {
+    this.stats = { ...this.stats, ...p }
+    this.statsCb?.(this.stats)
+  }
+
+  async startStream(config: StreamConfig) {
+    this.config = config
+    this.update({ status: 'connecting', error: null })
+
+    if (!config.streamKey?.trim()) {
+      this.update({ status: 'error', error: 'Stream key is required' })
+      throw new Error('No stream key')
+    }
+
+    // Health check
+    const health = await fetch('/api/stream/health').then(r => r.json()).catch(() => null)
+    if (!health?.ffmpegAvailable) {
+      this.update({ status: 'error', error: 'FFmpeg unavailable on server' })
+      throw new Error('FFmpeg unavailable')
+    }
+
+    // Screen capture — fresh user gesture required, NEVER retry this automatically
+    this.displayStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: config.fps } } as any,
+      audio: false
+    })
+
+    this.displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+      this.update({ status: 'stopped', error: null })
+      this.cleanup()
+    })
+
+    // Mic
+    try {
+      const audioConstraints: MediaStreamConstraints = {
+        audio: config.audioDeviceId
+          ? { deviceId: { exact: config.audioDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          : { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      }
+      this.micStream = await navigator.mediaDevices.getUserMedia(audioConstraints)
+    } catch {
+      this.micStream = null
+    }
+
+    // Combine
+    const tracks: MediaStreamTrack[] = [...this.displayStream.getVideoTracks()]
+    if (this.micStream) {
+      const ctx = new AudioContext()
+      const dest = ctx.createMediaStreamDestination()
+      ctx.createMediaStreamSource(this.micStream).connect(dest)
+      tracks.push(...dest.stream.getAudioTracks())
+    }
+    this.combinedStream = new MediaStream(tracks)
+
+    // WebSocket
+    await this.connectWS()
+
+    // Send init
+    this.ws!.send(JSON.stringify({
+      type: 'init',
+      rtmpUrl: config.rtmpUrl,
+      streamKey: config.streamKey,
+      videoBitrate: config.videoBitrate,
+      audioBitrate: config.audioBitrate,
+      fps: config.fps
+    }))
+
+    // MediaRecorder — segment-based, 1s chunks, each is independently sent
+    this.startRecorder()
+  }
+
+  private connectWS(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const url = `${proto}//${location.host}/api/stream/ws`
+      const ws = new WebSocket(url)
+      const timeout = setTimeout(() => reject(new Error('WS timeout')), 10000)
+
+      ws.onopen = () => {}
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'connected') {
+            clearTimeout(timeout)
+            this.ws = ws
+            resolve()
+          }
+          if (msg.type === 'stream_starting') {
+            this.update({ status: 'live', error: null })
+            this.startDuration()
+          }
+          if (msg.type === 'ffmpeg_progress') {
+            this.update({ fps: msg.fps, bitrate: msg.bitrate, speed: msg.speed })
+          }
+          if (msg.type === 'error') {
+            this.update({ status: 'error', error: msg.message })
+            this.cleanup()
+          }
+        } catch {}
+      }
+      ws.onerror = () => { clearTimeout(timeout); reject(new Error('WS connection failed')) }
+      ws.onclose = () => {
+        if (this.stats.status === 'live') {
+          this.update({ status: 'error', error: 'Connection to server lost' })
+          this.cleanup()
+        }
+      }
+    })
+  }
+
+  private startRecorder() {
+    if (!this.combinedStream) return
+    const mimeTypes = ['video/webm;codecs=h264,opus', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus']
+    const mime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+
+    this.mediaRecorder = new MediaRecorder(this.combinedStream, {
+      mimeType: mime,
+      videoBitsPerSecond: parseInt(this.config!.videoBitrate) * 1000,
+      audioBitsPerSecond: parseInt(this.config!.audioBitrate) * 1000
+    })
+
+    this.mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0 && this.ws?.readyState === WebSocket.OPEN) {
+        e.data.arrayBuffer().then(buf => this.ws?.send(buf))
+      }
+    }
+
+    this.mediaRecorder.start(1000) // 1s segments — each independently decodable enough for concat demuxer
+  }
+
+  private startDuration() {
+    if (this.durationTimer) clearInterval(this.durationTimer)
+    this.durationTimer = setInterval(() => this.update({ duration: this.stats.duration + 1 }), 1000)
+  }
+
+  stopStream() {
+    this.cleanup()
+    this.update({ status: 'stopped', error: null })
+  }
+
+  private cleanup() {
+    if (this.durationTimer) clearInterval(this.durationTimer)
+    this.mediaRecorder?.stop()
+    this.displayStream?.getTracks().forEach(t => t.stop())
+    this.micStream?.getTracks().forEach(t => t.stop())
+    this.ws?.close()
+    this.ws = null
+    this.mediaRecorder = null
+    this.displayStream = null
+    this.micStream = null
+    this.combinedStream = null
+  }
+
+  static formatDuration(s: number) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+    return [h, m, sec].map(v => String(v).padStart(2, '0')).join(':')
+  }
+}
+
+export const streamEngine = new BrowserStreamEngine()
+```
+
+---
+
+**=== STEP 4: UPDATE THE GO LIVE UI MINIMALLY ===**
+
+Only update the error display and connection status binding in `StreamingCommandCenter.tsx` to match the new `StreamStats` shape (`fps`, `bitrate`, `speed`, `error`, `status`, `duration`). Do not touch the rest of the page layout, audio device selector, checklist, or any other components.
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1.  Complete Part A — confirm clean setup
+2.  Delete old server-side relay code and old BrowserStreamEngine.ts
+3.  Create new server/streamRelay.ts with segment+concat architecture
+4.  Wire attachStreamRelay() into main server entry
+5.  Create new BrowserStreamEngine.ts
+6.  Update StreamingCommandCenter.tsx stat bindings only
+7.  npm run build — zero errors
+8.  Test Go Live — watch server console for [Relay-...] logs
+9.  Confirm segments being written, FFmpeg respawn cycle running
+10. Let stream run 5 minutes minimum — confirm no UI error
+11. Check Restream dashboard shows "receiving"
+12. Run extended test — 30+ minutes — confirm respawn cycle keeps stream alive
+13. Report: server logs from first 30s, Restream status, stream duration achieved
+```
+
+---
+
+**Report back with:**
+- Server console output showing `[Relay-...]` logs during a test
+- Whether FFmpeg respawn cycle is running (frequency of close/spawn)
+- Restream dashboard status
+- Longest stream duration achieved without error

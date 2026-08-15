@@ -1,0 +1,82 @@
+You are a world-class cinematic full-stack developer, premium UI/UX designer, and expert in building professional trading + streaming platforms.
+
+Your task is to build a complete, elite, production-grade single web application called **"EthioStream Pro"** — The Ultimate Forex Live Streaming & Intelligent Trading Command Center.
+
+This is not an ordinary app. It must feel like a $15,000+ professional tool — luxurious, cinematic, emotionally powerful, and deeply functional.
+
+### Overall Vision & Design Language
+- Ultra-premium dark theme with rich black, luxurious gold (#D4AF37), Ethiopian green (#006400), and red accents.
+- Heavy use of glassmorphism, subtle particle effects (coffee beans, golden particles, stars), cinematic lighting, and smooth micro-interactions.
+- Typography: Elegant serif for headings (like Playfair Display or Cinzel), clean modern sans for body.
+- Every animation must feel expensive — use Framer Motion + GSAP heavily for scroll-triggered reveals, parallax, hover effects, and transitions.
+- The entire experience must feel proud, powerful, and respectful to Ethiopian identity while maintaining a modern trading luxury vibe.
+
+### Two Core Integrated Pillars
+
+**Pillar 1: Professional Live Streaming Studio**
+- Real phone camera connection using WebRTC (with QR code easy pairing + fallback)
+- Real screen sharing using `getDisplayMedia()` with option to share specific window (TradingView)
+- Multiple professional scene presets (Face + Chart, Full Chart, Vertical 9:16, Picture-in-Picture, etc.)
+- Draggable, resizable, minimizable floating camera window with beauty filter, flip, zoom, brightness
+- Working TikTok "Go Live", YouTube, and Instagram Live buttons with realistic flow
+- Stream recording using MediaRecorder API with download option
+- Real-time overlays: lower third, logo, price ticker, countdown timer, watermark
+- Live chat simulation panel + real viewer counter
+- Stream health dashboard (FPS, bitrate, latency, resolution) with realistic updates
+- One-Tap "Forex Live Mode" that instantly sets best layout for traders
+
+**Pillar 2: Alchemist AI Trading Assistant (The Genius Feature)**
+Build a highly intelligent, deeply trained AI partner that works directly with the TradingView chart:
+
+**Technical Analysis (Alchemist + Volume Profile)**
+- Fully connected to the embedded TradingView Advanced Chart
+- Automatically analyzes Market Structure, Order Blocks, Fair Value Gaps, Liquidity Grabs, Breaker Blocks, etc.
+- Expert in Alchemist (MSNR) strategy — identifies high-probability setups, entry models, confluences, and risk management
+- Draws professional tools on chart: Fibonacci, Volume Profile, trend lines, support/resistance, equal highs/lows
+- Real-time smart analysis as price moves
+
+**Fundamental & Macro Analysis**
+- Integrated real Economic Calendar
+- Gathers and intelligently summarizes fundamental news, interest rates, geopolitical events, central bank decisions
+- Delivers deep, professional fundamental reports for any pair (especially XAUUSD, EURUSD, etc.)
+- Combines Technical + Fundamental + Sentiment into one powerful confluence score
+
+**Additional AI Capabilities**
+- Performance tracking dashboard (AI vs User accuracy over time)
+- Analysis history saved by date with full review capability
+- Backtesting tool for past setups
+- Daily, Weekly, Monthly, Yearly performance statistics
+- Smart trade journal with AI insights
+- Risk management calculator
+
+**Confluence Engine**
+The AI must combine everything and give clear, confident, well-explained overall trade ideas with probability scores.
+
+### Extra World-Class Features
+- Real-time scrolling price ticker at the top with live prices and arrows
+- Watchlist with AI sentiment for each pair
+- Beautiful animated preloader with Ethiopian flag, coffee, and star elements
+- Ambient Ethiopian & motivational music player (toggleable)
+- Stream planner with countdown and reminders
+- Custom overlay editor
+- Export analysis as PDF/image
+- Fully responsive and optimized for Chromebook
+
+### Tech Stack & Quality Standards
+- React 19 + Vite + TypeScript
+- Tailwind CSS + shadcn/ui + custom luxurious styling
+- Framer Motion + GSAP for cinematic animations
+- Real browser APIs (WebRTC, getDisplayMedia, MediaRecorder)
+- Embedded TradingView widget
+- Beautiful, consistent, premium code with excellent structure and comments
+
+### Footer
+"The Debug Squad • 2026"
+
+Now, build this application with maximum creativity, depth, realism, and attention to detail. Make every single feature feel alive and actually useful.
+
+Start by creating the main unified dashboard that beautifully integrates both the streaming studio and the powerful Alchemist AI Trading Assistant.
+
+Show me the project structure and begin development with the highest quality possible.
+
+Begin now.

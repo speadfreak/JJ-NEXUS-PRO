@@ -1,0 +1,168 @@
+@speadfreak ➜ /workspaces/JJ-NEXUS-PRO (main) $ bash .devcontainer/stable-stream.sh
+[19:45:40] ╔══════════════════════════════════════════════════╗
+[19:45:40] ║  JJ NEXUS PRO STABLE STREAM — AUTO-RECONNECT   ║
+[19:45:40] ║  Will restart up to 20 times          ║
+[19:45:40] ╚══════════════════════════════════════════════════╝
+[19:45:41] Opening JJ NEXUS PRO in cloud Chrome...
+[19:45:41] Chrome started (PID: 15508)
+[19:45:49] Starting FFmpeg stream (attempt 1/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x6316d1af98c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:45:50] FFmpeg exited (code=0, ran for 1s)
+[19:45:50] Short run detected — restart count: 1/20
+[19:45:50] Total stream session time: 0h 0m
+[19:45:50] Restarting stream in 3s...
+[19:45:53] Starting FFmpeg stream (attempt 2/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5d58fa5858c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:45:53] FFmpeg exited (code=0, ran for 0s)
+[19:45:53] Short run detected — restart count: 2/20
+[19:45:53] Total stream session time: 0h 0m
+[19:45:53] Restarting stream in 3s...
+[19:45:56] Starting FFmpeg stream (attempt 3/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5cb04b4688c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:45:57] FFmpeg exited (code=0, ran for 1s)
+[19:45:57] Short run detected — restart count: 3/20
+[19:45:57] Total stream session time: 0h 0m
+[19:45:57] Restarting stream in 3s...
+[19:46:00] Starting FFmpeg stream (attempt 4/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x642215d9f8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:00] FFmpeg exited (code=0, ran for 0s)
+[19:46:00] Short run detected — restart count: 4/20
+[19:46:00] Total stream session time: 0h 0m
+[19:46:00] Restarting stream in 3s...
+[19:46:03] Starting FFmpeg stream (attempt 5/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x64a09e3118c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:03] FFmpeg exited (code=0, ran for 0s)
+[19:46:03] Short run detected — restart count: 5/20
+[19:46:03] Total stream session time: 0h 0m
+[19:46:03] Restarting stream in 3s...
+[19:46:06] Starting FFmpeg stream (attempt 6/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x63504ea418c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:07] FFmpeg exited (code=0, ran for 1s)
+[19:46:07] Short run detected — restart count: 6/20
+[19:46:07] Total stream session time: 0h 0m
+[19:46:07] Restarting stream in 3s...
+[19:46:10] Starting FFmpeg stream (attempt 7/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x56b5f59028c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:10] FFmpeg exited (code=0, ran for 0s)
+[19:46:10] Short run detected — restart count: 7/20
+[19:46:10] Total stream session time: 0h 0m
+[19:46:10] Restarting stream in 3s...
+[19:46:13] Starting FFmpeg stream (attempt 8/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x6222ec61b8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:13] FFmpeg exited (code=0, ran for 0s)
+[19:46:13] Short run detected — restart count: 8/20
+[19:46:13] Total stream session time: 0h 0m
+[19:46:13] Restarting stream in 3s...
+[19:46:16] Starting FFmpeg stream (attempt 9/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5ff53f2108c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:17] FFmpeg exited (code=0, ran for 1s)
+[19:46:17] Short run detected — restart count: 9/20
+[19:46:17] Total stream session time: 0h 0m
+[19:46:17] Restarting stream in 3s...
+[19:46:20] Starting FFmpeg stream (attempt 10/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x56e6fd8308c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:20] FFmpeg exited (code=0, ran for 0s)
+[19:46:20] Short run detected — restart count: 10/20
+[19:46:20] Total stream session time: 0h 0m
+[19:46:20] Restarting stream in 3s...
+[19:46:23] Starting FFmpeg stream (attempt 11/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x6455877378c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:23] FFmpeg exited (code=0, ran for 0s)
+[19:46:23] Short run detected — restart count: 11/20
+[19:46:23] Total stream session time: 0h 0m
+[19:46:23] Restarting stream in 3s...
+[19:46:26] Starting FFmpeg stream (attempt 12/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5d46ae5b98c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:26] FFmpeg exited (code=0, ran for 0s)
+[19:46:26] Short run detected — restart count: 12/20
+[19:46:26] Total stream session time: 0h 0m
+[19:46:26] Restarting stream in 3s...
+[19:46:29] Starting FFmpeg stream (attempt 13/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x6436f46478c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:30] FFmpeg exited (code=0, ran for 1s)
+[19:46:30] Short run detected — restart count: 13/20
+[19:46:30] Total stream session time: 0h 0m
+[19:46:30] Restarting stream in 3s...
+[19:46:33] Starting FFmpeg stream (attempt 14/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x56922f47e8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:33] FFmpeg exited (code=0, ran for 0s)
+[19:46:33] Short run detected — restart count: 14/20
+[19:46:33] Total stream session time: 0h 0m
+[19:46:33] Restarting stream in 3s...
+[19:46:36] Starting FFmpeg stream (attempt 15/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x60ffaac808c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:36] FFmpeg exited (code=0, ran for 0s)
+[19:46:36] Short run detected — restart count: 15/20
+[19:46:36] Total stream session time: 0h 0m
+[19:46:36] Restarting stream in 3s...
+[19:46:39] Starting FFmpeg stream (attempt 16/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x653b4820b8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:40] FFmpeg exited (code=0, ran for 1s)
+[19:46:40] Short run detected — restart count: 16/20
+[19:46:40] Total stream session time: 0h 1m
+[19:46:40] Restarting stream in 3s...
+[19:46:43] Starting FFmpeg stream (attempt 17/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5e162339e8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:43] FFmpeg exited (code=0, ran for 0s)
+[19:46:43] Short run detected — restart count: 17/20
+[19:46:43] Total stream session time: 0h 1m
+[19:46:43] Restarting stream in 3s...
+[19:46:46] Starting FFmpeg stream (attempt 18/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5bd6527db8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:46] FFmpeg exited (code=0, ran for 0s)
+[19:46:46] Short run detected — restart count: 18/20
+[19:46:46] Total stream session time: 0h 1m
+[19:46:46] Restarting stream in 3s...
+[19:46:49] Starting FFmpeg stream (attempt 19/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5f2b3d94f8c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:49] FFmpeg exited (code=0, ran for 0s)
+[19:46:49] Short run detected — restart count: 19/20
+[19:46:49] Total stream session time: 0h 1m
+[19:46:49] Restarting stream in 3s...
+[19:46:52] Starting FFmpeg stream (attempt 20/20)...
+.devcontainer/stable-stream.sh: line 76: bc: command not found
+[x11grab @ 0x5bc18ce608c0] Stream #0: not enough frames to estimate rate; consider increasing probesize
+jjnexus_mic: No such process
+[19:46:53] FFmpeg exited (code=0, ran for 1s)
+[19:46:53] Short run detected — restart count: 20/20
+[19:46:53] Total stream session time: 0h 1m
+[19:46:53] ❌ Max restarts reached — stopping
+[19:46:53] Stable stream session ended

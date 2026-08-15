@@ -1,0 +1,728 @@
+Here is your exact fix prompt:
+
+---
+
+**JJ NEXUS PRO — FIX ALL CONSOLE ERRORS + MAKE GO LIVE WORK**
+
+I have three categories of errors to fix. Read all errors carefully then fix everything completely.
+
+---
+
+**=== PROBLEM 1: CORS ERRORS — ALL EXTERNAL API CALLS BLOCKED ===**
+
+Every external API call is being blocked by CORS because the app is running on Replit's domain. The fix is to route ALL external API calls through the Node.js relay server which acts as a proxy. The browser cannot call these APIs directly from Replit but the server can.
+
+Update `server/streamRelay.js` to add proxy endpoints for every blocked API:
+
+```javascript
+// Add this entire proxy section to server/streamRelay.js
+// Place it BEFORE the WebSocket server code
+
+const https = require('https')
+const http = require('http')
+
+// Universal proxy function
+function proxyRequest(targetUrl, res) {
+  const url = new URL(targetUrl)
+  const protocol = url.protocol === 'https:' ? https : http
+
+  const options = {
+    hostname: url.hostname,
+    path: url.pathname + url.search,
+    method: 'GET',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; JJNexusPro/1.0)',
+      'Accept': 'application/json',
+      'Accept-Encoding': 'identity'
+    },
+    timeout: 10000
+  }
+
+  const proxyReq = protocol.request(options, (proxyRes) => {
+    let data = ''
+    proxyRes.on('data', chunk => data += chunk)
+    proxyRes.on('end', () => {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Cache-Control': 'no-cache'
+      })
+      res.end(data)
+    })
+  })
+
+  proxyReq.on('error', (err) => {
+    res.writeHead(502, { 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify({ error: err.message }))
+  })
+
+  proxyReq.on('timeout', () => {
+    proxyReq.destroy()
+    res.writeHead(504, { 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify({ error: 'Request timeout' }))
+  })
+
+  proxyReq.end()
+}
+
+// Replace the entire createServer callback with this:
+const server = http.createServer((req, res) => {
+  // CORS preflight
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return }
+
+  const parsedUrl = new URL(req.url, `http://${req.headers.host}`)
+  const path = parsedUrl.pathname
+
+  // Health check
+  if (path === '/health') {
+    const { exec } = require('child_process')
+    exec('ffmpeg -version', (error, stdout) => {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({
+        status: 'running',
+        activeSessions: sessions.size,
+        ffmpegAvailable: !error,
+        ffmpegVersion: stdout ? stdout.split('\n')[0].replace('ffmpeg version ', '').split(' ')[0] : null,
+        timestamp: new Date().toISOString(),
+        uptime: Math.round(process.uptime())
+      }))
+    })
+    return
+  }
+
+  // ═══ PROXY ENDPOINTS ═══
+
+  // Forex rates — Frankfurter
+  if (path === '/proxy/forex-rates') {
+    proxyRequest('https://api.frankfurter.app/latest?from=USD', res)
+    return
+  }
+
+  // Gold price — metals.live
+  if (path === '/proxy/gold-price') {
+    proxyRequest('https://metals.live/api/spot', res)
+    return
+  }
+
+  // Gold fallback — exchangerate.host
+  if (path === '/proxy/gold-fallback') {
+    proxyRequest('https://api.exchangerate.host/convert?from=XAU&to=USD&amount=1', res)
+    return
+  }
+
+  // Crypto — CoinGecko (handle rate limiting)
+  if (path === '/proxy/crypto') {
+    proxyRequest(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,ripple,binancecoin,dogecoin&vs_currencies=usd&include_24hr_change=true',
+      res
+    )
+    return
+  }
+
+  // Yahoo Finance proxy for indices
+  if (path === '/proxy/yahoo-price') {
+    const symbol = parsedUrl.searchParams.get('symbol') || ''
+    if (!symbol) { res.writeHead(400); res.end('{"error":"No symbol"}'); return }
+    proxyRequest(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`,
+      res
+    )
+    return
+  }
+
+  // DXY via Yahoo
+  if (path === '/proxy/dxy') {
+    proxyRequest(
+      'https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=1d',
+      res
+    )
+    return
+  }
+
+  // Economic calendar
+  if (path === '/proxy/calendar-thisweek') {
+    proxyRequest('https://nfs.faireconomy.media/ff_calendar_thisweek.json', res)
+    return
+  }
+
+  if (path === '/proxy/calendar-nextweek') {
+    proxyRequest('https://nfs.faireconomy.media/ff_calendar_nextweek.json', res)
+    return
+  }
+
+  // Myfxbook sentiment
+  if (path === '/proxy/sentiment') {
+    const pair = parsedUrl.searchParams.get('pair') || 'eurusd'
+    proxyRequest(
+      `https://www.myfxbook.com/api/get-community-outlook.json?pair=${pair}`,
+      res
+    )
+    return
+  }
+
+  // News RSS feeds
+  if (path === '/proxy/news') {
+    const source = parsedUrl.searchParams.get('source') || 'fxstreet'
+    const feeds: Record<string, string> = {
+      fxstreet: 'https://www.fxstreet.com/rss/news',
+      forexlive: 'https://www.forexlive.com/feed',
+      reuters: 'https://feeds.reuters.com/reuters/businessNews',
+      marketwatch: 'https://feeds.marketwatch.com/marketwatch/topstories'
+    }
+    const feedUrl = feeds[source] || feeds.fxstreet
+    proxyRequest(feedUrl, res)
+    return
+  }
+
+  // Stream status
+  if (path === '/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify({
+      sessions: Array.from(sessions.entries()).map(([id, s]) => ({
+        id,
+        startTime: s.startTime,
+        bytesReceived: s.bytesReceived,
+        isLive: s.ffmpeg !== null
+      }))
+    }))
+    return
+  }
+
+  res.writeHead(404, { 'Access-Control-Allow-Origin': '*' })
+  res.end(JSON.stringify({ error: 'Not found', path }))
+})
+```
+
+---
+
+**=== PROBLEM 2: UPDATE ALL PRICE FETCHING TO USE PROXY ===**
+
+Now update `src/utils/priceEngine.ts` to call the relay server proxy instead of external APIs directly:
+
+```typescript
+// src/utils/priceEngine.ts — complete replacement
+
+// Detect relay server base URL automatically
+const getRelayBase = (): string => {
+  // In Replit the relay runs on port 3001
+  // We call it via the Vite proxy at /api/stream
+  return '/api/stream'
+}
+
+const RELAY = getRelayBase()
+
+// Fetch with timeout and error handling
+async function safeFetch(url: string, timeoutMs = 10000): Promise<any> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    clearTimeout(timer)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } catch (e: any) {
+    clearTimeout(timer)
+    throw e
+  }
+}
+
+// Forex via relay proxy
+async function fetchForex(): Promise<Record<string, number>> {
+  const data = await safeFetch(`${RELAY}/proxy/forex-rates`)
+  const r = data.rates
+  if (!r) throw new Error('No rates')
+
+  const prices: Record<string, number> = {}
+  if (r.EUR) prices.EURUSD = parseFloat((1 / r.EUR).toFixed(5))
+  if (r.GBP) prices.GBPUSD = parseFloat((1 / r.GBP).toFixed(5))
+  if (r.JPY) prices.USDJPY = parseFloat(r.JPY.toFixed(3))
+  if (r.CHF) prices.USDCHF = parseFloat(r.CHF.toFixed(5))
+  if (r.AUD) prices.AUDUSD = parseFloat((1 / r.AUD).toFixed(5))
+  if (r.NZD) prices.NZDUSD = parseFloat((1 / r.NZD).toFixed(5))
+  if (r.CAD) prices.USDCAD = parseFloat(r.CAD.toFixed(5))
+  if (r.GBP && r.EUR) prices.EURGBP = parseFloat((r.GBP / r.EUR).toFixed(5))
+  if (r.JPY && r.EUR) prices.EURJPY = parseFloat((r.JPY / r.EUR).toFixed(3))
+  if (r.JPY && r.GBP) prices.GBPJPY = parseFloat((r.JPY / r.GBP).toFixed(3))
+  if (r.CHF && r.EUR) prices.EURCHF = parseFloat((r.CHF / r.EUR).toFixed(5))
+  if (r.JPY && r.AUD) prices.AUDJPY = parseFloat((r.JPY / r.AUD).toFixed(3))
+  if (r.JPY && r.CAD) prices.CADJPY = parseFloat((r.JPY / r.CAD).toFixed(3))
+  if (r.MXN) prices.USDMXN = parseFloat(r.MXN.toFixed(3))
+  if (r.ZAR) prices.USDZAR = parseFloat(r.ZAR.toFixed(3))
+  if (r.TRY) prices.USDTRY = parseFloat(r.TRY.toFixed(3))
+  if (r.NOK) prices.USDNOK = parseFloat(r.NOK.toFixed(3))
+  if (r.SEK) prices.USDSEK = parseFloat(r.SEK.toFixed(3))
+  if (r.SGD) prices.USDSGD = parseFloat(r.SGD.toFixed(5))
+
+  console.log(`✅ Forex: EURUSD=${prices.EURUSD} GBPUSD=${prices.GBPUSD}`)
+  return prices
+}
+
+// Gold via relay proxy with multiple fallbacks
+async function fetchGold(): Promise<number> {
+  // Try metals.live first
+  try {
+    const data = await safeFetch(`${RELAY}/proxy/gold-price`, 8000)
+    if (Array.isArray(data)) {
+      const gold = data.find((m: any) =>
+        m.metal?.toLowerCase() === 'gold' || m.symbol === 'XAU'
+      )
+      if (gold?.price && gold.price > 1000 && gold.price < 10000) {
+        console.log(`✅ Gold from metals.live: $${gold.price}`)
+        return parseFloat(gold.price.toFixed(2))
+      }
+    }
+  } catch (e) {
+    console.warn('metals.live failed via proxy:', e)
+  }
+
+  // Fallback: exchangerate.host
+  try {
+    const data = await safeFetch(`${RELAY}/proxy/gold-fallback`, 8000)
+    if (data?.result && data.result > 1000 && data.result < 10000) {
+      console.log(`✅ Gold fallback: $${data.result}`)
+      return parseFloat(data.result.toFixed(2))
+    }
+  } catch (e) {
+    console.warn('Gold fallback failed:', e)
+  }
+
+  // Last resort: Yahoo Finance GC=F via proxy
+  try {
+    const data = await safeFetch(`${RELAY}/proxy/yahoo-price?symbol=GC%3DF`, 10000)
+    const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
+    if (price && price > 1000 && price < 10000) {
+      console.log(`✅ Gold from Yahoo: $${price}`)
+      return parseFloat(price.toFixed(2))
+    }
+  } catch (e) {
+    console.warn('Yahoo gold failed:', e)
+  }
+
+  console.error('❌ All gold sources failed')
+  return 0
+}
+
+// Crypto via relay proxy with rate limit handling
+let lastCryptoFetch = 0
+let cryptoCache: Record<string, number> = {}
+
+async function fetchCrypto(): Promise<Record<string, number>> {
+  // Rate limit: CoinGecko free tier allows 1 request per 30 seconds
+  const now = Date.now()
+  if (now - lastCryptoFetch < 30000 && Object.keys(cryptoCache).length > 0) {
+    console.log('Using cached crypto prices (rate limit protection)')
+    return cryptoCache
+  }
+
+  try {
+    const data = await safeFetch(`${RELAY}/proxy/crypto`, 12000)
+    const prices: Record<string, number> = {}
+    if (data.bitcoin?.usd) prices.BTCUSD = data.bitcoin.usd
+    if (data.ethereum?.usd) prices.ETHUSD = data.ethereum.usd
+    if (data.solana?.usd) prices.SOLUSD = data.solana.usd
+    if (data.ripple?.usd) prices.XRPUSD = data.ripple.usd
+    if (data.binancecoin?.usd) prices.BNBUSD = data.binancecoin.usd
+    if (data.dogecoin?.usd) prices.DOGEUSD = data.dogecoin.usd
+    lastCryptoFetch = now
+    cryptoCache = prices
+    console.log(`✅ Crypto: BTC=$${prices.BTCUSD}`)
+    return prices
+  } catch (e) {
+    console.warn('Crypto fetch failed:', e)
+    return cryptoCache // return last known prices
+  }
+}
+
+// Indices via relay proxy
+const INDEX_SYMBOLS: Record<string, string> = {
+  US30: '%5EDJI',
+  NAS100: '%5EIXIC',
+  SPX500: '%5EGSPC',
+  GER40: '%5EGDAXI',
+  UK100: '%5EFTSE',
+  JP225: '%5EN225',
+  VIX: '%5EVIX',
+  DXY: 'DX-Y.NYB',
+  USOIL: 'CL%3DF'
+}
+
+async function fetchIndices(): Promise<Record<string, number>> {
+  const prices: Record<string, number> = {}
+
+  await Promise.allSettled(
+    Object.entries(INDEX_SYMBOLS).map(async ([name, symbol]) => {
+      try {
+        const data = await safeFetch(
+          `${RELAY}/proxy/yahoo-price?symbol=${symbol}`,
+          12000
+        )
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice
+        if (price && price > 0) {
+          prices[name] = parseFloat(price.toFixed(2))
+          console.log(`✅ ${name}: ${prices[name]}`)
+        }
+      } catch (e) {
+        console.warn(`⚠️ ${name} fetch failed`)
+      }
+    })
+  )
+
+  return prices
+}
+
+// Price cache and subscribers
+let priceCache: Record<string, number> = {}
+let lastFetchTime = 0
+let subscribers: Array<(p: Record<string, number>) => void> = []
+let fetchInProgress = false
+
+export async function refreshAllPrices(): Promise<Record<string, number>> {
+  if (fetchInProgress) return priceCache
+  fetchInProgress = true
+
+  try {
+    // Run forex and gold in parallel, then indices, then crypto (rate limited)
+    const [forexResult, goldResult, indicesResult] = await Promise.allSettled([
+      fetchForex(),
+      fetchGold(),
+      fetchIndices()
+    ])
+
+    const fresh: Record<string, number> = { ...priceCache }
+
+    if (forexResult.status === 'fulfilled') Object.assign(fresh, forexResult.value)
+    if (goldResult.status === 'fulfilled' && goldResult.value > 0) {
+      fresh.XAUUSD = goldResult.value
+      fresh.GOLD = goldResult.value
+    }
+    if (indicesResult.status === 'fulfilled') Object.assign(fresh, indicesResult.value)
+
+    // Crypto with longer interval
+    if (Date.now() - lastCryptoFetch > 60000) {
+      try {
+        const crypto = await fetchCrypto()
+        Object.assign(fresh, crypto)
+      } catch {}
+    }
+
+    // Sanity checks
+    const SANITY: Record<string, [number, number]> = {
+      XAUUSD: [2000, 5000],
+      EURUSD: [0.8, 1.5],
+      GBPUSD: [1.0, 1.8],
+      USDJPY: [100, 200],
+      BTCUSD: [10000, 500000],
+      DXY: [80, 120]
+    }
+
+    Object.entries(SANITY).forEach(([pair, [min, max]]) => {
+      if (fresh[pair] && (fresh[pair] < min || fresh[pair] > max)) {
+        console.error(`❌ Sanity fail: ${pair}=${fresh[pair]} — removing`)
+        delete fresh[pair]
+      }
+    })
+
+    priceCache = fresh
+    lastFetchTime = Date.now()
+    subscribers.forEach(fn => fn({ ...fresh }))
+
+    console.log(`✅ Prices refreshed — Gold: $${fresh.XAUUSD || 'N/A'} — ${Object.keys(fresh).length} pairs`)
+    return fresh
+  } finally {
+    fetchInProgress = false
+  }
+}
+
+export function subscribeToPrice(fn: (p: Record<string, number>) => void) {
+  subscribers.push(fn)
+  if (Object.keys(priceCache).length > 0) fn({ ...priceCache })
+  return () => { subscribers = subscribers.filter(s => s !== fn) }
+}
+
+export function getPrice(symbol: string): number {
+  return priceCache[symbol] || 0
+}
+
+export function useLivePrices() {
+  const [prices, setPrices] = useState<Record<string, number>>(priceCache)
+  const [loading, setLoading] = useState(Object.keys(priceCache).length === 0)
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
+
+  useEffect(() => {
+    const unsub = subscribeToPrice(p => {
+      setPrices({ ...p })
+      setLoading(false)
+      setLastUpdate(new Date())
+    })
+
+    if (Date.now() - lastFetchTime > 15000) {
+      refreshAllPrices()
+    }
+
+    // Refresh every 15 seconds
+    const interval = setInterval(refreshAllPrices, 15000)
+    return () => { unsub(); clearInterval(interval) }
+  }, [])
+
+  const formatPrice = (symbol: string): string => {
+    const p = prices[symbol]
+    if (!p || p === 0) return '—'
+    if (['XAUUSD', 'BTCUSD', 'ETHUSD', 'US30', 'NAS100', 'SPX500', 'GER40', 'UK100', 'USOIL'].includes(symbol)) {
+      return p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+    if (symbol.includes('JPY')) return p.toFixed(3)
+    return p.toFixed(5)
+  }
+
+  return { prices, loading, lastUpdate, formatPrice, getPrice: (s: string) => prices[s] || 0 }
+}
+```
+
+---
+
+**=== PROBLEM 3: VITE HMR WEBSOCKET FAILING ON REPLIT ===**
+
+The Vite HMR websocket fails because Replit uses a custom domain. Fix `vite.config.ts`:
+
+```typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: true,
+    // Fix HMR for Replit
+    hmr: {
+      clientPort: 443, // Replit uses 443 for WebSocket
+      protocol: 'wss'
+    },
+    proxy: {
+      '/api/stream': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/stream/, ''),
+        ws: true
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000
+  }
+})
+```
+
+---
+
+**=== PROBLEM 4: GO LIVE DOES NOTHING — ROOT CAUSE ===**
+
+The Go Live button calls `streamEngine.startStream()` which tries to connect to the relay WebSocket. The relay WebSocket is on port 3001 but the browser cannot reach it directly on Replit because Replit only exposes specific ports. Fix the WebSocket URL detection in `BrowserStreamEngine.ts`:
+
+```typescript
+// Replace getRelayUrl() method in BrowserStreamEngine.ts:
+private getRelayUrl(): string {
+  const host = window.location.hostname
+  const isReplit = host.includes('replit.dev') || host.includes('replit.app') || host.includes('spock.replit')
+
+  if (isReplit) {
+    // On Replit, WebSocket goes through the Vite proxy
+    // The proxy at /api/stream forwards to localhost:3001
+    // For WebSocket we need to use the same host with wss protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    // Use port 3001 directly — Replit exposes it
+    return `${protocol}//${host.replace(/-00-/g, '-00-').split(':')[0]}:3001`
+  }
+
+  // Local development
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//localhost:3001`
+}
+```
+
+Also update `.replit` to make sure port 3001 is exposed:
+
+```toml
+run = "npm run dev"
+
+[[ports]]
+localPort = 5173
+externalPort = 80
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+```
+
+Then update `connectToRelay()` in `BrowserStreamEngine.ts` to try multiple connection methods:
+
+```typescript
+async connectToRelay(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Try multiple WebSocket URLs in order
+    const urls = [
+      this.getRelayUrl(),
+      `wss://${window.location.hostname.replace(/^(.*?)(-\d+-)(.*?)\.(.*)$/, '$1$2$3.$4')}:3001`,
+      `wss://${window.location.host.split(':')[0]}:3001`,
+    ]
+
+    console.log('Trying relay WebSocket URLs:', urls)
+
+    let tried = 0
+    const tryConnect = (url: string) => {
+      console.log(`Trying WebSocket: ${url}`)
+      const ws = new WebSocket(url)
+
+      const timeout = setTimeout(() => {
+        ws.close()
+        tried++
+        if (tried < urls.length) {
+          tryConnect(urls[tried])
+        } else {
+          reject(new Error(`Cannot reach relay server. Make sure it is running on port 3001. Tried: ${urls.join(', ')}`))
+        }
+      }, 5000)
+
+      ws.onopen = () => {
+        clearTimeout(timeout)
+        console.log(`✅ WebSocket connected: ${url}`)
+        this.ws = ws
+        this.setupWebSocketHandlers(resolve, reject)
+      }
+
+      ws.onerror = () => {
+        clearTimeout(timeout)
+        ws.close()
+        tried++
+        if (tried < urls.length) {
+          console.log(`Failed ${url}, trying next...`)
+          tryConnect(urls[tried])
+        } else {
+          reject(new Error('All WebSocket connection attempts failed'))
+        }
+      }
+    }
+
+    tryConnect(urls[0])
+  })
+}
+
+private setupWebSocketHandlers(resolve: () => void, reject: (e: Error) => void) {
+  if (!this.ws) return
+
+  this.ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data)
+      switch (msg.type) {
+        case 'connected':
+          this.sessionId = msg.sessionId
+          console.log('✅ Relay session:', this.sessionId)
+          resolve()
+          break
+        case 'stream_starting':
+          this.updateStats({ status: 'live', startTime: new Date() })
+          this.startDurationTimer()
+          break
+        case 'ffmpeg_progress':
+          this.updateStats({
+            ffmpegFps: msg.fps,
+            ffmpegBitrate: msg.bitrate,
+            ffmpegSpeed: msg.speed
+          })
+          break
+        case 'error':
+          this.updateStats({ status: 'error', error: msg.message })
+          break
+        case 'stream_ended':
+          this.updateStats({ status: 'stopped' })
+          break
+      }
+    } catch {}
+  }
+
+  this.ws.onclose = () => {
+    if (this.stats.status === 'live') {
+      this.updateStats({ status: 'stopped' })
+    }
+  }
+
+  this.ws.onerror = (e) => {
+    console.error('WebSocket error after connection:', e)
+  }
+}
+```
+
+---
+
+**=== PROBLEM 5: REMOVE BROKEN DIRECT API CALLS FROM StreamingCommandCenter ===**
+
+Search `StreamingCommandCenter.tsx` for any direct calls to `api.frankfurter.app`, `metals.live`, `coingecko.com`, or `yahoo` and replace them with the proxy versions:
+
+```typescript
+// Find any fetch call like this:
+fetch('https://api.frankfurter.app/latest')
+// Replace with:
+fetch('/api/stream/proxy/forex-rates')
+
+// Find:
+fetch('https://metals.live/api/spot')
+// Replace with:
+fetch('/api/stream/proxy/gold-price')
+
+// Find:
+fetch('https://api.coingecko.com/...')
+// Replace with:
+fetch('/api/stream/proxy/crypto')
+
+// Find any yahoo finance direct call:
+fetch('https://query1.finance.yahoo.com/...')
+// Replace with:
+fetch(`/api/stream/proxy/yahoo-price?symbol=${symbol}`)
+```
+
+Also remove the `StreamingCommandCenter.tsx` line at 1011 that fetches directly — it is causing the error shown in the console.
+
+---
+
+**=== EXECUTION ORDER ===**
+
+```
+1. Update server/streamRelay.js — add all proxy endpoints
+2. Restart relay server: node server/streamRelay.js
+3. Test proxies work: 
+   curl http://localhost:3001/proxy/forex-rates
+   curl http://localhost:3001/proxy/gold-price
+   curl http://localhost:3001/health
+4. Update vite.config.ts with HMR fix
+5. Update src/utils/priceEngine.ts — all calls via /api/stream/proxy/*
+6. Fix getRelayUrl() in BrowserStreamEngine.ts
+7. Add connectToRelay() with multi-URL fallback
+8. Add setupWebSocketHandlers() method
+9. Update .replit to expose port 3001
+10. Search entire codebase for any remaining direct external API calls
+    and replace with proxy versions
+11. npm run build — fix TypeScript errors
+12. npm run dev — restart everything
+13. Open browser console — confirm ZERO CORS errors
+14. Click Go Live — confirm WebSocket connects to relay
+15. Allow screen share — confirm stream starts
+16. Confirm console shows all 8 steps completing
+17. Report: Gold price showing, WebSocket URL used, stream status
+```
+
+---
+
+After completing confirm exactly:
+- Zero CORS errors in console
+- Gold price shows correct number
+- Go Live connects WebSocket successfully
+- Screen share prompt appears
+- Stream shows LIVE status with FPS counter

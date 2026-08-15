@@ -1,0 +1,629 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: anthropic
+    description: Anthropic AI chat operations
+  - name: analysis
+    description: AI-powered forex analysis
+  - name: journal
+    description: Trade journal operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /anthropic/conversations:
+    get:
+      operationId: listAnthropicConversations
+      tags: [anthropic]
+      summary: List all conversations
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicConversation"
+    post:
+      operationId: createAnthropicConversation
+      tags: [anthropic]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnthropicConversationBody"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversation"
+  /anthropic/conversations/{id}:
+    get:
+      operationId: getAnthropicConversation
+      tags: [anthropic]
+      summary: Get conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+    delete:
+      operationId: deleteAnthropicConversation
+      tags: [anthropic]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicError"
+  /anthropic/conversations/{id}/messages:
+    get:
+      operationId: listAnthropicMessages
+      tags: [anthropic]
+      summary: List messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AnthropicMessage"
+    post:
+      operationId: sendAnthropicMessage
+      tags: [anthropic]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendAnthropicMessageBody"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks
+          content:
+            text/event-stream: {}
+  /analysis/forex:
+    post:
+      operationId: analyzeForex
+      tags: [analysis]
+      summary: Get real AI-powered forex analysis for a pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForexAnalysisRequest"
+      responses:
+        "200":
+          description: SSE stream of AI analysis
+          content:
+            text/event-stream: {}
+  /analysis/confluence:
+    post:
+      operationId: analyzeConfluence
+      tags: [analysis]
+      summary: Get confluence score and trade idea for a pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfluenceRequest"
+      responses:
+        "200":
+          description: Confluence score and trade idea
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfluenceResponse"
+  /analysis/news/{pair}:
+    get:
+      operationId: getForexNews
+      tags: [analysis]
+      summary: Get AI-summarized fundamental news for a pair
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Fundamental news summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsResponse"
+  /journal/trades:
+    get:
+      operationId: listTrades
+      tags: [journal]
+      summary: List all journal trades
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trade"
+    post:
+      operationId: createTrade
+      tags: [journal]
+      summary: Create a new trade entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTradeBody"
+      responses:
+        "201":
+          description: Created trade
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+  /journal/trades/{id}:
+    put:
+      operationId: updateTrade
+      tags: [journal]
+      summary: Update a trade entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTradeBody"
+      responses:
+        "200":
+          description: Updated trade
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trade"
+    delete:
+      operationId: deleteTrade
+      tags: [journal]
+      summary: Delete a trade entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+  /journal/stats:
+    get:
+      operationId: getJournalStats
+      tags: [journal]
+      summary: Get trade journal statistics
+      responses:
+        "200":
+          description: Journal statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalStats"
+  /journal/insights:
+    get:
+      operationId: getJournalInsights
+      tags: [journal]
+      summary: Get AI-powered insights from trade journal
+      responses:
+        "200":
+          description: SSE stream of AI insights
+          content:
+            text/event-stream: {}
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    AnthropicConversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - createdAt
+    AnthropicMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - createdAt
+    CreateAnthropicConversationBody:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+    SendAnthropicMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+    AnthropicConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnthropicMessage"
+      required:
+        - id
+        - title
+        - createdAt
+        - messages
+    AnthropicError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    ForexAnalysisRequest:
+      type: object
+      properties:
+        pair:
+          type: string
+        timeframe:
+          type: string
+        price:
+          type: number
+        bias:
+          type: string
+        context:
+          type: string
+      required:
+        - pair
+        - timeframe
+        - price
+    ConfluenceRequest:
+      type: object
+      properties:
+        pair:
+          type: string
+        timeframe:
+          type: string
+        price:
+          type: number
+        trend:
+          type: string
+        newsContext:
+          type: string
+      required:
+        - pair
+        - timeframe
+        - price
+    ConfluenceResponse:
+      type: object
+      properties:
+        score:
+          type: integer
+        bias:
+          type: string
+        factors:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              value:
+                type: integer
+              description:
+                type: string
+            required:
+              - label
+              - value
+              - description
+        tradeIdea:
+          type: object
+          properties:
+            pair:
+              type: string
+            direction:
+              type: string
+            entry:
+              type: string
+            stopLoss:
+              type: string
+            takeProfit1:
+              type: string
+            takeProfit2:
+              type: string
+            riskReward:
+              type: string
+            probability:
+              type: integer
+            explanation:
+              type: string
+          required:
+            - pair
+            - direction
+            - entry
+            - stopLoss
+            - takeProfit1
+            - takeProfit2
+            - riskReward
+            - probability
+            - explanation
+        summary:
+          type: string
+      required:
+        - score
+        - bias
+        - factors
+        - tradeIdea
+        - summary
+    NewsResponse:
+      type: object
+      properties:
+        pair:
+          type: string
+        summary:
+          type: string
+        sentiment:
+          type: string
+        keyEvents:
+          type: array
+          items:
+            type: object
+            properties:
+              event:
+                type: string
+              impact:
+                type: string
+              direction:
+                type: string
+            required:
+              - event
+              - impact
+              - direction
+        generatedAt:
+          type: string
+      required:
+        - pair
+        - summary
+        - sentiment
+        - keyEvents
+        - generatedAt
+    Trade:
+      type: object
+      properties:
+        id:
+          type: integer
+        pair:
+          type: string
+        direction:
+          type: string
+        entryPrice:
+          type: string
+        stopLoss:
+          type: string
+        takeProfit:
+          type: string
+        actualExit:
+          type: string
+          nullable: true
+        lotSize:
+          type: number
+          nullable: true
+        result:
+          type: string
+          nullable: true
+        pips:
+          type: number
+          nullable: true
+        riskReward:
+          type: string
+          nullable: true
+        strategy:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - pair
+        - direction
+        - entryPrice
+        - stopLoss
+        - takeProfit
+        - status
+        - createdAt
+    CreateTradeBody:
+      type: object
+      properties:
+        pair:
+          type: string
+        direction:
+          type: string
+        entryPrice:
+          type: string
+        stopLoss:
+          type: string
+        takeProfit:
+          type: string
+        actualExit:
+          type: string
+        lotSize:
+          type: number
+        strategy:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+      required:
+        - pair
+        - direction
+        - entryPrice
+        - stopLoss
+        - takeProfit
+        - status
+    UpdateTradeBody:
+      type: object
+      properties:
+        result:
+          type: string
+        pips:
+          type: number
+        riskReward:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        pair:
+          type: string
+        direction:
+          type: string
+        entryPrice:
+          type: string
+        stopLoss:
+          type: string
+        takeProfit:
+          type: string
+        actualExit:
+          type: string
+    JournalStats:
+      type: object
+      properties:
+        totalTrades:
+          type: integer
+        winRate:
+          type: number
+        averageRR:
+          type: number
+        netPips:
+          type: number
+        winCount:
+          type: integer
+        lossCount:
+          type: integer
+        breakEvenCount:
+          type: integer
+      required:
+        - totalTrades
+        - winRate
+        - averageRR
+        - netPips
+        - winCount
+        - lossCount
+        - breakEvenCount

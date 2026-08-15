@@ -1,0 +1,156 @@
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/journal/trades:1  Failed to load resource: the server responded with a status of 500 ()
+index-BcTBsI_m.js:291 Failed to add trade Error: Save failed (500): <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Internal Server Error</pre>
+<script src="https://replit-cdn.com/replit-pill/replit-pill.global.js" data-referral-code="4lz9w0josbqu" data-repl-id="38ea268d-7f68-4a9a-af37-fa9cdb4dabc1"></script></body>
+</html>
+
+    at C (index-BcTBsI_m.js:291:11164)
+C @ index-BcTBsI_m.js:291
+api/proxy/forex-rates:1  Failed to load resource: the server responded with a status of 521 ()
+index-BcTBsI_m.js:29 [BrowserStreamEngine] 📱 Phone mic cleared

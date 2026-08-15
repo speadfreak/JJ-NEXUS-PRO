@@ -1,0 +1,53 @@
+{
+  "name": "JJ NEXUS PRO Cloud Streaming Engine",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "forwardPorts": [
+    7821,
+    6080,
+    5000,
+    3001,
+    8080
+  ],
+  "portsAttributes": {
+    "7821": {
+      "label": "JJ NEXUS Cloud Control API",
+      "onAutoForward": "notify",
+      "protocol": "http",
+      "visibility": "public"
+    },
+    "6080": {
+      "label": "noVNC — Cloud Screen Control",
+      "onAutoForward": "openBrowser",
+      "protocol": "http"
+    },
+    "5000": {
+      "label": "JJ NEXUS PRO API",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Stream Relay WebSocket",
+      "onAutoForward": "silent"
+    },
+    "8080": {
+      "label": "Stream Dashboard",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/autostart.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [],
+      "settings": {}
+    }
+  },
+  "remoteEnv": {
+    "DISPLAY": ":99",
+    "PULSE_SERVER": "unix:/tmp/pulse/native"
+  }
+}

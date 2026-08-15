@@ -1,0 +1,40 @@
+==> Cloning from https://github.com/speadfreak/JJ-NEXUS-PRO
+==> Checking out commit 4bd468758249d9a09036da32ec5d5b9277fdae2d in branch main
+==> Using Node.js version 24.14.1 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'bash render-build.sh'...
+▶ Installing pnpm...
+added 1 package in 1s
+1 package is looking for funding
+  run `npm fund` for details
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+✅ pnpm 11.17.0
+▶ Installing workspace dependencies...
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.onlyBuiltDependencies". See https://pnpm.io/settings for the new home of each setting.
+Scope: all 10 workspace projects
+? Verifying lockfile against supply-chain policies (655 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +653
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 653, reused 0, downloaded 0, added 0
+Progress: resolved 653, reused 0, downloaded 1, added 0
+✓ Lockfile passes supply-chain policies (655 entries in 3.5s)
+Progress: resolved 653, reused 0, downloaded 63, added 0
+Progress: resolved 653, reused 0, downloaded 184, added 10
+Progress: resolved 653, reused 0, downloaded 442, added 28
+Progress: resolved 653, reused 0, downloaded 476, added 31
+Progress: resolved 653, reused 0, downloaded 551, added 36
+Progress: resolved 653, reused 0, downloaded 653, added 171
+Progress: resolved 653, reused 0, downloaded 653, added 472
+Progress: resolved 653, reused 0, downloaded 653, added 550
+Progress: resolved 653, reused 0, downloaded 653, added 653, done
+devDependencies:
++ prettier 3.8.1
++ typescript 5.9.3
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+. preinstall: Done
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: core-js@3.49.0, esbuild@0.27.3, ffmpeg-static@5.3.0
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys

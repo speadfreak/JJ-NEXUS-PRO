@@ -1,0 +1,37 @@
+JJ NEXUS PRO — Full Webapp Update Log
+☁️ Cloud Tab — Complete Rebuild (Streaming Studio)
+The old Cloud tab was a static guide with copy-paste terminal commands. It's now a live control panel that runs the entire stream from inside the webapp.
+
+What's in the new Cloud tab:
+
+Connection header — shows a live green/grey dot indicating whether the webapp is connected to your Codespace control server. Remembers your Codespace URL in browser storage so you never have to paste it again.
+
+Codespace URL input — paste your https://your-codespace-7821.app.github.dev URL once, hit Connect. That's it.
+
+🚨 Emergency Stop bar — always visible at the top, zero dependency on any server. One click opens Restream Studio so you can kill TikTok + YouTube instantly even if everything else is broken or disconnected.
+
+▶ START / ⏹ STOP buttons — big buttons that tell the Codespace to launch or kill the entire stream (Chrome + FFmpeg + auto-reconnect loop). The START button pulses red with a live dot when streaming is active.
+
+Status metrics bar — three live tiles showing: stream status (LIVE / IDLE), uptime (e.g. 1h 23m), and Codespace CPU load — all pulled from the server every 4 seconds.
+
+🔀 Page Navigator — 12 buttons, one per app page (Dashboard, Streaming Studio, Journal, War Room, etc.). Click any button while live and the cloud Chrome browser navigates to that page — so what viewers see on TikTok changes instantly. This was the core bug fix.
+
+Live log terminal — a scrolling terminal window that streams FFmpeg output in real time via Server-Sent Events. Lines are color-coded: green for healthy output (frame=, connected), red for errors, yellow for warnings.
+
+Setup guide — collapsed by default (click to expand). Five numbered steps explaining the one-time Codespace setup for new sessions.
+
+🔧 Behind the Scenes (Codespace scripts — pushed to GitHub)
+These don't show in the webapp UI but are what makes the control panel work:
+
+control-server.js (new file) — a Node.js server that runs inside the Codespace on port 7821. It's what the webapp talks to. It handles start, stop, navigate (via Chrome DevTools Protocol), and log streaming.
+autostart.sh — updated to start the control server automatically with a watchdog (auto-restarts within 3 seconds if it crashes).
+stream.sh + stable-stream.sh — Chrome now starts with --remote-debugging-port=9222 so the Page Navigator can drive it remotely. Stop command now uses a stop-flag + SIGKILL chain so the auto-restart loop actually exits.
+Summary of what changed for you as a user
+Before	After
+Had to go to Codespace browser to start stream	Click ▶ START in the webapp
+Stream stuck on Dashboard forever	Click any page → stream switches live
+No way to stop from webapp	⏹ STOP button + always-visible Restream kill link
+Control server crash = locked out	Watchdog auto-restarts it within 3s
+Stopping FFmpeg just restarted it	Stop flag exits the whole loop permanently
+
+Worked for 23 seconds

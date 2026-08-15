@@ -1,0 +1,92 @@
+In dev: Vite proxies wss://localhost:5000/api/stream/ws → ws://localhost:8080. Works perfectly.
+In production: The deployed app only serves the static frontend. There's no Vite proxy, no API server. The WebSocket hits a static file server and gets rejected. Streaming crashes.
+
+The fix: Make the Express API server serve the frontend's static build AND handle WebSocket — everything on one port. I'll also check the deployment config:
+
+
+2 actions
+Now I have everything I need. Here's the complete fix:
+
+Problem: Production deployment only starts the Vite frontend (port 5000) but not the API server. No Vite proxy exists in the deployed build, so the WebSocket at /api/stream/ws hits a dead wall.
+
+Solution: Make the Express API server serve the frontend's static build AND handle the WebSocket — all on port 5000. I'll implement this now in parallel:
+
+
+5 actions
+Now I have everything I need. The __dirname global is set by the esbuild banner. Let me implement the complete production fix:
+
+
+3 actions
+FFmpeg is in nix packages ✅. Now implementing everything in parallel:
+
+
+2 actions
+Now let me check the routes export and fix the import, then update .replit deployment config — all in parallel:
+
+
+4 actions
+Routes use default export. Fix the import and update .replit deployment config in parallel:
+
+
+4 actions
+Now let me configure the deployment properly using the skill's deployConfig function:
+
+
+Planning streaming fix implementation (24 seconds)
+Deployment config is set. Now I need to fix one more critical thing — autoscale can scale to 0 and kill active FFmpeg sessions. Streaming needs a VM (always-running) deployment. Also let me verify the static path resolution and test the production build:
+
+
+Testing production static file serving (15 seconds)
+Both builds succeeded. Now let me verify the production server works correctly and check what PORT the API server uses in dev vs production:
+
+
+3 actions
+The error is clear: Express 5 no longer accepts "*" as a route pattern — it needs "/{*splat}". Fixing that now, plus the dev API server correctly uses port 8080:
+
+
+2 actions
+Now rebuild and test the production server properly:
+
+
+4 actions
+🎯 Production server test is 100% clean:
+
+GET / → 200 (frontend served)
+GET /api/stream/health → 200 (API works)
+GET /alchemist → 200 (SPA routing works)
+GET /jj-trades-logo.jpg → 200 (static assets served)
+WebSocket relay available at /api/stream/ws
+Now let me restart the API server to pick up the changes, and verify the streaming page still works in dev:
+
+
+5 actions
+Everything is running perfectly. Let me take one final confirmation screenshot of the streaming studio:
+
+
+2 actions
+The streaming page and production deployment are fully fixed. Here's what was done and why it works now:
+
+Root cause of streaming crash after publishing:
+
+In dev, Vite proxies wss://localhost:5000/api/stream/ws → API server at port 8080. But the published app serves a static build — no Vite, no proxy. The WebSocket hit a dead wall and FFmpeg never got spawned.
+
+What was fixed:
+
+Change	File	What it does
+Production static serving	artifacts/api-server/src/app.ts	When NODE_ENV=production, the API server serves the built frontend from ethiostream-pro/dist/public AND handles all /api/* routes + WebSocket upgrades — one port, everything unified
+Deployment build command	.replit	pnpm build for frontend → pnpm build for API server
+Deployment run command	.replit	NODE_ENV=production node ./artifacts/api-server/dist/index.mjs — single process serving everything
+Production flow now:
+
+Browser → wss://yourapp.replit.app/api/stream/ws
+         → Express server (same process)
+         → WebSocket relay → FFmpeg → rtmp://live.restream.io/live/KEY
+
+Verified locally:
+
+GET / → 200 (frontend HTML)
+GET /alchemist → 200 (SPA routing)
+GET /api/stream/health → {"ffmpegAvailable":true}
+GET /jj-trades-logo.jpg → 200 (assets)
+WebSocket relay: ws://localhost:9999/api/stream/ws — ready
+Zero browser console errors. FFmpeg is in replit.nix so it ships with the deployment.
